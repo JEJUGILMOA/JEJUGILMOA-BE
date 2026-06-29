@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: jejugilmoa
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    doc-expansion: none
+    tags-sorter: none
+  api-docs:
+    path: /v3/api-docs
