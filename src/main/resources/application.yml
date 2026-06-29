@@ -2,10 +2,16 @@ spring:
   application:
     name: jejugilmoa
 
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-    doc-expansion: none
-    tags-sorter: none
+    doc-expansion: list
+    tags-sorter: alpha
+    operations-sorter: alpha
+
   api-docs:
     path: /v3/api-docs
+    enabled: true
