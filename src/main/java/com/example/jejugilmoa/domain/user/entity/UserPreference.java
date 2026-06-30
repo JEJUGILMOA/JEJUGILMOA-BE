@@ -1,6 +1,6 @@
 package com.example.jejugilmoa.domain.user.entity;
 
-import com.example.jejugilmoa.domain.place.entity.Category;
+import com.example.jejugilmoa.domain.user.enums.TravelStyle;
 import com.example.jejugilmoa.global.entity.BaseEntity;
 import lombok.*;
 
@@ -29,11 +29,36 @@ public class UserPreference extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;  // 선호 카테고리 (자연, 음식, 카페, 전통시장, 역사, 체험, 쇼핑, 포토스팟 등)
+    @Column(name = "nature", nullable = false)
+    @Builder.Default
+    private Boolean nature = false; // 자연
+
+    @Column(name = "food", nullable = false)
+    @Builder.Default
+    private Boolean food = false; // 음식
+
+    @Column(name = "cafe", nullable = false)
+    @Builder.Default
+    private Boolean cafe = false; // 카페
+
+    @Column(name = "tradition_market", nullable = false)
+    @Builder.Default
+    private Boolean traditionMarket = false; // 전통시장
+
+    @Column(name = "history", nullable = false)
+    @Builder.Default
+    private Boolean history = false; // 역사
+
+    @Column(name = "experience", nullable = false)
+    @Builder.Default
+    private Boolean experience = false; // 체험
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "travel_style", nullable = false)
+    private TravelStyle travelStyle; // 여유로운/많이둘러보기/도보중심/대중교통중심
+
 }

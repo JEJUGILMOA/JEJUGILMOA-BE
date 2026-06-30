@@ -17,7 +17,6 @@ public class NotificationSetting extends BaseEntity {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @MapsId
     @JoinColumn(name = "user_id")
     private User user;
 

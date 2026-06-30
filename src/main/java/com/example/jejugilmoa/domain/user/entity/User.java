@@ -44,12 +44,13 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 20)
     private Role role = Role.USER;  // USER, ADMIN
 
-    @OneToMany(
+    @OneToOne(
             mappedBy = "user",
             cascade = CascadeType.ALL,
-            orphanRemoval = true
+            orphanRemoval = true,
+            fetch = FetchType.LAZY
     )
-    private List<UserPreference> preferredCategories = new ArrayList<>();
+    private UserPreference userPreference;
 
     @OneToOne(
             mappedBy = "user",
