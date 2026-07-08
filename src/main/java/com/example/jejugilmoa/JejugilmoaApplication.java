@@ -2,10 +2,9 @@ package com.example.jejugilmoa;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
+// JPA Auditing 활성화는 JpaConfig에서 담당 (중복 선언 시 jpaAuditingHandler 빈 충돌)
 @SpringBootApplication
-@EnableJpaAuditing
 public class JejugilmoaApplication {
 
 	public static void main(String[] args) {
