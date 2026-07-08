@@ -1,0 +1,26 @@
+# 로컬 개발용 인프라 정의.
+# Place.geom (geometry(Point,4326)) 때문에 일반 postgres가 아닌 postgis 이미지가 필요하다.
+# 사용법: docs/conventions.md 및 .claude/skills/db 참고.
+#   docker compose up -d        # DB 기동
+#   docker compose down         # DB 중지 (데이터 유지)
+#   docker compose down -v      # DB 초기화 (볼륨 삭제 — dev는 ddl-auto:update라 재기동 시 스키마 자동 생성)
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: jejugilmoa-db
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME:-jejugilmoa}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - jejugilmoa-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-jejugilmoa}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  jejugilmoa-db-data:
