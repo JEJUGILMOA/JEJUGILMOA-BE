@@ -119,8 +119,8 @@ public class RestClientSocialOAuthClient implements SocialOAuthClient {
                 .retrieve()
                 .body(OAuthTokenResponse.class);
         } catch (RestClientResponseException ex) {
-            log.warn("OAuth token request failed. provider={}, status={}, body={}",
-                provider.getKey(), ex.getStatusCode(), ex.getResponseBodyAsString());
+            log.warn("OAuth token request failed. provider={}, status={}",
+                provider.getKey(), ex.getStatusCode());
             if (ex.getStatusCode().is4xxClientError()) {
                 throw new GeneralException(AuthErrorCode.INVALID_AUTHORIZATION_CODE);
             }
