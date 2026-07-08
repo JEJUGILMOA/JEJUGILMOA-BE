@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.sql.SQLException;
 import java.util.List;
 
 @Slf4j
@@ -146,7 +147,7 @@ public class GeneralExceptionAdvice {
     }
 
     // DB 무결성 제약 위반
-    // 중복 키(Duplicate entry, MySQL 1062)처럼 클라이언트 요청 기준으로 예상 가능한 충돌만 400
+    // 중복 키(PostgreSQL SQLState 23505)처럼 클라이언트 요청 기준으로 예상 가능한 충돌만 400
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(
             DataIntegrityViolationException ex,
@@ -155,7 +156,9 @@ public class GeneralExceptionAdvice {
         Throwable cause = ex.getMostSpecificCause();
         String message = cause.getMessage();
 
-        boolean isDuplicateEntry = message != null && message.contains("Duplicate entry");
+        boolean isDuplicateEntry =
+                (cause instanceof SQLException sqlEx && "23505".equals(sqlEx.getSQLState()))
+                        || (message != null && message.contains("duplicate key"));
         if (isDuplicateEntry) {
             log.warn("DataIntegrityViolationException (duplicate key): {}", message);
             BaseCode code = GeneralErrorCode.BAD_REQUEST;
