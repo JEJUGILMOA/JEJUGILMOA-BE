@@ -9,10 +9,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Table(name = "`user`", indexes = {
-        @Index(name = "idx_external_id", columnList = "external_id"),
-        @Index(name = "idx_created_at", columnList = "created_at")
-})
+@Table(name = "`user`",
+        indexes = {
+                @Index(name = "idx_user_provider_external_id", columnList = "external_provider,external_id"),
+                @Index(name = "idx_created_at", columnList = "created_at")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_user_provider_external_id",
+                        columnNames = {"external_provider", "external_id"})
+        })
 @Getter
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -27,7 +32,7 @@ public class User extends BaseEntity {
     @Column(length = 20)
     private String externalProvider;  // kakao, naver, google
 
-    @Column(length = 255, unique = true)
+    @Column(length = 255)
     private String externalId;  // 외부 계정 ID
 
     @Column(length = 50, nullable = false)
