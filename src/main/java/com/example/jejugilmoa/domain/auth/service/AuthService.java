@@ -80,11 +80,14 @@ public class AuthService {
         return new TokenPair(accessToken, refreshToken);
     }
 
-    // 리프레시 토큰 회전: 제시된 토큰을 즉시 폐기하고 새 access/refresh 쌍을 발급한다.
-    // 이미 폐기된(revoked) 토큰이 재사용되면 탈취로 간주해 해당 유저의 모든 토큰을 무효화한다.
-    // GeneralException은 롤백 대상에서 제외한다 — REFRESH_TOKEN_REUSED로 던지기 직전에 실행한
-    // revokeAllByUserId(방어적 전체 무효화)가 예외 때문에 같이 롤백되지 않고 실제로 커밋되어야 한다.
-    @Transactional(noRollbackFor = GeneralException.class)
+    // Refresh Token 회전(Rotation)
+    // - 정상 요청: 기존 Refresh Token을 폐기하고 새 토큰 쌍을 발급한다.
+    // - 이미 폐기된 토큰이 다시 들어오면 탈취로 간주하고,
+    //   해당 사용자의 모든 Refresh Token을 폐기한 뒤 예외를 발생시킨다.
+    //
+    // revokeAllByUserId()는 REQUIRES_NEW로 별도 트랜잭션에서 커밋되므로,
+    // 이후 현재 트랜잭션이 롤백되어도 토큰 전체 폐기 결과는 유지된다.
+    @Transactional
     public TokenPair reissue(String refreshTokenValue) {
         if (refreshTokenValue == null || refreshTokenValue.isBlank()) {
             throw new GeneralException(AuthErrorCode.REFRESH_TOKEN_NOT_FOUND);
