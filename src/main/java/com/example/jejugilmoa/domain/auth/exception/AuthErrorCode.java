@@ -18,7 +18,12 @@ public enum AuthErrorCode implements BaseCode {
     MISSING_OAUTH_CLIENT_SECRET(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH500_3", "소셜 로그인 클라이언트 시크릿이 누락되었습니다."),
     MISSING_OAUTH_REDIRECT_URI(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH500_4", "소셜 로그인 리디렉션 URI가 누락되었습니다."),
     MISSING_OAUTH_TOKEN_URI(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH500_5", "소셜 로그인 토큰 URI가 누락되었습니다."),
-    MISSING_OAUTH_USER_INFO_URI(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH500_6", "소셜 로그인 사용자 정보 URI가 누락되었습니다.");
+    MISSING_OAUTH_USER_INFO_URI(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH500_6", "소셜 로그인 사용자 정보 URI가 누락되었습니다."),
+
+
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH401_2", "유효하지 않은 토큰입니다."),
+    REFRESH_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, "AUTH401_3", "리프레시 토큰이 존재하지 않습니다."),
+    REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "AUTH401_4", "이미 사용되었거나 탈취 의심되는 리프레시 토큰입니다. 다시 로그인해주세요.");
 
     private final HttpStatus status;
     private final String code;
