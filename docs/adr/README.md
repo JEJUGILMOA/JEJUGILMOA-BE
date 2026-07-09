@@ -19,3 +19,4 @@
 | [0003](0003-soft-delete.md) | deletedAt 기반 소프트 삭제 | Accepted |
 | [0004](0004-testing-strategy.md) | 테스트 전략과 Testcontainers 도입 | Proposed |
 | [0005](0005-schema-management.md) | 스키마 관리: ddl-auto 정책과 마이그레이션 도구 | Proposed |
+| [0006](0006-jwt-cookie-auth.md) | JWT 기반 쿠키 인증과 리프레시 토큰 회전 | Accepted |

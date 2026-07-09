@@ -88,6 +88,8 @@ erDiagram
     RECOMMENDED_COURSE ||--o{ RECOMMENDED_COURSE_PATH : "path of"
 
     REPORT }o--|| USER : "filed by (reporter_id)"
+
+    USER ||--o{ REFRESH_TOKEN : "issued to (user_id)"
 ```
 
 `Report`는 FK 없이 `targetType(RECORD/PHOTO/USER) + targetId`로 다형 참조한다.
@@ -100,4 +102,4 @@ erDiagram
 | 공간 데이터 | `Place`에 lat/lng(BigDecimal)와 PostGIS `geom` **이중 저장** — 항상 같이 갱신 | [0002](adr/0002-postgis-dual-storage.md) |
 | 소프트 삭제 | `deletedAt` timestamp (User, TravelRecord) — 조회 시 필터 필수 | [0003](adr/0003-soft-delete.md) |
 | 스키마 관리 | dev=`update`, prod=`validate`. 마이그레이션 도구는 미도입 (제안 상태) | [0005](adr/0005-schema-management.md) |
-| 인증 | 외부 OAuth(kakao/naver/google) 전제, JWT 예정. **현재 미구현 — 전 요청 permitAll** | — |
+| 인증 | 외부 OAuth 로그인 + 앱 자체 JWT(액세스/리프레시, HttpOnly 쿠키). 리프레시 토큰은 DB 저장, 재발급 시 회전 + 재사용 탐지. **인가는 여전히 미구현 — 전 요청 permitAll** | [0006](adr/0006-jwt-cookie-auth.md) |
