@@ -41,6 +41,7 @@ docker compose up -d     # REQUIRED FIRST — PostGIS DB. Even `test` fails with
 | Doc | Content |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Layering rules, package structure, **ERD** (update it when entities change), decision summary |
+| [docs/auth.md](docs/auth.md) | Auth walkthrough: OAuth login flow, JWT cookie design, refresh rotation/reuse detection, filter behavior |
 | [docs/conventions.md](docs/conventions.md) | Naming, code style, commit/branch/PR rules |
 | [docs/testing.md](docs/testing.md) | Test strategy per layer, Boot 4 test-starter pitfalls |
 | [docs/adr/](docs/adr/README.md) | Why decisions were made; write a new ADR when making architectural choices |

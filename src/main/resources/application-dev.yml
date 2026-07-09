@@ -14,3 +14,6 @@ spring:
         format_sql: true
         highlight_sql: true
 
+jwt:
+  secret: ${JWT_SECRET:dev-jwt-secret-9e2f4c8a1d7b6e5f0a3c9d2e8f1b7a6c}
+

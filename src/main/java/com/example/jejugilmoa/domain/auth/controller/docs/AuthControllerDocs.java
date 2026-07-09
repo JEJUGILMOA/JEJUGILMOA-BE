@@ -2,12 +2,15 @@ package com.example.jejugilmoa.domain.auth.controller.docs;
 
 import com.example.jejugilmoa.domain.auth.dto.OAuthLoginRequest;
 import com.example.jejugilmoa.domain.auth.dto.OAuthLoginResponse;
+import com.example.jejugilmoa.domain.auth.jwt.CookieProvider;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -24,6 +27,7 @@ public interface AuthControllerDocs {
             - naver
 
             최초 로그인인 경우 회원가입이 자동으로 진행됩니다.
+            로그인에 성공하면 액세스/리프레시 토큰이 HttpOnly 쿠키(ACCESS_TOKEN, REFRESH_TOKEN)로 발급됩니다.
             """
     )
     @ApiResponses({
@@ -59,6 +63,68 @@ public interface AuthControllerDocs {
         )
         @PathVariable String provider,
 
-        @RequestBody OAuthLoginRequest request
+        @RequestBody OAuthLoginRequest request,
+
+        HttpServletResponse response
+    );
+
+    @Operation(
+        summary = "로그아웃",
+        description = """
+            REFRESH_TOKEN 쿠키로 전달된 리프레시 토큰을 서버에서 폐기하고,
+            ACCESS_TOKEN/REFRESH_TOKEN 쿠키를 모두 제거합니다.
+            쿠키가 없거나 이미 무효한 토큰이어도 항상 200으로 응답합니다.
+            """
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "로그아웃 성공"
+        )
+    })
+    ApiResponse<Void> logout(
+        @Parameter(description = "리프레시 토큰 쿠키", hidden = true)
+        @CookieValue(value = CookieProvider.REFRESH_TOKEN_COOKIE, required = false) String refreshToken,
+
+        HttpServletResponse response
+    );
+
+    @Operation(
+        summary = "토큰 재발급",
+        description = """
+            REFRESH_TOKEN 쿠키의 리프레시 토큰을 검증한 뒤 즉시 폐기(회전)하고,
+            새 액세스/리프레시 토큰을 쿠키로 재발급합니다.
+
+            이미 회전되어 폐기된 토큰이 다시 제시되면 탈취 의심으로 간주해
+            해당 사용자의 모든 리프레시 토큰을 무효화하고 401을 반환합니다(재로그인 필요).
+            """
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "재발급 성공"
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "리프레시 토큰 없음/무효/재사용 감지",
+            content = @Content(
+                examples = @ExampleObject(
+                    value = """
+                        {
+                          "isSuccess": false,
+                          "code": "AUTH401_4",
+                          "message": "이미 사용되었거나 탈취 의심되는 리프레시 토큰입니다. 다시 로그인해주세요.",
+                          "result": null
+                        }
+                        """
+                )
+            )
+        )
+    })
+    ApiResponse<Void> reissue(
+        @Parameter(description = "리프레시 토큰 쿠키", hidden = true)
+        @CookieValue(value = CookieProvider.REFRESH_TOKEN_COOKIE, required = false) String refreshToken,
+
+        HttpServletResponse response
     );
 }

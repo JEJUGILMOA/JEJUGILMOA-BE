@@ -7,4 +7,6 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByExternalProviderAndExternalIdAndDeletedAtIsNull(String externalProvider, String externalId);
+
+    Optional<User> findByIdAndDeletedAtIsNull(Long id);
 }
