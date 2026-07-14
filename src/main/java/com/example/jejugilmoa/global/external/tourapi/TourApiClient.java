@@ -34,8 +34,11 @@ public class TourApiClient {
     public TourApiClient(ExternalApiProperties props) {
         this.serviceKey = props.tourApi().serviceKey();
         this.baseUrl = props.tourApi().baseUrl();
+        var factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(3_000);
+        factory.setReadTimeout(10_000);
         this.restClient = RestClient.builder()
-            .requestFactory(new SimpleClientHttpRequestFactory())
+            .requestFactory(factory)
             .build();
     }
 
