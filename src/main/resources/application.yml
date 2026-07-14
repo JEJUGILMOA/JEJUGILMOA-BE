@@ -42,6 +42,15 @@ app:
       token-uri: https://oauth2.googleapis.com/token
       user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
 
+external:
+  api:
+    tour-api:
+      service-key: ${TOUR_API_KEY}
+      base-url: http://apis.data.go.kr/B551011/TarRlteTarService1
+    visitor-data:
+      service-key: ${VISITOR_DATA_API_KEY:}
+      base-url: ${VISITOR_DATA_BASE_URL:}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
