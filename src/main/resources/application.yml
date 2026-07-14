@@ -46,7 +46,7 @@ external:
   api:
     tour-api:
       service-key: ${TOUR_API_KEY}
-      base-url: http://apis.data.go.kr/B551011/TarRlteTarService1
+      base-url: https://apis.data.go.kr/B551011/TarRlteTarService1
     visitor-data:
       service-key: ${VISITOR_DATA_API_KEY:}
       base-url: ${VISITOR_DATA_BASE_URL:}
