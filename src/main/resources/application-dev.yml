@@ -1,6 +1,11 @@
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:jejugilmoa}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:jejugilmoa}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -14,6 +19,21 @@ spring:
         format_sql: true
         highlight_sql: true
 
+app:
+  sync:
+    run-on-startup: false   # true 로 바꾸면 앱 기동 시 TourAPI 호출
+
+external:
+  api:
+    tour-api:
+      service-key: ${TOUR_API_KEY:}
+      base-url: http://apis.data.go.kr/B551011/KorService1
+    visitor-data:
+      service-key: ${VISITOR_DATA_KEY:}
+      base-url: http://apis.data.go.kr/B551011/KorService1
+    congestion:
+      service-key: ${CONGESTION_API_KEY:}
+      base-url: http://apis.data.go.kr/B551011/TatsCnctrRatedInfoService1
 jwt:
   secret: ${JWT_SECRET:dev-jwt-secret-9e2f4c8a1d7b6e5f0a3c9d2e8f1b7a6c}
 
