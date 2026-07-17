@@ -3,6 +3,7 @@ package com.example.jejugilmoa.domain.plan.entity;
 import com.example.jejugilmoa.domain.plan.enums.TransportMode;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.user.entity.User;
+import com.example.jejugilmoa.domain.user.enums.TravelStyle;
 import com.example.jejugilmoa.global.entity.BaseEntity;
 import lombok.*;
 
@@ -59,6 +60,10 @@ public class TravelPlan extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TransportMode transportMode;  // 도보, 대중교통, 차량
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TravelStyle travelStyle;  // 여행 페이스 (여유로운/많이둘러보기)
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
