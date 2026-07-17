@@ -57,7 +57,7 @@ class AuthControllerTest {
         given(authService.issueTokens(eq(1L), eq(Role.USER)))
                 .willReturn(new TokenPair("access-token", "refresh-token"));
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/login")
+        mockMvc.perform(post("/api/auth/oauth/kakao/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new LoginRequestFixture(
                                 "auth-code",
@@ -78,7 +78,7 @@ class AuthControllerTest {
         given(authService.login(eq("facebook"), any()))
                 .willThrow(new GeneralException(AuthErrorCode.UNSUPPORTED_PROVIDER));
 
-        mockMvc.perform(post("/api/v1/auth/oauth/facebook/login")
+        mockMvc.perform(post("/api/auth/oauth/facebook/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new LoginRequestFixture(
                                 "auth-code",
@@ -94,7 +94,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("로그아웃 시 리프레시 토큰을 폐기하고 쿠키를 제거한다")
     void logoutSuccess() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/logout")
+        mockMvc.perform(post("/api/auth/logout")
                         .cookie(new Cookie(CookieProvider.REFRESH_TOKEN_COOKIE, "refresh-token")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isSuccess").value(true));
@@ -106,7 +106,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("리프레시 토큰 쿠키가 없어도 로그아웃은 성공한다")
     void logoutSuccessWithoutCookie() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/logout"))
+        mockMvc.perform(post("/api//auth/logout"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isSuccess").value(true));
 
@@ -119,7 +119,7 @@ class AuthControllerTest {
         given(authService.reissue("refresh-token"))
                 .willReturn(new TokenPair("new-access-token", "new-refresh-token"));
 
-        mockMvc.perform(post("/api/v1/auth/reissue")
+        mockMvc.perform(post("/api/auth/reissue")
                         .cookie(new Cookie(CookieProvider.REFRESH_TOKEN_COOKIE, "refresh-token")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isSuccess").value(true));
@@ -134,7 +134,7 @@ class AuthControllerTest {
         given(authService.reissue("stolen-token"))
                 .willThrow(new GeneralException(AuthErrorCode.REFRESH_TOKEN_REUSED));
 
-        mockMvc.perform(post("/api/v1/auth/reissue")
+        mockMvc.perform(post("/api/auth/reissue")
                         .cookie(new Cookie(CookieProvider.REFRESH_TOKEN_COOKIE, "stolen-token")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.isSuccess").value(false))
