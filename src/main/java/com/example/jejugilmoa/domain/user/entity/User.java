@@ -41,6 +41,9 @@ public class User extends BaseEntity {
     @Column(length = 500)
     private String profileImageUrl;
 
+    @Column(length = 255)
+    private String email;
+
     @Column(columnDefinition = "TEXT")
     private String bio;  // 자기소개
 
@@ -81,4 +84,10 @@ public class User extends BaseEntity {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;  // 소프트 삭제
+
+    public void updateProfile(String nickname, String profileImageUrl, String bio) {
+        if (nickname != null) this.nickname = nickname;
+        if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
+        if (bio != null) this.bio = bio;
+    }
 }
