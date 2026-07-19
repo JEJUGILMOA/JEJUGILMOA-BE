@@ -43,8 +43,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Long userId = jwtProvider.getUserId(claims);
             Role role = Role.valueOf(claims.get("role", String.class));
 
+            UserPrincipal principal = new UserPrincipal(userId, role);
             var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
-            var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
+            var authentication = new UsernamePasswordAuthenticationToken(principal, null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (Exception e) {
             log.debug("액세스 토큰이 유효하지 않아 인증을 설정하지 않습니다: {}", e.getMessage());
@@ -52,6 +53,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private Optional<String> extractAccessToken(HttpServletRequest request) {
+        // Authorization: Bearer 헤더 우선 (Swagger UI 등 개발 도구)
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return Optional.of(header.substring(7));
+        }
+        // 쿠키 (프론트엔드)
         if (request.getCookies() == null) {
             return Optional.empty();
         }
