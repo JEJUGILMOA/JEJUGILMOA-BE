@@ -2,8 +2,14 @@ package com.example.jejugilmoa.global.config;
 
 import com.example.jejugilmoa.domain.auth.jwt.JwtAuthenticationFilter;
 import com.example.jejugilmoa.domain.auth.jwt.JwtProvider;
+import com.example.jejugilmoa.global.apiPayload.code.GeneralErrorCode;
+import jakarta.servlet.http.HttpServletResponse;
+import java.util.Arrays;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -11,10 +17,14 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final Environment environment;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtProvider jwtProvider) throws Exception {
+        boolean isProd = Arrays.asList(environment.getActiveProfiles()).contains("prod");
 
         http
                 .cors(Customizer.withDefaults())
@@ -24,21 +34,41 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
 
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**",
-                                "/health",
-                                "/"
-                        ).permitAll()
-                        .anyRequest().permitAll() // ← 개발 단계에서는 일단 허용
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(
+                            "/swagger-ui/**",
+                            "/swagger-ui.html",
+                            "/v3/api-docs/**",
+                            "/health",
+                            "/",
+                            "/api/auth/**"
+                    ).permitAll();
+
+                    if (isProd) {
+                        auth.requestMatchers("/dev/auth/**").denyAll();
+                    } else {
+                        auth.requestMatchers("/dev/auth/**").permitAll();
+                    }
+
+                    auth.anyRequest().authenticated();
+                })
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, ex) ->
+                                writeJson(response, HttpServletResponse.SC_UNAUTHORIZED, GeneralErrorCode.UNAUTHORIZED))
+                        .accessDeniedHandler((request, response, ex) ->
+                                writeJson(response, HttpServletResponse.SC_FORBIDDEN, GeneralErrorCode.FORBIDDEN))
                 )
-                // ACCESS_TOKEN 쿠키가 유효하면 SecurityContext를 채워준다.
-                // 인가 자체는 아직 permitAll이라 지금 당장 요구되지는 않지만,
-                // 이후 컨트롤러가 인증된 사용자 식별이 필요해질 때 바로 쓸 수 있도록 미리 등록한다.
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private void writeJson(HttpServletResponse response, int status, GeneralErrorCode code) throws java.io.IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(
+                "{\"isSuccess\":false,\"code\":\"" + code.getCode() + "\",\"message\":\"" + code.getMessage() + "\",\"result\":null}"
+        );
     }
 }

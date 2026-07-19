@@ -23,7 +23,10 @@ public enum AuthErrorCode implements BaseCode {
 
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH401_2", "유효하지 않은 토큰입니다."),
     REFRESH_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, "AUTH401_3", "리프레시 토큰이 존재하지 않습니다."),
-    REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "AUTH401_4", "이미 사용되었거나 탈취 의심되는 리프레시 토큰입니다. 다시 로그인해주세요.");
+    REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "AUTH401_4", "이미 사용되었거나 탈취 의심되는 리프레시 토큰입니다. 다시 로그인해주세요."),
+
+    DEV_EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH409_1", "이미 가입된 이메일입니다."),
+    DEV_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTH404_1", "개발용 유저를 찾을 수 없습니다. 먼저 회원가입을 해주세요.");
 
     private final HttpStatus status;
     private final String code;
