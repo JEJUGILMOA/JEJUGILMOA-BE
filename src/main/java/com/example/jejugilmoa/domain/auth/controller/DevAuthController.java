@@ -14,11 +14,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Profile("!prod")
 @Tag(name = "[개발전용] 인증", description = "개발/테스트 환경 전용 이메일 기반 회원가입/로그인 API")
 @RestController
 @RequestMapping("/dev/auth")

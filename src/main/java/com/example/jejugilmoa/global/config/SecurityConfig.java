@@ -4,8 +4,11 @@ import com.example.jejugilmoa.domain.auth.jwt.JwtAuthenticationFilter;
 import com.example.jejugilmoa.domain.auth.jwt.JwtProvider;
 import com.example.jejugilmoa.global.apiPayload.code.GeneralErrorCode;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Arrays;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -14,10 +17,14 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final Environment environment;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtProvider jwtProvider) throws Exception {
+        boolean isProd = Arrays.asList(environment.getActiveProfiles()).contains("prod");
 
         http
                 .cors(Customizer.withDefaults())
@@ -27,18 +34,24 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
 
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**",
-                                "/health",
-                                "/",
-                                "/api/auth/**",
-                                "/dev/auth/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(
+                            "/swagger-ui/**",
+                            "/swagger-ui.html",
+                            "/v3/api-docs/**",
+                            "/health",
+                            "/",
+                            "/api/auth/**"
+                    ).permitAll();
+
+                    if (isProd) {
+                        auth.requestMatchers("/dev/auth/**").denyAll();
+                    } else {
+                        auth.requestMatchers("/dev/auth/**").permitAll();
+                    }
+
+                    auth.anyRequest().authenticated();
+                })
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, ex) ->
                                 writeJson(response, HttpServletResponse.SC_UNAUTHORIZED, GeneralErrorCode.UNAUTHORIZED))

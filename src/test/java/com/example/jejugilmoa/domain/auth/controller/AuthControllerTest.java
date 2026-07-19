@@ -106,7 +106,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("리프레시 토큰 쿠키가 없어도 로그아웃은 성공한다")
     void logoutSuccessWithoutCookie() throws Exception {
-        mockMvc.perform(post("/api//auth/logout"))
+        mockMvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isSuccess").value(true));
 

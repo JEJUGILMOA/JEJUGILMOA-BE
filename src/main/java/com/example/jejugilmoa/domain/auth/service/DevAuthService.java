@@ -8,9 +8,11 @@ import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Profile("!prod")
 @Service
 @RequiredArgsConstructor
 public class DevAuthService {
