@@ -2,13 +2,15 @@ package com.example.jejugilmoa.domain.user.controller.docs;
 
 import com.example.jejugilmoa.domain.user.dto.UserProfileResponse;
 import com.example.jejugilmoa.domain.user.dto.UserUpdateRequest;
+import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 
 public interface UserControllerDocs {
 
@@ -44,8 +46,7 @@ public interface UserControllerDocs {
             )
     })
     ApiResponse<UserProfileResponse> getMyProfile(
-            // TODO: 인증 구현 후 SecurityContext에서 userId 추출
-            @RequestParam Long userId
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal principal
     );
 
     @Operation(
@@ -83,8 +84,7 @@ public interface UserControllerDocs {
             )
     })
     ApiResponse<UserProfileResponse> updateMyProfile(
-            // TODO: 인증 구현 후 SecurityContext에서 userId 추출
-            @RequestParam Long userId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody UserUpdateRequest request
     );
 }
