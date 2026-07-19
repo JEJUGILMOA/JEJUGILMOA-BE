@@ -42,7 +42,7 @@ public class User extends BaseEntity {
     private String profileImageUrl;
 
     @Column(length = 255)
-    private String email;
+    private String email; // 소셜 로그인 후 추출 (마이페이지 조회 시 사용)
 
     @Column(columnDefinition = "TEXT")
     private String bio;  // 자기소개
