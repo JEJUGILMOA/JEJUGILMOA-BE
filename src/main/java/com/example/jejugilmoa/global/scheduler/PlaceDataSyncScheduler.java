@@ -19,7 +19,7 @@ public class PlaceDataSyncScheduler {
     @Value("${app.sync.run-on-startup:false}")
     private boolean runOnStartup;
 
-    @Scheduled(cron = "0 0 3 * * *")
+    @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
     public void syncAll() {
         log.info("장소 데이터 동기화 시작");
         placeSyncService.syncAllCategories();
