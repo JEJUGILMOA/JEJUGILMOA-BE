@@ -1,5 +1,6 @@
 package com.example.jejugilmoa.domain.place.service;
 
+import com.example.jejugilmoa.domain.place.entity.Category;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.entity.PopularPlace;
 import com.example.jejugilmoa.domain.place.repository.CategoryRepository;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -45,14 +47,17 @@ public class PlacePersistService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveItems(String signguCd, List<TourListItem> items) {
         double[] coords = SIGNGU_COORDS.getOrDefault(signguCd, new double[]{126.5312, 33.4996});
+        Map<String, Category> categoryCache = new HashMap<>();
 
         for (TourListItem item : items) {
             if (item.rlteTatsCd() == null || placeRepository.existsByExternalId(item.rlteTatsCd())) {
                 continue;
             }
 
-            String categoryName = CATEGORY_MAPPING.getOrDefault(item.rlteCtgryLclsNm(), "자연");
-            var category = categoryRepository.findByName(categoryName).orElse(null);
+            String raw = item.rlteCtgryLclsNm();
+            String categoryName = (raw != null) ? CATEGORY_MAPPING.getOrDefault(raw, "자연") : "자연";
+            var category = categoryCache.computeIfAbsent(categoryName,
+                name -> categoryRepository.findByName(name).orElse(null));
             if (category == null) {
                 log.warn("카테고리 없음, 건너뜀: {}", categoryName);
                 continue;
