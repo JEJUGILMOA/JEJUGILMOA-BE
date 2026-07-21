@@ -30,6 +30,9 @@ public class Place extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "external_id", length = 50, unique = true)
+    private String externalId; // TourAPI contentId
+
     @Column(length = 200, nullable = false)
     private String name;
 
