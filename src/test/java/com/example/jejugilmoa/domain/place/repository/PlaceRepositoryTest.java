@@ -40,8 +40,8 @@ class PlaceRepositoryTest {
 
     @BeforeEach
     void setUp() {
-        placeRepository.deleteAll();
-        categoryRepository.deleteAll();
+        placeRepository.deleteAllInBatch();
+        categoryRepository.deleteAllInBatch();
     }
 
     private Category savedCategory() {
