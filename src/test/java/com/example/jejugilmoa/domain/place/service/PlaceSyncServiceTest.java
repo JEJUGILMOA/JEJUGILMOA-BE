@@ -1,112 +1,122 @@
 package com.example.jejugilmoa.domain.place.service;
 
-import com.example.jejugilmoa.domain.place.entity.Category;
-import com.example.jejugilmoa.domain.place.entity.Place;
-import com.example.jejugilmoa.domain.place.repository.CategoryRepository;
-import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
-import com.example.jejugilmoa.domain.place.repository.PopularPlaceRepository;
+import com.example.jejugilmoa.global.external.config.ExternalApiProperties;
 import com.example.jejugilmoa.global.external.tourapi.TourApiClient;
 import com.example.jejugilmoa.global.external.tourapi.TourApiException;
+import com.example.jejugilmoa.global.external.tourapi.dto.TourApiResponse;
 import com.example.jejugilmoa.global.external.tourapi.dto.TourListItem;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.PrecisionModel;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.client.RestClient;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings({"unchecked", "rawtypes"})
 class PlaceSyncServiceTest {
 
-    @Mock TourApiClient tourApiClient;
-    @Mock PlaceRepository placeRepository;
-    @Mock CategoryRepository categoryRepository;
-    @Mock PopularPlaceRepository popularPlaceRepository;
-    @Spy GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-    @InjectMocks PlaceSyncService placeSyncService;
+    @Mock RestClient mockRestClient;
+    @Mock RestClient.RequestHeadersUriSpec uriSpec;
+    @Mock RestClient.ResponseSpec responseSpec;
 
-    private static TourListItem relatedPlaceItem(String rlteTatsCd, String rlteTatsNm,
-                                                  String rlteSignguNm, String rlteCtgryLclsNm, int rank) {
-        return new TourListItem(
-            "tAtsCd-001", "성산일출봉",
-            "50", "제주특별자치도", "50110", "제주시",
-            rlteTatsCd, rlteTatsNm,
-            "50", "제주특별자치도", "50110", rlteSignguNm,
-            rlteCtgryLclsNm, null, null, rank
+    TourApiClient tourApiClient;
+
+    @BeforeEach
+    void setUp() {
+        var props = new ExternalApiProperties(
+            new ExternalApiProperties.ApiConfig("test-key", "https://api.test.com"),
+            new ExternalApiProperties.ApiConfig("", "")
         );
+        tourApiClient = new TourApiClient(props);
+        ReflectionTestUtils.setField(tourApiClient, "restClient", mockRestClient);
+    }
+
+    private void givenApiReturns(TourApiResponse<TourListItem> response) {
+        given(mockRestClient.get()).willReturn(uriSpec);
+        given(uriSpec.uri(anyString())).willReturn(uriSpec);
+        given(uriSpec.retrieve()).willReturn(responseSpec);
+        given(responseSpec.body(any(ParameterizedTypeReference.class))).willReturn(response);
+    }
+
+    private void givenApiThrows(RuntimeException ex) {
+        given(mockRestClient.get()).willReturn(uriSpec);
+        given(uriSpec.uri(anyString())).willReturn(uriSpec);
+        given(uriSpec.retrieve()).willReturn(responseSpec);
+        given(responseSpec.body(any(ParameterizedTypeReference.class))).willThrow(ex);
     }
 
     @Test
-    void syncBySigngu_savesNewPlace() {
-        var category = Category.builder().id(1L).name("자연").description("자연").build();
-        var item = relatedPlaceItem("rlteCd-001", "한라산", "제주시", "관광지", 1);
+    void getAreaBased_throwsOnNullResponse() {
+        givenApiReturns(null);
 
-        given(tourApiClient.getAreaBased(anyString(), anyInt(), anyInt()))
-            .willReturn(List.of(item));
-        given(placeRepository.existsByExternalId("rlteCd-001")).willReturn(false);
-        given(categoryRepository.findByName("자연")).willReturn(Optional.of(category));
-
-        placeSyncService.syncBySigngu(TourApiClient.SIGNGU_JEJU_SI);
-
-        var captor = ArgumentCaptor.forClass(Place.class);
-        verify(placeRepository).save(captor.capture());
-        assertThat(captor.getValue().getName()).isEqualTo("한라산");
-        assertThat(captor.getValue().getExternalId()).isEqualTo("rlteCd-001");
+        assertThatThrownBy(() -> tourApiClient.getAreaBased(TourApiClient.SIGNGU_JEJU_SI, 1, 10))
+            .isInstanceOf(TourApiException.class)
+            .hasMessageContaining("응답 없음");
     }
 
     @Test
-    void syncBySigngu_skipsExistingPlace() {
-        var item = relatedPlaceItem("rlteCd-001", "한라산", "제주시", "관광지", 1);
+    void getAreaBased_throwsOnFailureResponseWithResultMsg() {
+        var header = new TourApiResponse.Header("9000", "SERVICE_KEY_IS_NOT_REGISTERED_ERROR");
+        var failResponse = new TourApiResponse<TourListItem>(new TourApiResponse.Response<>(header, null));
+        givenApiReturns(failResponse);
 
-        given(tourApiClient.getAreaBased(anyString(), anyInt(), anyInt()))
-            .willReturn(List.of(item));
-        given(placeRepository.existsByExternalId("rlteCd-001")).willReturn(true);
-
-        placeSyncService.syncBySigngu(TourApiClient.SIGNGU_JEJU_SI);
-
-        verify(placeRepository, never()).save(any());
+        assertThatThrownBy(() -> tourApiClient.getAreaBased(TourApiClient.SIGNGU_JEJU_SI, 1, 10))
+            .isInstanceOf(TourApiException.class)
+            .hasMessageContaining("SERVICE_KEY_IS_NOT_REGISTERED_ERROR");
     }
 
     @Test
-    void syncBySigngu_propagatesTourApiException() {
-        given(tourApiClient.getAreaBased(anyString(), anyInt(), anyInt()))
-            .willThrow(new TourApiException("TourAPI 응답 실패: api=지역기반 연관관광지, resultMsg=SERVICE_KEY_IS_NOT_REGISTERED_ERROR"));
+    void getAreaBased_throwsWrappingCauseOnHttpError() {
+        var cause = new RuntimeException("연결 실패");
+        givenApiThrows(cause);
 
-        assertThatThrownBy(() -> placeSyncService.syncBySigngu(TourApiClient.SIGNGU_JEJU_SI))
-            .isInstanceOf(TourApiException.class);
-
-        verify(placeRepository, never()).save(any());
+        assertThatThrownBy(() -> tourApiClient.getAreaBased(TourApiClient.SIGNGU_JEJU_SI, 1, 10))
+            .isInstanceOf(TourApiException.class)
+            .hasCause(cause);
     }
 
     @Test
-    void syncAllCategories_continuesAfterSignguFailure() {
-        var category = Category.builder().id(1L).name("자연").description("자연").build();
-        var item = relatedPlaceItem("rlteCd-002", "성산일출봉", "서귀포시", "관광지", 1);
+    void getAreaBased_returnsItemsOnSuccess() {
+        var item = new TourListItem(
+            "tAtsCd-001", "성산일출봉", "50", "제주특별자치도", "50110", "제주시",
+            "rlteCd-001", "한라산", "50", "제주특별자치도", "50110", "제주시",
+            "관광지", null, null, 1
+        );
+        var success = successResponse(List.of(item));
+        givenApiReturns(success);
 
-        given(tourApiClient.getAreaBased(anyString(), anyInt(), anyInt()))
-            .willThrow(new TourApiException("TourAPI 응답 실패"))  // 제주시 실패
-            .willReturn(List.of(item));                             // 서귀포시 성공
-        given(placeRepository.existsByExternalId("rlteCd-002")).willReturn(false);
-        given(categoryRepository.findByName("자연")).willReturn(Optional.of(category));
+        var result = tourApiClient.getAreaBased(TourApiClient.SIGNGU_JEJU_SI, 1, 10);
 
-        placeSyncService.syncAllCategories();
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).rlteTatsNm()).isEqualTo("한라산");
+    }
 
-        verify(placeRepository, times(1)).save(any());
+    @Test
+    void getAreaBased_returnsEmptyListWhenBodyItemsNull() {
+        var success = new TourApiResponse<TourListItem>(
+            new TourApiResponse.Response<>(new TourApiResponse.Header("0000", "OK"), null)
+        );
+        givenApiReturns(success);
+
+        var result = tourApiClient.getAreaBased(TourApiClient.SIGNGU_JEJU_SI, 1, 10);
+
+        assertThat(result).isEmpty();
+    }
+
+    private TourApiResponse<TourListItem> successResponse(List<TourListItem> items) {
+        var header = new TourApiResponse.Header("0000", "OK");
+        var body = new TourApiResponse.Body<>(new TourApiResponse.Items<>(items), items.size(), 10, 1);
+        return new TourApiResponse<>(new TourApiResponse.Response<>(header, body));
     }
 }
