@@ -15,6 +15,11 @@ spring:
       ddl-auto: validate
     show-sql: false
 
+external:
+  api:
+    tour-api:
+      service-key: ${TOUR_API_KEY}
+
 jwt:
   secret: ${JWT_SECRET}
   cookie-secure: ${JWT_COOKIE_SECURE:true}
