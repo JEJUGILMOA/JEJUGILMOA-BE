@@ -3,6 +3,7 @@ package com.example.jejugilmoa.domain.place.repository;
 import com.example.jejugilmoa.domain.place.entity.Category;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.global.config.JpaConfig;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -37,10 +38,15 @@ class PlaceRepositoryTest {
 
     private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
 
+    @BeforeEach
+    void setUp() {
+        placeRepository.deleteAll();
+        categoryRepository.deleteAll();
+    }
+
     private Category savedCategory() {
-        return categoryRepository.findByName("자연")
-            .orElseGet(() -> categoryRepository.save(
-                Category.builder().name("자연").description("자연 관광지").build()));
+        return categoryRepository.save(
+            Category.builder().name("자연").description("자연 관광지").build());
     }
 
     private Place buildPlace(String externalId, Category cat) {
@@ -53,6 +59,7 @@ class PlaceRepositoryTest {
             .longitude(new BigDecimal("126.50000000"))
             .geom(geom)
             .category(cat)
+            .published(true)
             .build();
     }
 
@@ -70,7 +77,6 @@ class PlaceRepositoryTest {
     @Test
     void findByCategoryNameAndPublishedTrue_returnsOnlyPublished() {
         var cat = savedCategory();
-        // 공개 장소 1개, 비공개 장소 1개 저장 — 총 2개 중 공개 1개만 반환되어야 함
         placeRepository.save(buildPlace("c1", cat));
         placeRepository.save(Place.builder()
             .externalId("c2")
@@ -85,7 +91,6 @@ class PlaceRepositoryTest {
 
         var page = placeRepository.findByCategoryNameAndPublishedTrue("자연", PageRequest.of(0, 10));
 
-        // 2개 저장됐지만 published=true 인 장소만 반환
         assertThat(page.getContent()).hasSize(1);
         assertThat(page.getContent().get(0).getExternalId()).isEqualTo("c1");
     }
