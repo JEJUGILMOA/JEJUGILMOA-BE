@@ -3,7 +3,6 @@ package com.example.jejugilmoa.global.external.tourapi;
 import com.example.jejugilmoa.global.external.config.ExternalApiProperties;
 import com.example.jejugilmoa.global.external.tourapi.dto.TourApiResponse;
 import com.example.jejugilmoa.global.external.tourapi.dto.TourListItem;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -15,7 +14,6 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-@Slf4j
 @Component
 public class TourApiClient {
 
@@ -102,20 +100,24 @@ public class TourApiClient {
     }
 
     private <T> List<T> fetchItems(String uri, ParameterizedTypeReference<TourApiResponse<T>> type, String apiName) {
+        TourApiResponse<T> response;
         try {
-            var response = restClient.get()
+            response = restClient.get()
                 .uri(uri)
                 .retrieve()
                 .body(type);
-
-            if (response == null || !response.isSuccess()) {
-                log.warn("TourAPI 응답 실패: api={}", apiName);
-                return List.of();
-            }
-            return response.items();
         } catch (Exception e) {
-            log.error("TourAPI 호출 오류: api={}", apiName, e);
-            return List.of();
+            throw new TourApiException("TourAPI 호출 오류: api=" + apiName, e);
         }
+
+        if (response == null || !response.isSuccess()) {
+            String resultMsg = (response != null
+                && response.response() != null
+                && response.response().header() != null)
+                ? response.response().header().resultMsg()
+                : "응답 없음";
+            throw new TourApiException("TourAPI 응답 실패: api=" + apiName + ", resultMsg=" + resultMsg);
+        }
+        return response.items();
     }
 }
