@@ -132,9 +132,13 @@ health_check() {
 }
 
 echo "ECR 로그인 및 이미지 pull을 시작합니다. tag=${IMAGE_TAG}"
-aws ecr get-login-password --region "${AWS_REGION}" \
-  | docker login --username AWS --password-stdin "${ECR_REGISTRY}" >/dev/null
-docker pull "${NEW_IMAGE}"
+
+timeout 30s aws ecr get-login-password --region "${AWS_REGION}" \
+  | timeout 30s docker login \
+      --username AWS \
+      --password-stdin "${ECR_REGISTRY}" >/dev/null
+
+timeout --kill-after=10s 300s docker pull "${NEW_IMAGE}"
 
 write_image_override "${NEW_IMAGE}"
 echo "${APP_SERVICE} 서비스만 새 이미지로 교체합니다."
