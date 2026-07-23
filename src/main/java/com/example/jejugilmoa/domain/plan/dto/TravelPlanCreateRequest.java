@@ -20,7 +20,7 @@ public record TravelPlanCreateRequest(
         @NotNull
         LocalDate startDate,
 
-        @Schema(description = "여행 종료일 (시작일 이후)", example = "2026-08-17")
+        @Schema(description = "여행 종료일 (시작일과 같거나 이후)", example = "2026-08-17")
         @NotNull
         LocalDate endDate,
 

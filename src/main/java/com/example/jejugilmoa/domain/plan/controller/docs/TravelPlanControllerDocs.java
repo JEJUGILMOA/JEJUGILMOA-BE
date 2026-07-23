@@ -22,7 +22,7 @@ public interface TravelPlanControllerDocs {
             - `destinationPlaceId`와 `destinationLocationName` 중 하나는 필수입니다.
             - `categoryIds`는 1개 이상이어야 합니다. 유효한 ID는 DB `category` 테이블에서 확인하세요.
             - `startDate`는 오늘 이후여야 합니다.
-            - `endDate`는 `startDate` 이후여야 합니다.
+            - `endDate`는 `startDate`와 같거나 이후여야 합니다.
             """)
     @RequestBody(
             required = true,
