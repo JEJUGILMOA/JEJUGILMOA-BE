@@ -3,10 +3,18 @@ package com.example.jejugilmoa.domain.user.service;
 import com.example.jejugilmoa.domain.plan.repository.FavoriteRepository;
 import com.example.jejugilmoa.domain.record.repository.TravelRecordRepository;
 import com.example.jejugilmoa.domain.user.converter.UserConverter;
+import com.example.jejugilmoa.domain.user.dto.TravelPreferenceResponse;
+import com.example.jejugilmoa.domain.user.dto.TravelPreferenceUpdateRequest;
 import com.example.jejugilmoa.domain.user.dto.UserProfileResponse;
+import com.example.jejugilmoa.domain.user.dto.UserSettingsResponse;
+import com.example.jejugilmoa.domain.user.dto.UserSettingsUpdateRequest;
 import com.example.jejugilmoa.domain.user.dto.UserUpdateRequest;
+import com.example.jejugilmoa.domain.user.entity.NotificationSetting;
 import com.example.jejugilmoa.domain.user.entity.User;
+import com.example.jejugilmoa.domain.user.entity.UserPreference;
 import com.example.jejugilmoa.domain.user.exception.UserErrorCode;
+import com.example.jejugilmoa.domain.user.repository.NotificationSettingRepository;
+import com.example.jejugilmoa.domain.user.repository.UserPreferenceRepository;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +29,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final TravelRecordRepository travelRecordRepository;
     private final FavoriteRepository favoriteRepository;
+    private final UserPreferenceRepository userPreferenceRepository;
+    private final NotificationSettingRepository notificationSettingRepository;
 
     public UserProfileResponse getMyProfile(Long userId) {
         User user = getUser(userId);
@@ -39,6 +49,57 @@ public class UserService {
         );
 
         return createProfileResponse(user);
+    }
+
+    @Transactional
+    public TravelPreferenceResponse updateTravelPreferences(Long userId, TravelPreferenceUpdateRequest request) {
+        UserPreference preference = getOrCreatePreference(userId);
+
+        preference.updatePreference(
+            request.nature(),
+            request.food(),
+            request.cafe(),
+            request.traditionMarket(),
+            request.history(),
+            request.experience(),
+            request.travelStyle()
+        );
+
+        return UserConverter.toPreferenceResponse(preference);
+    }
+
+    @Transactional
+    public UserSettingsResponse getSettings(Long userId) {
+        NotificationSetting setting = getOrCreateSetting(userId);
+
+        return UserConverter.toSettingsResponse(setting);
+    }
+
+    @Transactional
+    public UserSettingsResponse updateSettings(Long userId, UserSettingsUpdateRequest request) {
+        NotificationSetting setting = getOrCreateSetting(userId);
+
+        setting.updateSettings(
+            request.notifyPlanStart(),
+            request.notifyRecordWriting(),
+            request.notifyBadgeAcquired(),
+            request.notifyNextPlace(),
+            request.notifyPlaceArrival(),
+            request.notifyMarketing(),
+            request.locationPermission()
+        );
+
+        return UserConverter.toSettingsResponse(setting);
+    }
+
+    private UserPreference getOrCreatePreference(Long userId) {
+        return userPreferenceRepository.findByUserId(userId)
+            .orElseGet(() -> userPreferenceRepository.save(UserPreference.createDefault(getUser(userId))));
+    }
+
+    private NotificationSetting getOrCreateSetting(Long userId) {
+        return notificationSettingRepository.findByUserId(userId)
+            .orElseGet(() -> notificationSettingRepository.save(NotificationSetting.createDefault(getUser(userId))));
     }
 
     private User getUser(Long userId) {

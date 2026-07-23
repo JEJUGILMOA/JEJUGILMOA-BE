@@ -61,4 +61,28 @@ public class UserPreference extends BaseEntity {
     @Column(name = "travel_style", nullable = false)
     private TravelStyle travelStyle; // 여유로운/많이둘러보기/도보중심/대중교통중심
 
+    public static UserPreference createDefault(User user) {
+        return UserPreference.builder()
+                .user(user)
+                .travelStyle(TravelStyle.RELAXED)
+                .build();
+    }
+
+    public void updatePreference(
+            Boolean nature,
+            Boolean food,
+            Boolean cafe,
+            Boolean traditionMarket,
+            Boolean history,
+            Boolean experience,
+            TravelStyle travelStyle
+    ) {
+        if (nature != null) this.nature = nature;
+        if (food != null) this.food = food;
+        if (cafe != null) this.cafe = cafe;
+        if (traditionMarket != null) this.traditionMarket = traditionMarket;
+        if (history != null) this.history = history;
+        if (experience != null) this.experience = experience;
+        if (travelStyle != null) this.travelStyle = travelStyle;
+    }
 }

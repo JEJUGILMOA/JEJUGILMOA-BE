@@ -2,7 +2,11 @@ package com.example.jejugilmoa.domain.user.controller;
 
 import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.user.controller.docs.UserControllerDocs;
+import com.example.jejugilmoa.domain.user.dto.TravelPreferenceResponse;
+import com.example.jejugilmoa.domain.user.dto.TravelPreferenceUpdateRequest;
 import com.example.jejugilmoa.domain.user.dto.UserProfileResponse;
+import com.example.jejugilmoa.domain.user.dto.UserSettingsResponse;
+import com.example.jejugilmoa.domain.user.dto.UserSettingsUpdateRequest;
 import com.example.jejugilmoa.domain.user.dto.UserUpdateRequest;
 import com.example.jejugilmoa.domain.user.service.UserService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
@@ -39,5 +43,34 @@ public class UserController implements UserControllerDocs {
             @Valid @RequestBody UserUpdateRequest request
     ) {
         return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, userService.updateMyProfile(principal.userId(), request));
+    }
+
+    @Override
+    @Operation(summary = "여행 선호도 설정", description = "여행 선호도를 설정합니다.")
+    @PatchMapping("/preferences")
+    public ApiResponse<TravelPreferenceResponse> updateTravelPreferences(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @Valid @RequestBody TravelPreferenceUpdateRequest request
+    ) {
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, userService.updateTravelPreferences(principal.userId(), request));
+    }
+
+    @Override
+    @Operation(summary = "설정 조회", description = "알림 및 위치 권한 설정을 조회합니다.")
+    @GetMapping("/settings")
+    public ApiResponse<UserSettingsResponse> getSettings(
+        @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, userService.getSettings(principal.userId()));
+    }
+
+    @Override
+    @Operation(summary = "설정 수정", description = "알림 및 위치 권한 설정을 수정합니다.")
+    @PatchMapping("/settings")
+    public ApiResponse<UserSettingsResponse> updateSettings(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @Valid @RequestBody UserSettingsUpdateRequest request
+    ) {
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, userService.updateSettings(principal.userId(), request));
     }
 }
