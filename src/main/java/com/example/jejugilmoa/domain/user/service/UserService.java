@@ -93,19 +93,19 @@ public class UserService {
     }
 
     private UserPreference getOrCreatePreference(Long userId) {
-        return userPreferenceRepository.findByUserId(userId)
+        return userPreferenceRepository.findByUserIdAndUserDeletedAtIsNull(userId)
             .orElseGet(() -> {
                 User user = getUserForUpdate(userId);
-                return userPreferenceRepository.findByUserId(userId)
+                return userPreferenceRepository.findByUserIdAndUserDeletedAtIsNull(userId)
                     .orElseGet(() -> userPreferenceRepository.save(UserPreference.createDefault(user)));
             });
     }
 
     private NotificationSetting getOrCreateSetting(Long userId) {
-        return notificationSettingRepository.findByUserId(userId)
+        return notificationSettingRepository.findByUserIdAndUserDeletedAtIsNull(userId)
             .orElseGet(() -> {
                 User user = getUserForUpdate(userId);
-                return notificationSettingRepository.findByUserId(userId)
+                return notificationSettingRepository.findByUserIdAndUserDeletedAtIsNull(userId)
                     .orElseGet(() -> notificationSettingRepository.save(NotificationSetting.createDefault(user)));
             });
     }
