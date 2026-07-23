@@ -2,7 +2,9 @@
 
 ## 현재 상태와 제약
 
-- 테스트는 `JejugilmoaApplicationTests.contextLoads()` 하나뿐이다.
+- 현재 테스트: `JejugilmoaApplicationTests`(contextLoads), `AuthControllerTest`, `AuthServiceTest`,
+  `PlacePersistServiceTest`, `PlaceSyncServiceTest`. Service 단위 테스트(`PlaceSyncServiceTest` 등)는
+  아래 레이어별 전략대로 Mockito로 목킹해 DB 없이 돈다.
 - **`@SpringBootTest`는 실제 DB에 연결한다** (dev 프로필 기본값 = localhost:5432).
   따라서 `./gradlew test`는 `docker compose up -d` 이후에만 통과한다. CI도 PostGIS
   서비스 컨테이너를 띄워 동일하게 동작한다 (`.github/workflows/ci.yml`).

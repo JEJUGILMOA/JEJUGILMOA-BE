@@ -4,20 +4,20 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## What this is
 
-제주길모아 (Jejugilmoa) — Spring Boot backend for a Jeju travel-planning service. Users compose travel plans (`TravelPlan`) from ordered course stops (`TravelCourse`) through places (`Place`), record finished trips (`TravelRecord`), react/share, earn badges, and report content. Early stage: the full JPA domain model exists, but there are almost no repositories/services/controllers yet (only `HealthController`).
+제주길모아 (Jejugilmoa) — Spring Boot backend for a Jeju travel-planning service. Users compose travel plans (`TravelPlan`) from ordered course stops (`TravelCourse`) through places (`Place`), record finished trips (`TravelRecord`), react/share, earn badges, and report content. The full JPA domain model exists; `auth` (JWT/OAuth login) and `user` (profile, preferences, settings) have complete controller/service/repository stacks, and `place` has a service/repository layer plus a TourAPI sync pipeline (`PlaceSyncService`, `PlacePersistService`, `PlaceDataSyncScheduler`) but no public REST controller yet. `plan`, `record`, `badge`, `report`, `recommendation` currently have entities only — no repositories/services/controllers.
 
 ## Commands
 
 ```bash
-docker compose up -d     # REQUIRED FIRST — PostGIS DB. Even `test` fails without it.
+docker compose up -d     # REQUIRED FIRST — PostGIS DB + Redis. Even `test` fails without it.
 ./gradlew build          # compile + tests (Windows shells: gradlew.bat)
 ./gradlew test --tests "*.SomeTest"   # single test class
 ./gradlew bootRun        # run locally (dev profile by default)
 ```
 
 - Health: `curl http://localhost:8080/health` → `ok`. Swagger UI: `/swagger-ui.html`.
-- Env vars: see `.env.example`; dev profile has working defaults for everything.
-- CI (`.github/workflows/ci.yml`) mirrors this: build+test against a PostGIS service container.
+- Env vars: dev profile has working defaults for everything, matching `docker compose`'s defaults. **Spring Boot does not read `.env` itself** (only `docker compose` does) — if you override anything (e.g. `DB_PORT=5433` because 5432 is taken locally), pass it directly to Gradle/the run config too: `DB_PORT=5433 ./gradlew bootRun`.
+- CI (`.github/workflows/ci.yml`) mirrors this: build+test against a PostGIS service container (Redis is not part of CI — nothing currently depends on it at test time, see below).
 
 ## Critical gotchas
 
@@ -25,9 +25,9 @@ docker compose up -d     # REQUIRED FIRST — PostGIS DB. Even `test` fails with
 - **PostGIS is mandatory** — `Place.geom` is `geometry(Point,4326)`. Plain postgres or H2 will not boot the schema. Use `docker compose`, never suggest H2 for tests.
 - **Dual coordinate storage**: `Place` keeps `latitude`/`longitude` (BigDecimal) AND `geom` — any code touching one must update both, and `ST_MakePoint` takes longitude first ([ADR-0002](docs/adr/0002-postgis-dual-storage.md)).
 - **Soft delete**: `User` and `TravelRecord` use `deletedAt`; every query on them must filter `deletedAt IS NULL` ([ADR-0003](docs/adr/0003-soft-delete.md)).
-- **Security is wide open**: `SecurityConfig` permits all requests; no auth/JWT exists yet despite Swagger's bearer config. Where a userId is needed, leave a `TODO` — don't invent a security context.
+- **Security requires auth by default**: `SecurityConfig` allows only `/swagger-ui/**`, `/v3/api-docs/**`, `/health`, `/`, `/api/auth/**` (and `/dev/auth/**` outside the `prod` profile) — everything else needs a valid JWT via `JwtAuthenticationFilter`. Get the current user via the authenticated principal (`UserPrincipal`), not a `TODO` placeholder. See [docs/auth.md](docs/auth.md) and [ADR-0006](docs/adr/0006-jwt-cookie-auth.md) for the OAuth/JWT/refresh-rotation design.
 - **`ddl-auto: update`** (dev) never drops/renames columns — schema drift is fixed by `docker compose down -v`. Prod is `validate` and there is currently no migration path ([ADR-0005](docs/adr/0005-schema-management.md)).
-- `RedisConfig` is an empty stub — Redis is not actually configured.
+- `RedisConfig` defines a real `RedisCacheManager` bean (30 min TTL) and `docker compose` runs a Redis container, but nothing in `src/main` uses `@Cacheable`/`@CacheEvict` yet — caching is configured but dormant, don't assume any endpoint is actually cached.
 
 ## Conventions (musts)
 
@@ -41,6 +41,7 @@ docker compose up -d     # REQUIRED FIRST — PostGIS DB. Even `test` fails with
 | Doc | Content |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Layering rules, package structure, **ERD** (update it when entities change), decision summary |
+| [docs/auth.md](docs/auth.md) | Auth walkthrough: OAuth login flow, JWT cookie design, refresh rotation/reuse detection, filter behavior |
 | [docs/conventions.md](docs/conventions.md) | Naming, code style, commit/branch/PR rules |
 | [docs/testing.md](docs/testing.md) | Test strategy per layer, Boot 4 test-starter pitfalls |
 | [docs/adr/](docs/adr/README.md) | Why decisions were made; write a new ADR when making architectural choices |

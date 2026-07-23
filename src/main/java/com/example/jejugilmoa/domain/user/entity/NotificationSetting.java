@@ -17,7 +17,7 @@ public class NotificationSetting extends BaseEntity {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
     @Builder.Default
@@ -36,5 +36,32 @@ public class NotificationSetting extends BaseEntity {
     private Boolean notifyPlaceArrival = true;
 
     @Builder.Default
+    private Boolean notifyMarketing = true;
+
+    @Builder.Default
     private Boolean locationPermission = false;
+
+    public static NotificationSetting createDefault(User user) {
+        return NotificationSetting.builder()
+                .user(user)
+                .build();
+    }
+
+    public void updateSettings(
+            Boolean notifyPlanStart,
+            Boolean notifyRecordWriting,
+            Boolean notifyBadgeAcquired,
+            Boolean notifyNextPlace,
+            Boolean notifyPlaceArrival,
+            Boolean notifyMarketing,
+            Boolean locationPermission
+    ) {
+        if (notifyPlanStart != null) this.notifyPlanStart = notifyPlanStart;
+        if (notifyRecordWriting != null) this.notifyRecordWriting = notifyRecordWriting;
+        if (notifyBadgeAcquired != null) this.notifyBadgeAcquired = notifyBadgeAcquired;
+        if (notifyNextPlace != null) this.notifyNextPlace = notifyNextPlace;
+        if (notifyPlaceArrival != null) this.notifyPlaceArrival = notifyPlaceArrival;
+        if (notifyMarketing != null) this.notifyMarketing = notifyMarketing;
+        if (locationPermission != null) this.locationPermission = locationPermission;
+    }
 }
