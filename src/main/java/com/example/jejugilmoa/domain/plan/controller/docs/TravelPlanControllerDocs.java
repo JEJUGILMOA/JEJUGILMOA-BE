@@ -7,10 +7,11 @@ import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.RequestBody;
 
 public interface TravelPlanControllerDocs {
 
@@ -19,10 +20,55 @@ public interface TravelPlanControllerDocs {
 
             - `departurePlaceId`와 `departureLocationName` 중 하나는 필수입니다.
             - `destinationPlaceId`와 `destinationLocationName` 중 하나는 필수입니다.
-            - `categoryIds`는 1개 이상이어야 합니다.
+            - `categoryIds`는 1개 이상이어야 합니다. 유효한 ID는 DB `category` 테이블에서 확인하세요.
             - `startDate`는 오늘 이후여야 합니다.
             - `endDate`는 `startDate` 이후여야 합니다.
             """)
+    @RequestBody(
+            required = true,
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = TravelPlanCreateRequest.class),
+                    examples = {
+                            @ExampleObject(
+                                    name = "텍스트로 출발지·목적지 입력",
+                                    summary = "Place ID 없이 텍스트로 출발지·목적지를 입력하는 케이스",
+                                    value = """
+                                            {
+                                              "title": "제주 여름 휴가",
+                                              "startDate": "2026-08-15",
+                                              "endDate": "2026-08-17",
+                                              "region": "JEJU_ALL",
+                                              "departurePlaceId": null,
+                                              "departureLocationName": "제주국제공항",
+                                              "destinationPlaceId": null,
+                                              "destinationLocationName": "성산일출봉",
+                                              "transportMode": "WALK",
+                                              "categoryIds": [1, 2]
+                                            }
+                                            """
+                            ),
+                            @ExampleObject(
+                                    name = "Place ID로 출발지 지정",
+                                    summary = "등록된 Place를 출발지로 선택하는 케이스",
+                                    value = """
+                                            {
+                                              "title": "서귀포 당일치기",
+                                              "startDate": "2026-08-20",
+                                              "endDate": "2026-08-20",
+                                              "region": "SEOGWIPO",
+                                              "departurePlaceId": 1,
+                                              "departureLocationName": null,
+                                              "destinationPlaceId": null,
+                                              "destinationLocationName": "중문관광단지",
+                                              "transportMode": "CAR",
+                                              "categoryIds": [1]
+                                            }
+                                            """
+                            )
+                    }
+            )
+    )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "201",
@@ -36,12 +82,12 @@ public interface TravelPlanControllerDocs {
                                       "result": {
                                         "planId": 1,
                                         "title": "제주 여름 휴가",
-                                        "startDate": "2026-07-15",
-                                        "endDate": "2026-07-17",
+                                        "startDate": "2026-08-15",
+                                        "endDate": "2026-08-17",
                                         "region": "JEJU_ALL",
                                         "transportMode": "WALK",
                                         "status": "DRAFT",
-                                        "categories": ["자연", "카페"]
+                                        "categories": ["자연", "음식"]
                                       }
                                     }
                                     """)
@@ -78,6 +124,6 @@ public interface TravelPlanControllerDocs {
     })
     ApiResponse<TravelPlanCreateResponse> create(
             @AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody TravelPlanCreateRequest request
+            @Valid @org.springframework.web.bind.annotation.RequestBody TravelPlanCreateRequest request
     );
 }

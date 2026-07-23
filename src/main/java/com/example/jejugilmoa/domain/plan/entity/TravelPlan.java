@@ -81,9 +81,10 @@ public class TravelPlan extends BaseEntity {
     @Column(length = 200)
     private String destinationLocationName;  // 목적지 텍스트
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
-    @Column(length = 30)
-    private TravelStyle travelStyle;  // 여행 페이스 (여유로운/많이둘러보기)
+    @Column(nullable = false, length = 30)
+    private TravelStyle travelStyle = TravelStyle.RELAXED;  // 여행 페이스 — 계획 생성 시 기본값 RELAXED, 이후 수정 가능
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
