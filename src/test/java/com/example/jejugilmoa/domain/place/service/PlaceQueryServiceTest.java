@@ -50,9 +50,19 @@ class PlaceQueryServiceTest {
 
     @Test
     void getDetail_throwsWhenNotFound() {
-        given(placeRepository.findById(999L)).willReturn(Optional.empty());
+        given(placeRepository.findByIdAndPublishedTrue(999L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> placeQueryService.getDetail(999L))
+            .isInstanceOf(GeneralException.class)
+            .extracting(e -> ((GeneralException) e).getCode())
+            .isEqualTo(PlaceErrorCode.PLACE_NOT_FOUND);
+    }
+
+    @Test
+    void getDetail_throwsWhenUnpublished() {
+        given(placeRepository.findByIdAndPublishedTrue(2L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> placeQueryService.getDetail(2L))
             .isInstanceOf(GeneralException.class)
             .extracting(e -> ((GeneralException) e).getCode())
             .isEqualTo(PlaceErrorCode.PLACE_NOT_FOUND);
@@ -65,7 +75,7 @@ class PlaceQueryServiceTest {
         var expected = new PlaceDetailDto(1L, "한라산", "제주시", new BigDecimal("33.36"), new BigDecimal("126.53"),
             null, "img.jpg", List.of(), "자연", null, null, null);
 
-        given(placeRepository.findById(1L)).willReturn(Optional.of(place));
+        given(placeRepository.findByIdAndPublishedTrue(1L)).willReturn(Optional.of(place));
         given(placeConverter.toDetail(place)).willReturn(expected);
 
         var result = placeQueryService.getDetail(1L);

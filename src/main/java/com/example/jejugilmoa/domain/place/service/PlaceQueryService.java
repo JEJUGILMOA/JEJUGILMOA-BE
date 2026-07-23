@@ -45,7 +45,7 @@ public class PlaceQueryService {
 
     @Cacheable(value = "placeDetail", key = "#id")
     public PlaceDetailDto getDetail(Long id) {
-        var place = placeRepository.findById(id)
+        var place = placeRepository.findByIdAndPublishedTrue(id)
             .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND));
         return placeConverter.toDetail(place);
     }
