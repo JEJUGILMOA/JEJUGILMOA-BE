@@ -1,7 +1,9 @@
 package com.example.jejugilmoa.domain.plan.entity;
 
+import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.plan.enums.TransportMode;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
+import com.example.jejugilmoa.domain.plan.enums.TravelRegion;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.enums.TravelStyle;
 import com.example.jejugilmoa.global.entity.BaseEntity;
@@ -63,6 +65,24 @@ public class TravelPlan extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    private TravelRegion region;  // 제주 전체 / 제주시 / 서귀포시
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "departure_place_id")
+    private Place departurePlace;  // 출발지 (nullable — 직접 입력 시 null)
+
+    @Column(length = 200)
+    private String departureLocationName;  // 출발지 텍스트 (지도 미선택 시 사용)
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "destination_place_id")
+    private Place destinationPlace;  // 목적지 (nullable)
+
+    @Column(length = 200)
+    private String destinationLocationName;  // 목적지 텍스트
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
     private TravelStyle travelStyle;  // 여행 페이스 (여유로운/많이둘러보기)
 
     @Builder.Default
