@@ -22,11 +22,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class TravelPlanService {
+
+    private static final int MAX_TRIP_DAYS = 30;
 
     private final TravelPlanRepository travelPlanRepository;
     private final TravelPlanPreferenceRepository travelPlanPreferenceRepository;
@@ -40,6 +43,8 @@ public class TravelPlanService {
             throw new GeneralException(PlanErrorCode.INVALID_START_DATE);
         if (request.endDate().isBefore(request.startDate()))
             throw new GeneralException(PlanErrorCode.INVALID_DATE_RANGE);
+        if (ChronoUnit.DAYS.between(request.startDate(), request.endDate()) > MAX_TRIP_DAYS)
+            throw new GeneralException(PlanErrorCode.TRIP_DURATION_EXCEEDED);
 
         if (request.departurePlaceId() == null
                 && (request.departureLocationName() == null || request.departureLocationName().isBlank()))
