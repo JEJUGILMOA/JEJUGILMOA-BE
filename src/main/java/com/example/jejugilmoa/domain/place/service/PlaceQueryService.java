@@ -29,7 +29,7 @@ public class PlaceQueryService {
 
     public PageResponse<PlaceSummaryDto> browse(String categoryName, Pageable pageable) {
         var page = (categoryName == null || categoryName.isBlank())
-            ? placeRepository.findAll(pageable)
+            ? placeRepository.findByPublishedTrue(pageable)
             : placeRepository.findByCategoryNameAndPublishedTrue(categoryName, pageable);
         return PageResponse.of(page.map(placeConverter::toSummary));
     }
