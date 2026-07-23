@@ -5,6 +5,7 @@ import com.example.jejugilmoa.domain.plan.enums.TravelRegion;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -48,6 +49,6 @@ public record TravelPlanCreateRequest(
 
         @Schema(description = "선호 카테고리 ID 목록 (1개 이상, GET /api/categories로 확인)", example = "[1, 2]")
         @NotNull @Size(min = 1)
-        List<Long> categoryIds
+        List<@NotNull @Positive Long> categoryIds
 
 ) {}
