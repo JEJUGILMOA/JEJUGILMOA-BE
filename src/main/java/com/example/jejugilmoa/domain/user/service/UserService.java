@@ -94,16 +94,29 @@ public class UserService {
 
     private UserPreference getOrCreatePreference(Long userId) {
         return userPreferenceRepository.findByUserId(userId)
-            .orElseGet(() -> userPreferenceRepository.save(UserPreference.createDefault(getUser(userId))));
+            .orElseGet(() -> {
+                User user = getUserForUpdate(userId);
+                return userPreferenceRepository.findByUserId(userId)
+                    .orElseGet(() -> userPreferenceRepository.save(UserPreference.createDefault(user)));
+            });
     }
 
     private NotificationSetting getOrCreateSetting(Long userId) {
         return notificationSettingRepository.findByUserId(userId)
-            .orElseGet(() -> notificationSettingRepository.save(NotificationSetting.createDefault(getUser(userId))));
+            .orElseGet(() -> {
+                User user = getUserForUpdate(userId);
+                return notificationSettingRepository.findByUserId(userId)
+                    .orElseGet(() -> notificationSettingRepository.save(NotificationSetting.createDefault(user)));
+            });
     }
 
     private User getUser(Long userId) {
         return userRepository.findByIdAndDeletedAtIsNull(userId)
+            .orElseThrow(() -> new GeneralException(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    private User getUserForUpdate(Long userId) {
+        return userRepository.findByIdAndDeletedAtIsNullForUpdate(userId)
             .orElseThrow(() -> new GeneralException(UserErrorCode.USER_NOT_FOUND));
     }
 
