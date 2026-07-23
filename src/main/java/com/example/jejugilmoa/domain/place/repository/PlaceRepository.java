@@ -9,6 +9,8 @@ import java.util.Optional;
 
 public interface PlaceRepository extends JpaRepository<Place, Long> {
     Optional<Place> findByExternalId(String externalId);
+    Optional<Place> findByIdAndPublishedTrue(Long id);
+    Page<Place> findByPublishedTrue(Pageable pageable);
     Page<Place> findByCategoryNameAndPublishedTrue(String categoryName, Pageable pageable);
     boolean existsByExternalId(String externalId);
 }
