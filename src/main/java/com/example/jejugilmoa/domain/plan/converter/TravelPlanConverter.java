@@ -50,7 +50,7 @@ public class TravelPlanConverter {
         );
     }
 
-    public static TravelPlanListResponse toSummary(TravelPlan plan) {
+    public static TravelPlanListResponse toSummary(TravelPlan plan, int waypointCount) {
         int nights = (int) ChronoUnit.DAYS.between(plan.getStartDate(), plan.getEndDate());
         int dDay   = (int) ChronoUnit.DAYS.between(LocalDate.now(), plan.getStartDate());
 
@@ -60,7 +60,7 @@ public class TravelPlanConverter {
                 plan.getStartDate(),
                 plan.getEndDate(),
                 plan.getStatus(),
-                plan.getTravelCourses().size(),
+                waypointCount,
                 nights,
                 nights + 1,
                 dDay

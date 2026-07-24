@@ -26,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -45,7 +47,19 @@ public class TravelPlanService {
                 ? travelPlanRepository.findByUser_IdOrderByCreatedAtDesc(userId)
                 : travelPlanRepository.findByUser_IdAndStatusOrderByCreatedAtDesc(userId, status);
 
-        return plans.stream().map(TravelPlanConverter::toSummary).toList();
+        if (plans.isEmpty()) return List.of();
+
+        List<Long> planIds = plans.stream().map(TravelPlan::getId).toList();
+        Map<Long, Integer> courseCountMap = travelPlanRepository.countCoursesByPlanIds(planIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> ((Long) row[1]).intValue()
+                ));
+
+        return plans.stream()
+                .map(plan -> TravelPlanConverter.toSummary(plan, courseCountMap.getOrDefault(plan.getId(), 0)))
+                .toList();
     }
 
     @Transactional
