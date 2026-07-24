@@ -4,9 +4,11 @@ import com.example.jejugilmoa.domain.place.entity.Category;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateRequest;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateResponse;
+import com.example.jejugilmoa.domain.plan.dto.TravelPlanListResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.user.entity.User;
 
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -45,6 +47,23 @@ public class TravelPlanConverter {
                 plan.getTransportMode(),
                 plan.getStatus(),
                 categories.stream().map(Category::getName).toList()
+        );
+    }
+
+    public static TravelPlanListResponse toSummary(TravelPlan plan) {
+        int nights = (int) ChronoUnit.DAYS.between(plan.getStartDate(), plan.getEndDate());
+        int dDay   = (int) ChronoUnit.DAYS.between(LocalDate.now(), plan.getStartDate());
+
+        return new TravelPlanListResponse(
+                plan.getId(),
+                plan.getTitle(),
+                plan.getStartDate(),
+                plan.getEndDate(),
+                plan.getStatus(),
+                plan.getTravelCourses().size(),
+                nights,
+                nights + 1,
+                dDay
         );
     }
 }

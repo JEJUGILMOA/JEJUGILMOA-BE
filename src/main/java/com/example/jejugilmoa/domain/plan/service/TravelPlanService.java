@@ -8,8 +8,10 @@ import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.plan.converter.TravelPlanConverter;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateRequest;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateResponse;
+import com.example.jejugilmoa.domain.plan.dto.TravelPlanListResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlanPreference;
+import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanPreferenceRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
@@ -36,6 +38,15 @@ public class TravelPlanService {
     private final UserRepository userRepository;
     private final PlaceRepository placeRepository;
     private final CategoryRepository categoryRepository;
+
+    @Transactional(readOnly = true)
+    public List<TravelPlanListResponse> getMyPlans(Long userId, TravelPlanStatus status) {
+        var plans = (status == null)
+                ? travelPlanRepository.findByUser_IdOrderByCreatedAtDesc(userId)
+                : travelPlanRepository.findByUser_IdAndStatusOrderByCreatedAtDesc(userId, status);
+
+        return plans.stream().map(TravelPlanConverter::toSummary).toList();
+    }
 
     @Transactional
     public TravelPlanCreateResponse create(Long userId, TravelPlanCreateRequest request) {
