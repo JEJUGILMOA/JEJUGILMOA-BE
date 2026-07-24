@@ -44,8 +44,8 @@ public class TravelPlanService {
     @Transactional(readOnly = true)
     public List<TravelPlanListResponse> getMyPlans(Long userId, TravelPlanStatus status) {
         var plans = (status == null)
-                ? travelPlanRepository.findByUser_IdOrderByCreatedAtDesc(userId)
-                : travelPlanRepository.findByUser_IdAndStatusOrderByCreatedAtDesc(userId, status);
+                ? travelPlanRepository.findMyPlans(userId)
+                : travelPlanRepository.findMyPlansByStatus(userId, status);
 
         if (plans.isEmpty()) return List.of();
 
