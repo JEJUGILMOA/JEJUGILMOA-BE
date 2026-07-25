@@ -62,4 +62,9 @@ public class TravelCourse extends BaseEntity {
 
     private int travelTimeFromPrevious; // 이전 경유지로부터의 이동 시간 (분)
 
+    // 경유지 제거 후 뒤 순번 재정렬 시 호출 — 이 방법 외에 sequenceOrder 변경 수단은 없음
+    public void decrementOrder() {
+        this.sequenceOrder--;
+    }
+
 }
