@@ -2,7 +2,9 @@ package com.example.jejugilmoa.domain.plan.repository;
 
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -20,6 +22,11 @@ public interface TravelPlanRepository extends JpaRepository<TravelPlan, Long> {
 
     @Query("SELECT p.id, COUNT(c) FROM TravelPlan p LEFT JOIN p.travelCourses c WHERE p.id IN :planIds GROUP BY p.id")
     List<Object[]> countCoursesByPlanIds(@Param("planIds") List<Long> planIds);
+
+    // 경유지 추가/삭제 시 순번 충돌 방지용 — 같은 plan에 대한 쓰기 요청을 직렬화
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM TravelPlan p WHERE p.id = :planId")
+    Optional<TravelPlan> findByIdForUpdate(@Param("planId") Long planId);
 
     /**
      * 선호 카테고리(preferredCategories → category)를 한 번의 쿼리로 페치해

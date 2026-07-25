@@ -13,6 +13,7 @@ import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,7 +55,12 @@ public class WaypointService {
                 .place(place)
                 .sequenceOrder(nextOrder)
                 .build();
-        travelCourseRepository.save(course);
+        try {
+            travelCourseRepository.saveAndFlush(course);
+        } catch (DataIntegrityViolationException e) {
+            // uk_course_plan_place 위반: 동시 요청으로 pre-check을 통과한 중복 추가
+            throw new GeneralException(PlanErrorCode.PLACE_ALREADY_ADDED);
+        }
 
         return listWaypoints(planId);
     }
@@ -78,12 +84,8 @@ public class WaypointService {
 
         int removedOrder = target.getSequenceOrder();
         travelCourseRepository.delete(target);
-        travelCourseRepository.flush(); // 삭제 반영 후 재조회를 위해 플러시
-
-        // 제거된 순서 이후의 경유지들을 1씩 앞당겨 순서 공백을 메움
-        travelCourseRepository.findAllByTravelPlanIdOrderBySequenceOrderAsc(planId).stream()
-                .filter(c -> c.getSequenceOrder() > removedOrder)
-                .forEach(TravelCourse::decrementOrder);
+        // flushAutomatically=true가 DELETE를 먼저 반영하므로 별도 flush 불필요
+        travelCourseRepository.decrementSequenceOrderAfter(planId, removedOrder);
 
         return listWaypoints(planId);
     }
@@ -99,8 +101,9 @@ public class WaypointService {
                 .toList();
     }
 
+    // SELECT FOR UPDATE: 같은 plan에 대한 경유지 추가/삭제를 직렬화해 순번 충돌 방지
     private TravelPlan findPlanAndVerifyOwner(Long planId, Long userId) {
-        TravelPlan plan = travelPlanRepository.findById(planId)
+        TravelPlan plan = travelPlanRepository.findByIdForUpdate(planId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
         if (!plan.getUser().getId().equals(userId)) {
             throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);

@@ -22,3 +22,4 @@
 | [0006](0006-jwt-cookie-auth.md) | JWT 기반 쿠키 인증과 리프레시 토큰 회전 | Accepted |
 | [0007](0007-place-api-pipeline.md) | Place 데이터 파이프라인 및 탐색 API 구현 | 구현 완료 |
 | [0008](0008-place-image-table.md) | 장소 갤러리 이미지를 PlaceImage 테이블로 분리 저장 | Accepted |
+| [0009](0009-waypoint-concurrency.md) | 경유지 동시 추가의 중복·순번 충돌 방지 | Accepted |
