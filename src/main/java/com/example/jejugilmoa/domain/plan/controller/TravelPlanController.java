@@ -3,6 +3,7 @@ package com.example.jejugilmoa.domain.plan.controller;
 import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.plan.controller.docs.TravelPlanControllerDocs;
 import com.example.jejugilmoa.domain.plan.dto.*;
+import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.service.RecommendationService;
 import com.example.jejugilmoa.domain.plan.service.TravelPlanService;
 import com.example.jejugilmoa.domain.plan.service.WaypointService;
@@ -26,6 +27,16 @@ public class TravelPlanController implements TravelPlanControllerDocs {
     private final TravelPlanService travelPlanService;
     private final RecommendationService recommendationService;
     private final WaypointService waypointService;
+
+    @GetMapping
+    public ApiResponse<List<TravelPlanListResponse>> getMyPlans(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) TravelPlanStatus status) {
+
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                travelPlanService.getMyPlans(principal.userId(), status));
+    }
 
     @PostMapping
     public ApiResponse<TravelPlanCreateResponse> create(

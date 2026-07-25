@@ -2,6 +2,7 @@ package com.example.jejugilmoa.domain.plan.controller.docs;
 
 import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.plan.dto.*;
+import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,10 +13,62 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
+
 public interface TravelPlanControllerDocs {
+
+    @Operation(summary = "내 여행 계획 목록 조회", description = """
+            로그인한 사용자의 여행 계획 목록을 최신순으로 반환합니다.
+
+            - `status` 미지정 시 전체(전체 탭), 지정 시 해당 상태만 반환합니다.
+            - DRAFT=계획중, IN_PROGRESS=진행중, COMPLETED=완료
+            """)
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "목록 조회 성공",
+                    content = @Content(
+                            examples = @ExampleObject(value = """
+                                    {
+                                      "isSuccess": true,
+                                      "code": "COMMON200",
+                                      "message": "성공적으로 요청을 처리했습니다.",
+                                      "result": [
+                                        {
+                                          "planId": 1,
+                                          "title": "제주 3박4일",
+                                          "startDate": "2026-07-15",
+                                          "endDate": "2026-07-18",
+                                          "status": "IN_PROGRESS",
+                                          "waypointCount": 2,
+                                          "nights": 3,
+                                          "days": 4,
+                                          "dDay": -9
+                                        },
+                                        {
+                                          "planId": 2,
+                                          "title": "제주 당일치기",
+                                          "startDate": "2026-08-02",
+                                          "endDate": "2026-08-02",
+                                          "status": "DRAFT",
+                                          "waypointCount": 3,
+                                          "nights": 0,
+                                          "days": 1,
+                                          "dDay": 9
+                                        }
+                                      ]
+                                    }
+                                    """)
+                    )
+            )
+    })
+    ApiResponse<List<TravelPlanListResponse>> getMyPlans(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) TravelPlanStatus status
+    );
 
     @Operation(summary = "여행 계획 생성", description = """
             새로운 여행 계획을 생성합니다.

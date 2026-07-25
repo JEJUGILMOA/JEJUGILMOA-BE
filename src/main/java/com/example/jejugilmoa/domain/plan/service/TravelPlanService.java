@@ -8,8 +8,10 @@ import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.plan.converter.TravelPlanConverter;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateRequest;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateResponse;
+import com.example.jejugilmoa.domain.plan.dto.TravelPlanListResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlanPreference;
+import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanPreferenceRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
@@ -24,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +40,27 @@ public class TravelPlanService {
     private final UserRepository userRepository;
     private final PlaceRepository placeRepository;
     private final CategoryRepository categoryRepository;
+
+    @Transactional(readOnly = true)
+    public List<TravelPlanListResponse> getMyPlans(Long userId, TravelPlanStatus status) {
+        var plans = (status == null)
+                ? travelPlanRepository.findMyPlans(userId)
+                : travelPlanRepository.findMyPlansByStatus(userId, status);
+
+        if (plans.isEmpty()) return List.of();
+
+        List<Long> planIds = plans.stream().map(TravelPlan::getId).toList();
+        Map<Long, Integer> courseCountMap = travelPlanRepository.countCoursesByPlanIds(planIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> ((Long) row[1]).intValue()
+                ));
+
+        return plans.stream()
+                .map(plan -> TravelPlanConverter.toSummary(plan, courseCountMap.getOrDefault(plan.getId(), 0)))
+                .toList();
+    }
 
     @Transactional
     public TravelPlanCreateResponse create(Long userId, TravelPlanCreateRequest request) {
