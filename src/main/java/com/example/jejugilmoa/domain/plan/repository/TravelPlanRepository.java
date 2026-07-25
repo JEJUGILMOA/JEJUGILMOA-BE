@@ -26,11 +26,13 @@ public interface TravelPlanRepository extends JpaRepository<TravelPlan, Long> {
      * 추천 로직에서 N+1 없이 카테고리 ID를 읽을 수 있도록 합니다.
      */
     @Query("""
-            SELECT p FROM TravelPlan p
-            LEFT JOIN FETCH p.preferredCategories pc
-            LEFT JOIN FETCH pc.category
-            WHERE p.id = :planId
-            """)
+        SELECT p FROM TravelPlan p
+                    JOIN p.user u
+        LEFT JOIN FETCH p.preferredCategories pc
+        LEFT JOIN FETCH pc.category
+        WHERE p.id = :planId
+                    AND u.deletedAt IS NULL
+        """)
     Optional<TravelPlan> findByIdWithPreferences(@Param("planId") Long planId);
 
 }
