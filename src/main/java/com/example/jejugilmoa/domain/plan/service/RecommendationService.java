@@ -66,6 +66,14 @@ public class RecommendationService {
         // IN 절 빈 배열 오류 방지를 위해 비어 있으면 -1L 삽입 (DB에 id=-1인 행은 없음)
         List<Long> excludedIds = new ArrayList<>(addedPlaceIds);
         excludedIds.addAll(additionalExcludedIds);
+
+        // 시작지점과 도착지점은 추천 후보에서 제외
+        if (plan.getDeparturePlace() != null) {
+            excludedIds.add(plan.getDeparturePlace().getId());
+        }
+        if (plan.getDestinationPlace() != null) {
+            excludedIds.add(plan.getDestinationPlace().getId());
+        }
         if (excludedIds.isEmpty()) excludedIds.add(-1L);
 
         // 선호 카테고리 ID (이번 여행 계획에 등록된 카테고리)
