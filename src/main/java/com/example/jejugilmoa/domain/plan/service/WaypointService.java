@@ -1,0 +1,113 @@
+package com.example.jejugilmoa.domain.plan.service;
+
+import com.example.jejugilmoa.domain.place.entity.Place;
+import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
+import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
+import com.example.jejugilmoa.domain.plan.converter.WaypointConverter;
+import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
+import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
+import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
+import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
+import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
+import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
+import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
+import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class WaypointService {
+
+    private final TravelPlanRepository travelPlanRepository;
+    private final TravelCourseRepository travelCourseRepository;
+    private final PlaceRepository placeRepository;
+
+    /**
+     * 추천 경유지를 여행 코스에 추가합니다.
+     *
+     * <p>sequenceOrder는 현재 경유지 수 + 1 로 자동 배정됩니다.
+     * 같은 장소를 중복으로 추가하면 {@code PLACE_ALREADY_ADDED} 예외가 발생합니다.</p>
+     *
+     * @return 추가 후 갱신된 전체 경유지 목록 (순서 오름차순)
+     */
+    @Transactional
+    public List<WaypointResponse> addWaypoint(Long planId, Long userId, WaypointAddRequest request) {
+        TravelPlan plan = findPlanAndVerifyOwner(planId, userId);
+
+        if (travelCourseRepository.existsByTravelPlanIdAndPlaceId(planId, request.placeId())) {
+            throw new GeneralException(PlanErrorCode.PLACE_ALREADY_ADDED);
+        }
+
+        Place place = placeRepository.findByIdAndPublishedTrue(request.placeId())
+                .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND));
+
+        // 다음 순서 = 현재 경유지 수 + 1 (시퀀스 gap 없이 연속 배정)
+        int nextOrder = travelCourseRepository.countByTravelPlanId(planId) + 1;
+
+        TravelCourse course = TravelCourse.builder()
+                .travelPlan(plan)
+                .place(place)
+                .sequenceOrder(nextOrder)
+                .build();
+        try {
+            travelCourseRepository.saveAndFlush(course);
+        } catch (DataIntegrityViolationException e) {
+            // uk_course_plan_place 위반: 동시 요청으로 pre-check을 통과한 중복 추가
+            throw new GeneralException(PlanErrorCode.PLACE_ALREADY_ADDED);
+        }
+
+        return listWaypoints(planId);
+    }
+
+    /**
+     * 경유지를 여행 코스에서 제거합니다.
+     *
+     * <p>제거한 경유지 이후의 sequenceOrder를 1씩 감소시켜 연속성을 유지합니다.
+     * waypointId가 해당 planId에 속하지 않으면 {@code WAYPOINT_NOT_FOUND} 예외가 발생합니다.</p>
+     *
+     * @return 제거 후 갱신된 전체 경유지 목록 (순서 오름차순)
+     */
+    @Transactional
+    public List<WaypointResponse> removeWaypoint(Long planId, Long userId, Long waypointId) {
+        findPlanAndVerifyOwner(planId, userId);
+
+        // planId 소속 여부를 함께 확인해 타 계획의 경유지를 삭제하지 못하도록 방지
+        TravelCourse target = travelCourseRepository.findById(waypointId)
+                .filter(c -> c.getTravelPlan().getId().equals(planId))
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.WAYPOINT_NOT_FOUND));
+
+        int removedOrder = target.getSequenceOrder();
+        travelCourseRepository.delete(target);
+        // flushAutomatically=true가 DELETE를 먼저 반영하므로 별도 flush 불필요
+        travelCourseRepository.decrementSequenceOrderAfter(planId, removedOrder);
+
+        return listWaypoints(planId);
+    }
+
+    /**
+     * 특정 계획의 전체 경유지 목록을 조회합니다.
+     */
+    public List<WaypointResponse> listWaypoints(Long planId) {
+        return travelCourseRepository
+                .findAllByTravelPlanIdOrderBySequenceOrderAsc(planId)
+                .stream()
+                .map(WaypointConverter::toResponse)
+                .toList();
+    }
+
+    // SELECT FOR UPDATE: 같은 plan에 대한 경유지 추가/삭제를 직렬화해 순번 충돌 방지
+    private TravelPlan findPlanAndVerifyOwner(Long planId, Long userId) {
+        TravelPlan plan = travelPlanRepository.findByIdForUpdate(planId)
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
+        if (!plan.getUser().getId().equals(userId)) {
+            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
+        }
+        return plan;
+    }
+}

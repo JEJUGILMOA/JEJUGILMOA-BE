@@ -13,7 +13,8 @@ import java.time.LocalDateTime;
 @Table(name = "travel_course", indexes = {
         @Index(name = "idx_course_plan", columnList = "plan_id")
 }, uniqueConstraints = {
-        @UniqueConstraint(name = "uk_course_plan_sequence", columnNames = {"plan_id", "sequence_order"})
+        @UniqueConstraint(name = "uk_course_plan_sequence", columnNames = {"plan_id", "sequence_order"}),
+        @UniqueConstraint(name = "uk_course_plan_place", columnNames = {"plan_id", "place_id"})
 })
 @Getter
 @Builder
