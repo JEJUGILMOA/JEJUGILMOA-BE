@@ -143,7 +143,8 @@ public class WaypointService {
                 .filter(c -> c.getTravelPlan().getId().equals(planId))
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.WAYPOINT_NOT_FOUND));
 
-        target.updateMemo(request.memo());
+        String memo = request.memo();
+        target.updateMemo(memo == null || memo.isEmpty() ? null : memo);
 
         return listWaypoints(planId);
     }
