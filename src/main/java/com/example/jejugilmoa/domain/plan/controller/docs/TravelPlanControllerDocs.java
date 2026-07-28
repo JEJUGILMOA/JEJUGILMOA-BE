@@ -398,4 +398,119 @@ public interface TravelPlanControllerDocs {
             @Parameter(description = "여행 계획 ID") Long planId,
             @Parameter(description = "경유지(TravelCourse) ID") Long waypointId
     );
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 경유지 순서 변경 / 메모
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Operation(
+            summary = "경유지 순서 변경",
+            description = """
+                    경유지 목록의 순서를 변경합니다.
+
+                    - `waypointIds`에 해당 계획의 모든 경유지 ID를 원하는 순서로 전달하세요.
+                    - 전달한 ID 집합이 현재 계획의 경유지 집합과 다르면 `PLAN400_7` 오류가 반환됩니다.
+                    - 응답으로 재정렬된 전체 경유지 목록(순서 오름차순)을 반환합니다.
+                    """
+    )
+    @RequestBody(
+            required = true,
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = WaypointReorderRequest.class),
+                    examples = @ExampleObject(value = """
+                            { "waypointIds": [3, 1, 2] }
+                            """)
+            )
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "순서 변경 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": [
+                                {"waypointId": 3, "sequenceOrder": 1, "placeId": 5, "placeName": "협재해수욕장", "categoryName": "자연", "imageUrl": null, "address": "제주시 한림읍", "memo": null},
+                                {"waypointId": 1, "sequenceOrder": 2, "placeId": 1, "placeName": "제주국제공항", "categoryName": "교통", "imageUrl": null, "address": "제주시 용담2동", "memo": null},
+                                {"waypointId": 2, "sequenceOrder": 3, "placeId": 3, "placeName": "애월 카페거리", "categoryName": "카페", "imageUrl": null, "address": "제주시 애월읍", "memo": null}
+                              ]
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "경유지 ID 목록이 현재 계획의 경유지와 불일치",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN400_7","message":"경유지 순서 목록이 올바르지 않습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "접근 권한 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<List<WaypointResponse>> reorderWaypoints(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행 계획 ID") Long planId,
+            @Valid @org.springframework.web.bind.annotation.RequestBody WaypointReorderRequest request
+    );
+
+    @Operation(
+            summary = "경유지 메모 작성/수정",
+            description = """
+                    경유지(장소)에 메모를 작성하거나 수정합니다.
+
+                    - `memo`를 `null` 또는 빈 문자열로 전달하면 기존 메모가 삭제됩니다.
+                    - 최대 1000자까지 입력 가능합니다.
+                    - 응답으로 갱신된 전체 경유지 목록(순서 오름차순)을 반환합니다.
+                    """
+    )
+    @RequestBody(
+            required = true,
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = WaypointMemoRequest.class),
+                    examples = @ExampleObject(value = """
+                            { "memo": "노을 시간대(오후 6시) 방문 추천, 파라솔 대여 5천원" }
+                            """)
+            )
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "메모 저장 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": [
+                                {"waypointId": 1, "sequenceOrder": 1, "placeId": 1, "placeName": "제주국제공항", "categoryName": "교통", "imageUrl": null, "address": "제주시 용담2동", "memo": null},
+                                {"waypointId": 2, "sequenceOrder": 2, "placeId": 3, "placeName": "애월 카페거리", "categoryName": "카페", "imageUrl": null, "address": "제주시 애월읍", "memo": null},
+                                {"waypointId": 3, "sequenceOrder": 3, "placeId": 5, "placeName": "협재해수욕장", "categoryName": "자연", "imageUrl": null, "address": "제주시 한림읍", "memo": "노을 시간대(오후 6시) 방문 추천, 파라솔 대여 5천원"}
+                              ]
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "메모 길이 초과",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"COMMON400_1","message":"메모는 1000자 이내로 입력해주세요.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "경유지 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_3","message":"존재하지 않는 경유지입니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<List<WaypointResponse>> updateWaypointMemo(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행 계획 ID") Long planId,
+            @Parameter(description = "경유지(TravelCourse) ID") Long waypointId,
+            @Valid @org.springframework.web.bind.annotation.RequestBody WaypointMemoRequest request
+    );
 }
