@@ -1,0 +1,178 @@
+# CI: 모든 PR과 dev 푸시에서 빌드+테스트를 실행한다.
+# @SpringBootTest(contextLoads)가 실제 DB에 연결하므로 PostGIS 서비스 컨테이너가 필수다.
+# (postgis/postgis 이미지는 기본 DB에 postgis extension을 자동 생성한다)
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+# dev 배포는 한 번에 하나만 실행한다. 진행 중인 배포를 취소하지 않고 순차 실행한다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && 'dev-deploy' || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: jejugilmoa
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d jejugilmoa"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: jejugilmoa
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle (with build cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build & test
+        run: ./gradlew build --no-daemon
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: build/reports/tests/test/
+          retention-days: 7
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      registry: ${{ steps.login-ecr.outputs.registry }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          mask-password: true
+
+      - name: Check whether image already exists
+        id: check-image
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          error_file="$(mktemp)"
+          trap 'rm -f "${error_file}"' EXIT
+
+          if aws ecr describe-images \
+            --region "${AWS_REGION}" \
+            --repository-name "${ECR_REPOSITORY}" \
+            --image-ids "imageTag=${IMAGE_TAG}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text \
+            >/dev/null 2>"${error_file}"; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+            echo "동일 commit SHA 이미지가 이미 존재하므로 build와 push를 생략합니다."
+          elif grep -q 'ImageNotFoundException' "${error_file}"; then
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+            echo "동일 commit SHA 이미지가 없어 새 이미지를 publish합니다."
+          else
+            echo "ECR 이미지 존재 여부 확인 중 예상하지 못한 오류가 발생했습니다." >&2
+            exit 1
+          fi
+
+      - name: Build and push image
+        if: steps.check-image.outputs.exists == 'false'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            --tag "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" \
+            --file Dockerfile \
+            .
+          docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    needs: publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H "${EC2_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Upload deployment script
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+        run: |
+          scp -i ~/.ssh/ec2_key \
+            deploy/dev/deploy.sh \
+            "${EC2_USER}@${EC2_HOST}:/home/ubuntu/gilmoa/deploy/dev/deploy.sh.tmp"
+          ssh -i ~/.ssh/ec2_key "${EC2_USER}@${EC2_HOST}" \
+            'chmod 700 /home/ubuntu/gilmoa/deploy/dev/deploy.sh.tmp && mv /home/ubuntu/gilmoa/deploy/dev/deploy.sh.tmp /home/ubuntu/gilmoa/deploy/dev/deploy.sh'
+
+      - name: Deploy application
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          ECR_REGISTRY: ${{ needs.publish.outputs.registry }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          ssh -i ~/.ssh/ec2_key "${EC2_USER}@${EC2_HOST}" \
+            /home/ubuntu/gilmoa/deploy/dev/deploy.sh \
+            "${AWS_REGION}" "${ECR_REGISTRY}" "${ECR_REPOSITORY}" "${IMAGE_TAG}"
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/ec2_key
