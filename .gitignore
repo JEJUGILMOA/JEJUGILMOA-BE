@@ -40,3 +40,6 @@ out/
 .env
 .env.*
 !.env.example
+
+# Generated deployment override
+deploy/dev/.deploy-image.override.yml
