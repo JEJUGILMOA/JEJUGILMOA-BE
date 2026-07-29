@@ -5,6 +5,8 @@ import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.plan.converter.WaypointConverter;
 import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
+import com.example.jejugilmoa.domain.plan.dto.WaypointMemoRequest;
+import com.example.jejugilmoa.domain.plan.dto.WaypointReorderRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
@@ -17,7 +19,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -86,6 +91,60 @@ public class WaypointService {
         travelCourseRepository.delete(target);
         // flushAutomatically=true가 DELETE를 먼저 반영하므로 별도 flush 불필요
         travelCourseRepository.decrementSequenceOrderAfter(planId, removedOrder);
+
+        return listWaypoints(planId);
+    }
+
+    /**
+     * 경유지 순서를 변경합니다.
+     *
+     * 요청의 waypointIds는 해당 planId에 속한 모든 경유지 ID를 빠짐없이 포함해야 합니다.
+     * Phase-1에서 임시 offset으로 순번을 밀어 uk_course_plan_sequence 충돌을 방지한 뒤,
+     * Phase-2에서 최종 순번을 개별 UPDATE로 확정합니다.
+     *
+     * @return 재정렬 후 전체 경유지 목록 (순서 오름차순)
+     */
+    @Transactional
+    public List<WaypointResponse> reorderWaypoints(Long planId, Long userId, WaypointReorderRequest request) {
+        findPlanAndVerifyOwner(planId, userId);
+
+        List<Long> newOrder = request.waypointIds();
+        List<TravelCourse> existing = travelCourseRepository.findAllByTravelPlanIdOrderBySequenceOrderAsc(planId);
+
+        Set<Long> planIds = existing.stream().map(TravelCourse::getId).collect(Collectors.toSet());
+        if (new HashSet<>(newOrder).size() != newOrder.size()
+                || !new HashSet<>(newOrder).equals(planIds)) {
+            throw new GeneralException(PlanErrorCode.INVALID_WAYPOINT_ORDER);
+        }
+
+        // Phase-1: 현재 최대 순번보다 큰 임시 값으로 전체 이동 (unique 제약 임시 회피)
+        travelCourseRepository.shiftSequenceOrderByOffset(planId, newOrder.size() + 1);
+
+        // Phase-2: 요청 순서대로 최종 순번 확정
+        for (int i = 0; i < newOrder.size(); i++) {
+            travelCourseRepository.updateSequenceOrder(newOrder.get(i), planId, i + 1);
+        }
+
+        return listWaypoints(planId);
+    }
+
+    /**
+     * 경유지에 메모를 작성/수정합니다.
+     *
+     * memo가 null이면 기존 메모를 삭제합니다.
+     *
+     * @return 갱신 후 전체 경유지 목록 (순서 오름차순)
+     */
+    @Transactional
+    public List<WaypointResponse> updateMemo(Long planId, Long userId, Long waypointId, WaypointMemoRequest request) {
+        findPlanAndVerifyOwner(planId, userId);
+
+        TravelCourse target = travelCourseRepository.findById(waypointId)
+                .filter(c -> c.getTravelPlan().getId().equals(planId))
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.WAYPOINT_NOT_FOUND));
+
+        String memo = request.memo();
+        target.updateMemo(memo == null || memo.isEmpty() ? null : memo);
 
         return listWaypoints(planId);
     }

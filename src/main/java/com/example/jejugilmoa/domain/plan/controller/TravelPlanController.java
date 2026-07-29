@@ -85,4 +85,25 @@ public class TravelPlanController implements TravelPlanControllerDocs {
                 GeneralSuccessCode.REQUEST_OK,
                 waypointService.removeWaypoint(planId, principal.userId(), waypointId));
     }
+
+    @PatchMapping("/{planId}/waypoints/reorder")
+    public ApiResponse<List<WaypointResponse>> reorderWaypoints(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody WaypointReorderRequest request) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                waypointService.reorderWaypoints(planId, principal.userId(), request));
+    }
+
+    @PatchMapping("/{planId}/waypoints/{waypointId}/memo")
+    public ApiResponse<List<WaypointResponse>> updateWaypointMemo(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long waypointId,
+            @Valid @RequestBody WaypointMemoRequest request) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                waypointService.updateMemo(planId, principal.userId(), waypointId, request));
+    }
 }

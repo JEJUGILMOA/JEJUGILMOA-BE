@@ -23,6 +23,9 @@ public record WaypointResponse(
         String imageUrl,
 
         @Schema(description = "주소", example = "제주특별자치도 제주시 애월읍")
-        String address
+        String address,
+
+        @Schema(description = "장소 메모", example = "노을 시간대 방문 추천")
+        String memo
 
 ) {}
