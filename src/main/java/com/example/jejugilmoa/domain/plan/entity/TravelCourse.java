@@ -63,4 +63,11 @@ public class TravelCourse extends BaseEntity {
 
     private int travelTimeFromPrevious; // 이전 경유지로부터의 이동 시간 (분)
 
+    @Column(columnDefinition = "TEXT")
+    private String memo; // 장소별 메모
+
+    public void updateMemo(String memo) {
+        this.memo = memo;
+    }
+
 }
