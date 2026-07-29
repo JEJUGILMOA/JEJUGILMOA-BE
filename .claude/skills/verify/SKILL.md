@@ -55,5 +55,6 @@ curl -s http://localhost:8080/health   # expect: ok
 
 ## 5. Report honestly
 
-State exactly what was exercised and what the responses were. If a path could not be
-verified (e.g. auth not implemented yet), say so explicitly instead of implying full coverage.
+State exactly what was exercised and what the responses were. Most routes require a valid
+JWT by default (`SecurityConfig`, ADR-0006) — if you couldn't obtain one and a path needs
+auth, say so explicitly instead of implying full coverage, rather than skipping silently.
