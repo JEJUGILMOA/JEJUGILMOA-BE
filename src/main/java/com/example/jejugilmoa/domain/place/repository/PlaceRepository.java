@@ -97,8 +97,7 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
      * visitor_count 내림차순 정렬 후 limit으로 잘라, 뷰포트가 밀집 지역이어도 중요한 장소부터 보여줍니다.
      *
      * <p>ST_MakeEnvelope는 경도(minLng,maxLng) 우선, 위도(minLat,maxLat) 후순으로 전달합니다 (ADR-0002).
-     * &&는 bbox 겹침 연산자로, geom에 GiST 인덱스가 추가되면 이를 활용할 수 있습니다
-     * (현재는 인덱스가 없어 순차 스캔 후 필터링 — ADR-0002/0005, 마이그레이션 도구 미도입).</p>
+     * &&는 bbox 겹침 연산자로, {@code idx_place_geom_published} 부분 GiST 인덱스(schema.sql)를 탑니다.</p>
      */
     @Query(value = """
             SELECT p.* FROM place p

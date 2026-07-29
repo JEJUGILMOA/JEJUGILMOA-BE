@@ -4,10 +4,12 @@ import com.example.jejugilmoa.domain.map.converter.MapConverter;
 import com.example.jejugilmoa.domain.map.dto.HeatmapCellDto;
 import com.example.jejugilmoa.domain.map.dto.MapPlaceDto;
 import com.example.jejugilmoa.domain.map.enums.CongestionLevel;
+import com.example.jejugilmoa.domain.map.exception.MapErrorCode;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.place.repository.PopularPlaceRepository;
 import com.example.jejugilmoa.domain.place.repository.PopularPlaceRepository.GridCellCount;
 import com.example.jejugilmoa.domain.record.repository.TravelRecordPlaceRepository;
+import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +39,8 @@ public class MapQueryService {
     // 응답에 포함된 셀들 중 최대 점수 대비 상대 비율로 2단계 분류 (목업 범례가 2단계뿐)
     private static final double CROWDED_THRESHOLD = 0.6;
     private static final double MODERATE_THRESHOLD = 0.25;
+    private static final int MAX_LIMIT = 500;
+    private static final int MAX_GRID_SIZE = 20;
 
     private final PlaceRepository placeRepository;
     private final TravelRecordPlaceRepository travelRecordPlaceRepository;
@@ -46,6 +50,8 @@ public class MapQueryService {
     public List<MapPlaceDto> getPlaces(
             double minLat, double maxLat, double minLng, double maxLng,
             String category, int limit) {
+        validateBounds(minLat, maxLat, minLng, maxLng);
+        if (limit < 1 || limit > MAX_LIMIT) throw new GeneralException(MapErrorCode.INVALID_LIMIT);
         var places = (category == null || category.isBlank())
             ? placeRepository.findWithinBounds(minLng, minLat, maxLng, maxLat, limit)
             : placeRepository.findWithinBoundsAndCategory(minLng, minLat, maxLng, maxLat, category, limit);
@@ -54,6 +60,8 @@ public class MapQueryService {
 
     public List<HeatmapCellDto> getHeatmap(
             double minLat, double maxLat, double minLng, double maxLng, int gridSize) {
+        validateBounds(minLat, maxLat, minLng, maxLng);
+        if (gridSize < 1 || gridSize > MAX_GRID_SIZE) throw new GeneralException(MapErrorCode.INVALID_GRID_SIZE);
         // 두 신호를 각각 독립적인 네이티브 쿼리로 격자(row,col) 단위 점수로 집계한 뒤 여기서 병합한다.
         // (한 쿼리로 합치면 popular_place(1:1)와 travel_record_place(1:N)의 조인 팬아웃 때문에
         //  집계가 중복 카운트되는 버그가 생기기 쉬워, DB에서 합치지 않고 자바에서 합친다.)
@@ -120,5 +128,14 @@ public class MapQueryService {
      */
     private long cellKey(int row, int col) {
         return ((long) row << 32) | (col & 0xFFFFFFFFL);
+    }
+
+    private void validateBounds(double minLat, double maxLat, double minLng, double maxLng) {
+        if (minLat >= maxLat || minLng >= maxLng
+            || !Double.isFinite(minLat) || !Double.isFinite(maxLat)
+            || !Double.isFinite(minLng) || !Double.isFinite(maxLng)
+            || minLat < -90 || maxLat > 90 || minLng < -180 || maxLng > 180) {
+            throw new GeneralException(MapErrorCode.INVALID_BOUNDS);
+        }
     }
 }

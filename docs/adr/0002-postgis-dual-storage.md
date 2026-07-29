@@ -22,8 +22,11 @@
 - **동기화 규칙(불변식)**: Place를 생성/수정하는 모든 코드는 lat/lng와 geom을 반드시
   같이 갱신해야 한다. 이 규칙은 서비스가 아닌 엔티티의 상태 변경 메서드에 캡슐화할 것.
 - 로컬/CI DB는 반드시 PostGIS 이미지를 써야 한다 (일반 postgres, H2 불가).
-- geom 컬럼에는 GiST 공간 인덱스가 필요하다 — ddl-auto는 공간 인덱스를 만들어주지
-  않으므로 마이그레이션 도구 도입 시([ADR-0005](0005-schema-management.md)) 명시적으로 추가해야 한다.
+- geom 컬럼에는 GiST 공간 인덱스가 필요하다 — ddl-auto는 공간 인덱스를 만들어주지 않으므로,
+  마이그레이션 도구 도입 전까지는 `src/main/resources/schema.sql`이 기동 시마다
+  `idx_place_geom_published`(부분 인덱스, `WHERE is_published = true`)를
+  `CREATE INDEX CONCURRENTLY IF NOT EXISTS`로 멱등하게 생성한다 ([ADR-0005](0005-schema-management.md)
+  도입 후에는 이 로직을 마이그레이션 파일로 옮길 것).
 
 ## 고려한 대안 (Alternatives)
 
