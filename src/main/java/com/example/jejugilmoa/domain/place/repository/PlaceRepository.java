@@ -91,4 +91,51 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
             @Param("excludedIds") List<Long> excludedIds,
             @Param("limit") int limit
     );
+
+    /**
+     * 지도 뷰포트(bounding box) 내 장소를 조회합니다. 마커 렌더링용이라 페이지네이션 대신
+     * visitor_count 내림차순 정렬 후 limit으로 잘라, 뷰포트가 밀집 지역이어도 중요한 장소부터 보여줍니다.
+     *
+     * <p>ST_MakeEnvelope는 경도(minLng,maxLng) 우선, 위도(minLat,maxLat) 후순으로 전달합니다 (ADR-0002).
+     * &&는 bbox 겹침 연산자로, geom에 GiST 인덱스가 추가되면 이를 활용할 수 있습니다
+     * (현재는 인덱스가 없어 순차 스캔 후 필터링 — ADR-0002/0005, 마이그레이션 도구 미도입).</p>
+     */
+    @Query(value = """
+            SELECT p.* FROM place p
+            WHERE p.is_published = true
+              AND p.geom && ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326)
+            ORDER BY p.visitor_count DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Place> findWithinBounds(
+            @Param("minLng") double minLng,
+            @Param("minLat") double minLat,
+            @Param("maxLng") double maxLng,
+            @Param("maxLat") double maxLat,
+            @Param("limit") int limit
+    );
+
+    /**
+     * 지도 뷰포트(bounding box) + 카테고리명 필터로 장소를 조회합니다. {@link #findWithinBounds}와
+     * 별도 메서드로 나눈 이유는 네이티브 쿼리에서 "categoryName이 null이면 전체" 같은 조건부 필터를
+     * SQL 트릭으로 넣는 대신, 서비스 레이어(MapQueryService)에서 명확하게 분기하기 위함
+     * ({@link com.example.jejugilmoa.domain.place.service.PlaceQueryService#browse}와 동일한 패턴).
+     */
+    @Query(value = """
+            SELECT p.* FROM place p
+            JOIN category c ON c.id = p.category_id
+            WHERE p.is_published = true
+              AND c.name = :categoryName
+              AND p.geom && ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326)
+            ORDER BY p.visitor_count DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Place> findWithinBoundsAndCategory(
+            @Param("minLng") double minLng,
+            @Param("minLat") double minLat,
+            @Param("maxLng") double maxLng,
+            @Param("maxLat") double maxLat,
+            @Param("categoryName") String categoryName,
+            @Param("limit") int limit
+    );
 }

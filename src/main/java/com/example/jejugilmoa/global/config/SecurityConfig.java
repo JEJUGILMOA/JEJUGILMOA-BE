@@ -41,7 +41,8 @@ public class SecurityConfig {
                             "/v3/api-docs/**",
                             "/health",
                             "/",
-                            "/api/auth/**"
+                            "/api/auth/**",
+                            "/api/map/**"
                     ).permitAll();
 
                     if (isProd) {
