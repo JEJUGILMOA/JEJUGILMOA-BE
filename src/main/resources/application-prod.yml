@@ -15,6 +15,10 @@ spring:
       ddl-auto: validate
     show-sql: false
 
+  sql:
+    init:
+      mode: never  # schema.sql(CREATE INDEX CONCURRENTLY)을 기동에 묶지 않음 — 배포/마이그레이션 단계에서 별도 적용 (ADR-0005)
+
 external:
   api:
     tour-api:

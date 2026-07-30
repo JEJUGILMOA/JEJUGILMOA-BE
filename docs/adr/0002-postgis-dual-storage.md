@@ -25,8 +25,13 @@
 - geom 컬럼에는 GiST 공간 인덱스가 필요하다 — ddl-auto는 공간 인덱스를 만들어주지 않으므로,
   마이그레이션 도구 도입 전까지는 `src/main/resources/schema.sql`이 기동 시마다
   `idx_place_geom_published`(부분 인덱스, `WHERE is_published = true`)를
-  `CREATE INDEX CONCURRENTLY IF NOT EXISTS`로 멱등하게 생성한다 ([ADR-0005](0005-schema-management.md)
+  `CREATE INDEX CONCURRENTLY IF NOT EXISTS`로 생성한다 ([ADR-0005](0005-schema-management.md)
   도입 후에는 이 로직을 마이그레이션 파일로 옮길 것).
+  `IF NOT EXISTS`는 이름 존재 여부만 보고 `indisvalid`는 보지 않으므로 완전히 멱등하지는
+  않다 — CONCURRENTLY 생성이 중단되면 INVALID 인덱스가 이름을 점유한 채 남고, 이후 기동은
+  그걸 "이미 있다"고 보고 재생성을 건너뛴다. 그래서 `schema.sql`은 생성 전에
+  `pg_index.indisvalid`를 확인해 invalid 인덱스를 먼저 `DROP`하고 나서 `CREATE INDEX
+  CONCURRENTLY`를 재시도해 복구한다.
 
 ## 고려한 대안 (Alternatives)
 
