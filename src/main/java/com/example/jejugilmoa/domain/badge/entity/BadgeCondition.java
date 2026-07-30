@@ -8,7 +8,12 @@ import lombok.*;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "badge_condition")
+@Table(
+        name = "badge_condition",
+        indexes = {
+                @Index(name = "idx_badge_condition_badge", columnList = "badge_id")
+        }
+)
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
