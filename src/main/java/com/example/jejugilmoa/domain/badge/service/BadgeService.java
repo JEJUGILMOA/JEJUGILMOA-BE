@@ -40,7 +40,7 @@ public class BadgeService {
                 .findAllByBadgeIdIn(badgeIds).stream()
                 .collect(Collectors.groupingBy(condition -> condition.getBadge().getId()));
 
-        Map<Long, LocalDateTime> acquiredAtByBadgeId = userBadgeRepository.findAllByUserId(userId).stream()
+        Map<Long, LocalDateTime> acquiredAtByBadgeId = userBadgeRepository.findByUserIdAndUserDeletedAtIsNull(userId).stream()
                 .collect(Collectors.toMap(userBadge -> userBadge.getBadge().getId(), UserBadge::getAcquiredAt));
 
         Map<BadgeGroup, List<BadgeItemResponse>> grouped = new EnumMap<>(BadgeGroup.class);

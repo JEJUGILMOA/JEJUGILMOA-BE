@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface UserBadgeRepository extends JpaRepository<UserBadge, Long> {
-    List<UserBadge> findAllByUserId(Long userId);
+    List<UserBadge> findByUserIdAndUserDeletedAtIsNull(Long userId);
 }
