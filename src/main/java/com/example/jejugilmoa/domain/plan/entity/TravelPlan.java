@@ -11,6 +11,7 @@ import lombok.*;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -91,6 +92,9 @@ public class TravelPlan extends BaseEntity {
     @Column(nullable = false)
     private TravelPlanStatus status = TravelPlanStatus.DRAFT;  // DRAFT, IN_PROGRESS, COMPLETED
 
+    @Column(name = "actual_started_at")
+    private LocalDateTime actualStartedAt;  // 실제 여행 시작 시각 (여행 시작 API 호출 시각)
+
     @OneToMany(
             mappedBy = "travelPlan",
             cascade = CascadeType.ALL,
@@ -106,5 +110,10 @@ public class TravelPlan extends BaseEntity {
     )
     @Builder.Default
     private List<TravelPlanPreference> preferredCategories = new ArrayList<>();  // 이번 여행의 선호 유형(여행 스타일)
+
+    public void start(LocalDateTime startedAt) {
+        this.status = TravelPlanStatus.IN_PROGRESS;
+        this.actualStartedAt = startedAt;
+    }
 
 }

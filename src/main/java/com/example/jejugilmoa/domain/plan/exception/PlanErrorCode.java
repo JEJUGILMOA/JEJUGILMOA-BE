@@ -18,7 +18,12 @@ public enum PlanErrorCode implements BaseCode {
     PLACE_ALREADY_ADDED(HttpStatus.BAD_REQUEST, "PLAN400_6", "이미 추가된 장소입니다."),
     PLAN_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PLAN403_1", "해당 여행 계획에 접근할 권한이 없습니다."),
     WAYPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN404_3", "존재하지 않는 경유지입니다."),
-    INVALID_WAYPOINT_ORDER(HttpStatus.BAD_REQUEST, "PLAN400_7", "경유지 순서 목록이 올바르지 않습니다.");
+    INVALID_WAYPOINT_ORDER(HttpStatus.BAD_REQUEST, "PLAN400_7", "경유지 순서 목록이 올바르지 않습니다."),
+    TRIP_NOT_STARTABLE(HttpStatus.BAD_REQUEST, "PLAN400_8", "계획중 상태의 여행만 시작할 수 있습니다."),
+    TRIP_NOT_IN_PROGRESS(HttpStatus.BAD_REQUEST, "PLAN400_9", "진행중인 여행이 아닙니다."),
+    WAYPOINT_ALREADY_VISITED(HttpStatus.BAD_REQUEST, "PLAN400_10", "이미 방문 체크된 경유지입니다."),
+    WAYPOINT_LOCATION_MISMATCH(HttpStatus.BAD_REQUEST, "PLAN400_11", "방문할 경유지와 거리가 멉니다."),
+    WAYPOINT_OUT_OF_ORDER(HttpStatus.BAD_REQUEST, "PLAN400_12", "이전 경유지를 먼저 방문 체크해야 합니다.");
 
     private final HttpStatus status;
     private final String code;

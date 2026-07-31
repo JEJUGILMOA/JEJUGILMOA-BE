@@ -18,7 +18,9 @@ public class WaypointConverter {
                 place.getCategory().getName(),
                 place.getImageUrl(),
                 place.getAddress(),
-                course.getMemo()
+                course.getMemo(),
+                course.isVisited(),
+                course.getVisitedAt()
         );
     }
 }

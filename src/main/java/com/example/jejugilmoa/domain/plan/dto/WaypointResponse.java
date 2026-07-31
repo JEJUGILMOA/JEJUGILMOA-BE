@@ -2,6 +2,8 @@ package com.example.jejugilmoa.domain.plan.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.time.LocalDateTime;
+
 public record WaypointResponse(
 
         @Schema(description = "경유지(TravelCourse) ID", example = "7")
@@ -26,6 +28,12 @@ public record WaypointResponse(
         String address,
 
         @Schema(description = "장소 메모", example = "노을 시간대 방문 추천")
-        String memo
+        String memo,
+
+        @Schema(description = "방문 완료 여부", example = "false")
+        boolean visited,
+
+        @Schema(description = "실제 방문 체크 시각")
+        LocalDateTime visitedAt
 
 ) {}

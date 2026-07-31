@@ -70,4 +70,9 @@ public class TravelCourse extends BaseEntity {
         this.memo = memo;
     }
 
+    public void checkVisit(LocalDateTime visitedAt) {
+        this.visited = true;
+        this.visitedAt = visitedAt;
+    }
+
 }
