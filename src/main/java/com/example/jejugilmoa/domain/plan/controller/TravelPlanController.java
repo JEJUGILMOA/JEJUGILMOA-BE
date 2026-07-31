@@ -28,6 +28,15 @@ public class TravelPlanController implements TravelPlanControllerDocs {
     private final RecommendationService recommendationService;
     private final WaypointService waypointService;
 
+    @GetMapping("/{planId}")
+    public ApiResponse<TravelPlanDetailResponse> getPlanDetail(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long planId) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                travelPlanService.getPlanDetail(planId, principal.userId()));
+    }
+
     @GetMapping
     public ApiResponse<List<TravelPlanListResponse>> getMyPlans(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -96,14 +105,4 @@ public class TravelPlanController implements TravelPlanControllerDocs {
                 waypointService.reorderWaypoints(planId, principal.userId(), request));
     }
 
-    @PatchMapping("/{planId}/waypoints/{waypointId}/memo")
-    public ApiResponse<List<WaypointResponse>> updateWaypointMemo(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long planId,
-            @PathVariable Long waypointId,
-            @Valid @RequestBody WaypointMemoRequest request) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.REQUEST_OK,
-                waypointService.updateMemo(planId, principal.userId(), waypointId, request));
-    }
 }

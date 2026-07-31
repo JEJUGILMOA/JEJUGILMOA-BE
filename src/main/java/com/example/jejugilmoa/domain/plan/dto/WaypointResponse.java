@@ -2,12 +2,17 @@ package com.example.jejugilmoa.domain.plan.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.time.LocalDate;
+
 public record WaypointResponse(
 
         @Schema(description = "경유지(TravelCourse) ID", example = "7")
         Long waypointId,
 
-        @Schema(description = "방문 순서 (1부터 시작)", example = "1")
+        @Schema(description = "방문 날짜", example = "2026-08-15")
+        LocalDate visitDate,
+
+        @Schema(description = "해당 날짜 내 방문 순서 (1부터 시작)", example = "1")
         int sequenceOrder,
 
         @Schema(description = "장소 ID", example = "42")
@@ -23,9 +28,6 @@ public record WaypointResponse(
         String imageUrl,
 
         @Schema(description = "주소", example = "제주특별자치도 제주시 애월읍")
-        String address,
-
-        @Schema(description = "장소 메모", example = "노을 시간대 방문 추천")
-        String memo
+        String address
 
 ) {}

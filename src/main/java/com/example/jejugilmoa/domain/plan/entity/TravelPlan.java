@@ -107,4 +107,12 @@ public class TravelPlan extends BaseEntity {
     @Builder.Default
     private List<TravelPlanPreference> preferredCategories = new ArrayList<>();  // 이번 여행의 선호 유형(여행 스타일)
 
+    private Integer budgetTransportation;
+
+    private Integer budgetAccommodation;
+
+    private Integer budgetFood;
+
+    private Integer budgetEtc;
+
 }

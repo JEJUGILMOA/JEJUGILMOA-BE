@@ -57,7 +57,7 @@ public class RecommendationService {
 
         // 이미 담긴 경유지의 place_id 수집
         List<Long> addedPlaceIds = travelCourseRepository
-                .findAllByTravelPlanIdOrderBySequenceOrderAsc(planId)
+                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId)
                 .stream()
                 .map(c -> c.getPlace().getId())
                 .toList();
