@@ -105,4 +105,13 @@ public class TravelPlanController implements TravelPlanControllerDocs {
                 waypointService.reorderWaypoints(planId, principal.userId(), request));
     }
 
+    @PatchMapping("/{planId}/budget")
+    public ApiResponse<BudgetUpdateResponse> updateBudget(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody BudgetUpdateRequest request) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                travelPlanService.updateBudget(planId, principal.userId(), request));
+    }
 }

@@ -7,6 +7,8 @@ import com.example.jejugilmoa.domain.place.repository.CategoryRepository;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.plan.converter.TravelPlanConverter;
 import com.example.jejugilmoa.domain.plan.converter.WaypointConverter;
+import com.example.jejugilmoa.domain.plan.dto.BudgetUpdateRequest;
+import com.example.jejugilmoa.domain.plan.dto.BudgetUpdateResponse;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateRequest;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateResponse;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanDetailResponse;
@@ -128,5 +130,21 @@ public class TravelPlanService {
         travelPlanPreferenceRepository.saveAll(preferences);
 
         return TravelPlanConverter.toCreateResponse(saved, categories);
+    }
+
+    @Transactional
+    public BudgetUpdateResponse updateBudget(Long planId, Long userId, BudgetUpdateRequest request) {
+        TravelPlan plan = travelPlanRepository.findById(planId)
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
+        if (!plan.getUser().getId().equals(userId)) {
+            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
+        }
+        plan.updateBudget(
+                request.budgetTransportation(),
+                request.budgetAccommodation(),
+                request.budgetFood(),
+                request.budgetEtc()
+        );
+        return TravelPlanConverter.toBudgetResponse(plan);
     }
 }
