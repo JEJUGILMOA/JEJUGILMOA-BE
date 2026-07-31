@@ -43,10 +43,10 @@ class PlaceControllerTest {
     @Test
     void browse_returns200WithPage() throws Exception {
         var summary = new PlaceSummaryDto(1L, "한라산", "제주시", "img.jpg", "자연");
-        given(placeQueryService.browse(eq("자연"), any()))
+        given(placeQueryService.browse(isNull(), eq("자연"), any()))
             .willReturn(new PageResponse<>(List.of(summary), 0, 20, 1L, 1, true));
 
-        mockMvc.perform(get("/api/places?category=자연&page=0&size=20"))
+        mockMvc.perform(get("/api/places?categoryName=자연&page=0&size=20"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.isSuccess").value(true))
             .andExpect(jsonPath("$.result.content[0].name").value("한라산"))
