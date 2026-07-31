@@ -20,6 +20,15 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
         Integer getGridCol();
         Long getScore();
     }
+    @Query("""
+                    SELECT COUNT(DISTINCT trp.place.id) FROM TravelRecordPlace trp
+                    WHERE trp.travelRecord.user.id = :userId
+                      AND trp.travelRecord.user.deletedAt IS NULL
+                      AND trp.travelRecord.deletedAt IS NULL
+                      AND trp.visited = true
+        """)
+
+    long countDistinctVisitedPlacesByUser(@Param("userId") Long userId);
 
     /**
      * 실제 방문 기록(TravelRecordPlace) 기준 지도 뷰포트 내 혼잡도 격자 집계.
@@ -56,4 +65,33 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
             @Param("gridSize") int gridSize,
             @Param("since") LocalDateTime since
     );
+    @Query("""
+        SELECT COUNT(trp) FROM TravelRecordPlace trp
+        WHERE trp.travelRecord.user.id = :userId
+          AND trp.travelRecord.deletedAt IS NULL
+          AND trp.travelRecord.user.deletedAt IS NULL
+          AND trp.visited = true
+          AND trp.place.id = :placeId
+        """)
+    long countVisitedByUserAndPlace(@Param("userId") Long userId, @Param("placeId") Long placeId);
+
+    @Query("""
+        SELECT COUNT(DISTINCT trp.place.id) FROM TravelRecordPlace trp
+        WHERE trp.travelRecord.user.id = :userId
+          AND trp.travelRecord.deletedAt IS NULL
+          AND trp.travelRecord.user.deletedAt IS NULL
+          AND trp.visited = true
+          AND trp.place.category.id = :categoryId
+        """)
+    long countDistinctVisitedPlacesByUserAndCategory(@Param("userId") Long userId, @Param("categoryId") Long categoryId);
+
+    @Query("""
+        SELECT COUNT(DISTINCT trp.place.id) FROM TravelRecordPlace trp
+        WHERE trp.travelRecord.user.id = :userId
+          AND trp.travelRecord.deletedAt IS NULL
+          AND trp.travelRecord.user.deletedAt IS NULL
+          AND trp.visited = true
+          AND trp.place.address LIKE CONCAT('%', :region, '%')
+        """)
+    long countDistinctVisitedPlacesByUserAndRegion(@Param("userId") Long userId, @Param("region") String region);
 }
