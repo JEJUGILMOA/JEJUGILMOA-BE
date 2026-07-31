@@ -6,9 +6,25 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordPlace, Long> {
+
+    interface PlaceVisitCount {
+        Long getPlaceId();
+        Long getCnt();
+    }
+
+    interface CategoryVisitCount {
+        Long getCategoryId();
+        Long getCnt();
+    }
+
+    interface PlaceAddress {
+        Long getPlaceId();
+        String getAddress();
+    }
 
     /**
      * width_bucket 두 번의 결과를 (row, col, 집계점수) 형태로 받기 위한 프로젝션.
@@ -65,33 +81,38 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
             @Param("gridSize") int gridSize,
             @Param("since") LocalDateTime since
     );
+    /**
+     * 배지 진행도 계산 시 조건별로 countXxx를 반복 호출하면 N+1이 발생하므로,
+     * 여러 배지 조건에 걸친 place/category를 한 번에 IN 조회해 결과를 메모리에서 병합한다.
+     */
     @Query("""
-        SELECT COUNT(trp) FROM TravelRecordPlace trp
+        SELECT trp.place.id AS placeId, COUNT(trp) AS cnt FROM TravelRecordPlace trp
         WHERE trp.travelRecord.user.id = :userId
           AND trp.travelRecord.deletedAt IS NULL
           AND trp.travelRecord.user.deletedAt IS NULL
           AND trp.visited = true
-          AND trp.place.id = :placeId
+          AND trp.place.id IN :placeIds
+        GROUP BY trp.place.id
         """)
-    long countVisitedByUserAndPlace(@Param("userId") Long userId, @Param("placeId") Long placeId);
+    List<PlaceVisitCount> countVisitedByUserGroupedByPlace(@Param("userId") Long userId, @Param("placeIds") Collection<Long> placeIds);
 
     @Query("""
-        SELECT COUNT(DISTINCT trp.place.id) FROM TravelRecordPlace trp
+        SELECT trp.place.category.id AS categoryId, COUNT(DISTINCT trp.place.id) AS cnt FROM TravelRecordPlace trp
         WHERE trp.travelRecord.user.id = :userId
           AND trp.travelRecord.deletedAt IS NULL
           AND trp.travelRecord.user.deletedAt IS NULL
           AND trp.visited = true
-          AND trp.place.category.id = :categoryId
+          AND trp.place.category.id IN :categoryIds
+        GROUP BY trp.place.category.id
         """)
-    long countDistinctVisitedPlacesByUserAndCategory(@Param("userId") Long userId, @Param("categoryId") Long categoryId);
+    List<CategoryVisitCount> countDistinctVisitedPlacesByUserGroupedByCategory(@Param("userId") Long userId, @Param("categoryIds") Collection<Long> categoryIds);
 
     @Query("""
-        SELECT COUNT(DISTINCT trp.place.id) FROM TravelRecordPlace trp
+        SELECT DISTINCT trp.place.id AS placeId, trp.place.address AS address FROM TravelRecordPlace trp
         WHERE trp.travelRecord.user.id = :userId
           AND trp.travelRecord.deletedAt IS NULL
           AND trp.travelRecord.user.deletedAt IS NULL
           AND trp.visited = true
-          AND trp.place.address LIKE CONCAT('%', :region, '%')
         """)
-    long countDistinctVisitedPlacesByUserAndRegion(@Param("userId") Long userId, @Param("region") String region);
+    List<PlaceAddress> findDistinctVisitedPlacesByUser(@Param("userId") Long userId);
 }
