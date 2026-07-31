@@ -17,6 +17,11 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
     Page<Place> findByCategoryNameAndPublishedTrue(String categoryName, Pageable pageable);
     boolean existsByExternalId(String externalId);
 
+    @Query("SELECT p FROM Place p WHERE p.published = true " +
+           "AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "AND (:categoryName IS NULL OR p.category.name = :categoryName)")
+    Page<Place> search(@Param("keyword") String keyword, @Param("categoryName") String categoryName, Pageable pageable);
+
     /**
      * 출발지-목적지 직선 경로(corridor) 주변의 장소를 추천합니다.
      *

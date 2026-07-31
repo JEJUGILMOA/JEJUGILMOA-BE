@@ -37,13 +37,14 @@ public class PlaceController implements PlaceControllerDocs {
 
     @GetMapping
     public ApiResponse<PageResponse<PlaceSummaryDto>> browse(
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         if (page < 0) throw new GeneralException(PlaceErrorCode.INVALID_PAGE);
         if (size < 1 || size > MAX_SIZE) throw new GeneralException(PlaceErrorCode.INVALID_PAGE_SIZE);
         return ApiResponse.onSuccess(GeneralSuccessCode.FOUND,
-            placeQueryService.browse(category, PageRequest.of(page, size)));
+            placeQueryService.browse(keyword, category, PageRequest.of(page, size)));
     }
 
     @GetMapping("/{id}")
