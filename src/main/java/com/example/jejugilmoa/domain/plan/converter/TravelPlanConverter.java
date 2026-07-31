@@ -42,6 +42,13 @@ public class TravelPlanConverter {
     }
 
     public static TravelPlanCreateResponse toCreateResponse(TravelPlan plan, List<Category> categories) {
+        String departureName = plan.getDeparturePlace() != null
+                ? plan.getDeparturePlace().getName()
+                : plan.getDepartureLocationName();
+        String destinationName = plan.getDestinationPlace() != null
+                ? plan.getDestinationPlace().getName()
+                : plan.getDestinationLocationName();
+
         return new TravelPlanCreateResponse(
                 plan.getId(),
                 plan.getTitle(),
@@ -50,7 +57,32 @@ public class TravelPlanConverter {
                 plan.getRegion(),
                 plan.getTransportMode(),
                 plan.getStatus(),
-                categories.stream().map(Category::getName).toList()
+                categories.stream().map(Category::getName).toList(),
+                departureName,
+                destinationName
+        );
+    }
+
+    public static BudgetUpdateResponse toBudgetResponse(TravelPlan plan) {
+        boolean anySet = plan.getBudgetTransportation() != null
+                || plan.getBudgetAccommodation() != null
+                || plan.getBudgetFood() != null
+                || plan.getBudgetEtc() != null;
+        Integer total = anySet
+                ? Stream.of(plan.getBudgetTransportation(), plan.getBudgetAccommodation(),
+                            plan.getBudgetFood(), plan.getBudgetEtc())
+                        .filter(Objects::nonNull)
+                        .mapToInt(Integer::intValue)
+                        .sum()
+                : null;
+
+        return new BudgetUpdateResponse(
+                plan.getId(),
+                plan.getBudgetTransportation(),
+                plan.getBudgetAccommodation(),
+                plan.getBudgetFood(),
+                plan.getBudgetEtc(),
+                total
         );
     }
 
