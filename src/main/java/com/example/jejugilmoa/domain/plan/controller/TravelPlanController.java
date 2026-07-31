@@ -47,6 +47,14 @@ public class TravelPlanController implements TravelPlanControllerDocs {
                 travelPlanService.getMyPlans(principal.userId(), status));
     }
 
+    @DeleteMapping("/{planId}")
+    public ApiResponse<Void> deletePlan(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long planId) {
+        travelPlanService.deletePlan(planId, principal.userId());
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, null);
+    }
+
     @PostMapping
     public ApiResponse<TravelPlanCreateResponse> create(
             @AuthenticationPrincipal UserPrincipal principal,

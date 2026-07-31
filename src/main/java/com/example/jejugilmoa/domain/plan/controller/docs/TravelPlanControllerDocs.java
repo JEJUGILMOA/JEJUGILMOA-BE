@@ -257,6 +257,44 @@ public interface TravelPlanControllerDocs {
             @Valid @org.springframework.web.bind.annotation.RequestBody TravelPlanCreateRequest request
     );
 
+    @Operation(
+            summary = "여행 계획 삭제",
+            description = """
+                    여행 계획과 관련된 모든 데이터를 삭제합니다.
+
+                    **삭제 범위**
+                    - 경유지 목록 (TravelCourse)
+                    - 선호 카테고리 설정
+                    - 연결된 여행 기록 및 기록 내 이미지·장소·반응·공유 링크
+
+                    본인의 계획만 삭제할 수 있습니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "삭제 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":true,"code":"COMMON200","message":"성공적으로 요청을 처리했습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "타인의 여행 계획에 접근",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "존재하지 않는 여행 계획",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<Void> deletePlan(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행 계획 ID") Long planId
+    );
+
     // ──────────────────────────────────────────────────────────────────────────
     // 경유지 추천
     // ──────────────────────────────────────────────────────────────────────────
