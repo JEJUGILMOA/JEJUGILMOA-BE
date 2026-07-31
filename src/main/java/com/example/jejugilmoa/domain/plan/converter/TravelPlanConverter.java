@@ -2,15 +2,19 @@ package com.example.jejugilmoa.domain.plan.converter;
 
 import com.example.jejugilmoa.domain.place.entity.Category;
 import com.example.jejugilmoa.domain.place.entity.Place;
-import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateRequest;
-import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateResponse;
-import com.example.jejugilmoa.domain.plan.dto.TravelPlanListResponse;
+import com.example.jejugilmoa.domain.plan.dto.*;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.user.entity.User;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 public class TravelPlanConverter {
 
@@ -64,6 +68,66 @@ public class TravelPlanConverter {
                 nights,
                 nights + 1,
                 dDay
+        );
+    }
+
+    public static TravelPlanDetailResponse toDetail(TravelPlan plan, List<WaypointResponse> waypoints) {
+        int nights = (int) ChronoUnit.DAYS.between(plan.getStartDate(), plan.getEndDate());
+
+        Map<LocalDate, List<WaypointResponse>> byDate = waypoints.stream()
+                .collect(Collectors.groupingBy(WaypointResponse::visitDate, LinkedHashMap::new, Collectors.toList()));
+
+        // 계획 기간의 모든 날짜를 포함 (경유지 없는 날도 빈 리스트로)
+        List<DayItineraryResponse> itinerary = IntStream.rangeClosed(0, nights)
+                .mapToObj(i -> {
+                    LocalDate date = plan.getStartDate().plusDays(i);
+                    return new DayItineraryResponse(date, i + 1, byDate.getOrDefault(date, List.of()));
+                })
+                .toList();
+
+        List<String> categories = plan.getPreferredCategories().stream()
+                .map(pref -> pref.getCategory().getName())
+                .toList();
+
+        boolean anyBudgetSet = plan.getBudgetTransportation() != null
+                || plan.getBudgetAccommodation() != null
+                || plan.getBudgetFood() != null
+                || plan.getBudgetEtc() != null;
+        Integer totalBudget = anyBudgetSet
+                ? Stream.of(plan.getBudgetTransportation(), plan.getBudgetAccommodation(),
+                            plan.getBudgetFood(), plan.getBudgetEtc())
+                        .filter(Objects::nonNull)
+                        .mapToInt(Integer::intValue)
+                        .sum()
+                : null;
+
+        String departureName = plan.getDeparturePlace() != null
+                ? plan.getDeparturePlace().getName()
+                : plan.getDepartureLocationName();
+        String destinationName = plan.getDestinationPlace() != null
+                ? plan.getDestinationPlace().getName()
+                : plan.getDestinationLocationName();
+
+        return new TravelPlanDetailResponse(
+                plan.getId(),
+                plan.getTitle(),
+                plan.getStartDate(),
+                plan.getEndDate(),
+                nights,
+                nights + 1,
+                plan.getStatus(),
+                plan.getRegion(),
+                plan.getTransportMode(),
+                plan.getTravelStyle(),
+                departureName,
+                destinationName,
+                categories,
+                itinerary,
+                plan.getBudgetTransportation(),
+                plan.getBudgetAccommodation(),
+                plan.getBudgetFood(),
+                plan.getBudgetEtc(),
+                totalBudget
         );
     }
 }

@@ -6,13 +6,17 @@ import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
 import com.example.jejugilmoa.domain.place.repository.CategoryRepository;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.plan.converter.TravelPlanConverter;
+import com.example.jejugilmoa.domain.plan.converter.WaypointConverter;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateRequest;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateResponse;
+import com.example.jejugilmoa.domain.plan.dto.TravelPlanDetailResponse;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanListResponse;
+import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlanPreference;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
+import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanPreferenceRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
@@ -37,9 +41,27 @@ public class TravelPlanService {
 
     private final TravelPlanRepository travelPlanRepository;
     private final TravelPlanPreferenceRepository travelPlanPreferenceRepository;
+    private final TravelCourseRepository travelCourseRepository;
     private final UserRepository userRepository;
     private final PlaceRepository placeRepository;
     private final CategoryRepository categoryRepository;
+
+    @Transactional(readOnly = true)
+    public TravelPlanDetailResponse getPlanDetail(Long planId, Long userId) {
+        TravelPlan plan = travelPlanRepository.findByIdWithPreferences(planId)
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
+        if (!plan.getUser().getId().equals(userId)) {
+            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
+        }
+
+        List<WaypointResponse> waypoints = travelCourseRepository
+                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId)
+                .stream()
+                .map(WaypointConverter::toResponse)
+                .toList();
+
+        return TravelPlanConverter.toDetail(plan, waypoints);
+    }
 
     @Transactional(readOnly = true)
     public List<TravelPlanListResponse> getMyPlans(Long userId, TravelPlanStatus status) {
