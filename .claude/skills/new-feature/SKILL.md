@@ -19,7 +19,8 @@ public interface TravelPlanRepository extends JpaRepository<TravelPlan, Long> {
 }
 ```
 
-- Spatial queries must be native (see `docs/adr/0002-postgis-dual-storage.md`):
+- Spatial queries must be native (see `docs/adr/0002-postgis-dual-storage.md`). `ST_MakePoint`
+  always takes longitude first, latitude second:
   ```java
   @Query(value = """
       SELECT * FROM place p
@@ -28,8 +29,20 @@ public interface TravelPlanRepository extends JpaRepository<TravelPlan, Long> {
       """, nativeQuery = true)
   List<Place> findWithinRadius(double lat, double lng, double radiusMeters);
   ```
+  Other spatial patterns already in the codebase, reuse rather than reinvent:
+  - **Bounding-box / viewport queries** (`p.geom && ST_MakeEnvelope(:minLng,:minLat,:maxLng,:maxLat,4326)`)
+    — see `PlaceRepository.findWithinBounds`.
+  - **Grid-cell aggregation** (bucket lat/lng into an N×N grid with
+    `width_bucket(col::float8, :min, :max, :gridSize)`, clamped with
+    `LEAST(GREATEST(...,1),:gridSize)` to handle the exact-max boundary case) — see
+    `TravelRecordPlaceRepository.aggregateVisitsByGrid` / `PopularPlaceRepository.aggregatePopularityByGrid`
+    and how `MapQueryService` merges two such aggregates in Java rather than one SQL query
+    (avoids join fan-out when the two source tables have different cardinality per place).
 - Soft-deleted entities (`User`, `TravelRecord`): every query must filter `deletedAt IS NULL`
-  (e.g. `findByIdAndDeletedAtIsNull`). See `docs/adr/0003-soft-delete.md`.
+  (e.g. `findByIdAndDeletedAtIsNull`). This includes native queries that join through a
+  soft-deleted entity, not just direct queries on it — e.g. a query joining
+  `travel_record_place` → `travel_record` must still filter `tr.deleted_at IS NULL`.
+  See `docs/adr/0003-soft-delete.md`.
 
 ## 2. Error codes — `domain/<x>/exception/`
 
@@ -70,12 +83,15 @@ public record TravelPlanResponse(Long id, String title, LocalDate startDate,
 
 ## 4. Converter — `domain/<x>/converter/`
 
-Static methods only; keeps mapping out of services.
+`@Component` with instance methods (not static) — this is a Spring bean injected into the
+service, matching `PlaceConverter`/`MapConverter`. Keeps mapping out of services; pure
+mapping only, no thresholds/business logic here.
 
 ```java
+@Component
 public class TravelPlanConverter {
-    public static TravelPlan toEntity(TravelPlanCreateRequest req, User user) { ... }
-    public static TravelPlanResponse toResponse(TravelPlan plan) { ... }
+    public TravelPlan toEntity(TravelPlanCreateRequest req, User user) { ... }
+    public TravelPlanResponse toResponse(TravelPlan plan) { ... }
 }
 ```
 
@@ -87,6 +103,7 @@ public class TravelPlanConverter {
 @Transactional(readOnly = true)
 public class TravelPlanService {
     private final TravelPlanRepository travelPlanRepository;
+    private final TravelPlanConverter travelPlanConverter;
 
     @Transactional  // write methods override readOnly
     public TravelPlanResponse create(TravelPlanCreateRequest request, Long userId) {
@@ -99,7 +116,7 @@ public class TravelPlanService {
     public TravelPlanResponse getById(Long planId) {
         TravelPlan plan = travelPlanRepository.findById(planId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
-        return TravelPlanConverter.toResponse(plan);
+        return travelPlanConverter.toResponse(plan);
     }
 }
 ```
@@ -112,25 +129,34 @@ controllers, never return null/Optional to signal failure across the service bou
 ```java
 @Tag(name = "여행 계획", description = "여행 계획 API")
 @RestController
-@RequestMapping("/api/v1/plans")
+@RequestMapping("/api/plans")
 @RequiredArgsConstructor
-public class TravelPlanController {
+public class TravelPlanController implements TravelPlanControllerDocs {
     private final TravelPlanService travelPlanService;
 
-    @Operation(summary = "여행 계획 생성")
     @PostMapping
-    public ApiResponse<TravelPlanResponse> create(@Valid @RequestBody TravelPlanCreateRequest request) {
+    public ApiResponse<TravelPlanResponse> create(
+            @Valid @RequestBody TravelPlanCreateRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.onSuccess(GeneralSuccessCode.CREATED,
-                travelPlanService.create(request, /* userId: auth 미구현 — TODO */ null));
+                travelPlanService.create(request, principal.getUserId()));
     }
 }
 ```
 
-- Route prefix: `/api/v1/<plural-resource>`.
-- Swagger annotations (`@Tag`, `@Operation`) on everything — Swagger UI is the team's
-  primary API contract surface.
-- Auth is not implemented yet (`SecurityConfig` permits all). Where a userId is needed,
-  leave an explicit `TODO` — do not invent a security context.
+- Route prefix: `/api/<plural-resource>` — no `/v1` (not used anywhere in this codebase).
+- Validate simple query params (page/size/limit/bounds) directly in the controller and
+  `throw new GeneralException(<code>)` on failure; never try-catch. See `PlaceController`
+  or `MapController` for the pattern.
+- Put Swagger `@Operation`/`@ApiResponses`/example-JSON annotations in a sibling
+  `controller/docs/<X>ControllerDocs` interface that the controller `implements`, not inline
+  on the controller — keeps the controller readable. See `PlaceControllerDocs`/`MapControllerDocs`.
+- **Auth is implemented** (JWT via `JwtAuthenticationFilter`, see `docs/auth.md` /
+  ADR-0006) — `SecurityConfig` requires a valid JWT for every route by default. Get the
+  current user via `@AuthenticationPrincipal UserPrincipal principal`, never a `TODO`
+  placeholder or invented user id. Only endpoints meant to be genuinely public (anonymous
+  browsing, like `/api/map/**`) should be added to `SecurityConfig`'s `permitAll` matcher
+  list — that's a deliberate, explicit opt-in per route prefix, not a default.
 
 ## 7. Tests
 

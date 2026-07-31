@@ -1,5 +1,6 @@
 package com.example.jejugilmoa.domain.badge.entity;
 
+import com.example.jejugilmoa.domain.badge.enums.BadgeGroup;
 import com.example.jejugilmoa.domain.badge.enums.BadgeType;
 import com.example.jejugilmoa.domain.user.entity.UserBadge;
 import com.example.jejugilmoa.global.entity.BaseEntity;
@@ -30,6 +31,10 @@ public class Badge extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private BadgeType badgeType; // PLACE, CATEGORY, REGION, HIDDEN
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private BadgeGroup displayGroup; // 탐험/미식/소셜 - 배지함 화면 표시용 그룹
 
     @Column(length = 500)
     private String imageUrl;  // 배지 이미지 URL
