@@ -18,7 +18,7 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
     boolean existsByExternalId(String externalId);
 
     @Query("SELECT p FROM Place p WHERE p.published = true " +
-           "AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\' OR LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\') " +
            "AND (:categoryName IS NULL OR p.category.name = :categoryName)")
     Page<Place> search(@Param("keyword") String keyword, @Param("categoryName") String categoryName, Pageable pageable);
 
