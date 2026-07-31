@@ -12,13 +12,13 @@ public class WaypointConverter {
         Place place = course.getPlace();
         return new WaypointResponse(
                 course.getId(),
+                course.getVisitDate(),
                 course.getSequenceOrder(),
                 place.getId(),
                 place.getName(),
                 place.getCategory().getName(),
                 place.getImageUrl(),
-                place.getAddress(),
-                course.getMemo()
+                place.getAddress()
         );
     }
 }
