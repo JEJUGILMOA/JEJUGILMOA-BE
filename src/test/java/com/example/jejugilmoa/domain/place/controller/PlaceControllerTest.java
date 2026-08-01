@@ -43,7 +43,7 @@ class PlaceControllerTest {
     @Test
     void browse_returns200WithPage() throws Exception {
         var summary = new PlaceSummaryDto(1L, "한라산", "제주시", "img.jpg", "자연");
-        given(placeQueryService.browse(eq("자연"), any()))
+        given(placeQueryService.browse(isNull(), eq("자연"), any()))
             .willReturn(new PageResponse<>(List.of(summary), 0, 20, 1L, 1, true));
 
         mockMvc.perform(get("/api/places?category=자연&page=0&size=20"))

@@ -2,6 +2,7 @@ package com.example.jejugilmoa.domain.record.repository;
 
 import com.example.jejugilmoa.domain.record.entity.TravelRecordPlace;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -115,4 +116,8 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
           AND trp.visited = true
         """)
     List<PlaceAddress> findDistinctVisitedPlacesByUser(@Param("userId") Long userId);
+
+    @Modifying
+    @Query("DELETE FROM TravelRecordPlace rp WHERE rp.travelRecord.id IN :recordIds")
+    void deleteByTravelRecordIdIn(@Param("recordIds") List<Long> recordIds);
 }
