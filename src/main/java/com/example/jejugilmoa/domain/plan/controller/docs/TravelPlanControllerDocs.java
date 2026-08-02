@@ -423,7 +423,7 @@ public interface TravelPlanControllerDocs {
             description = """
                     추천 경유지를 여행 코스의 특정 날짜에 추가합니다.
 
-                    - `visitDate`는 여행 계획의 시작일~종료일 범위 내 날짜여야 합니다. 범위 초과 시 `PLAN400_8`.
+                    - `visitDate`는 여행 계획의 시작일~종료일 범위 내 날짜여야 합니다. 범위 초과 시 `PLAN400_9`.
                     - 같은 장소를 중복 추가하면 `PLAN400_6` 오류가 반환됩니다.
                     - 해당 날짜 내 마지막 순번으로 자동 배정됩니다.
                     - 응답으로 추가 후 전체 경유지 목록(날짜·순서 오름차순)을 반환합니다.
@@ -465,7 +465,7 @@ public interface TravelPlanControllerDocs {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400", description = "날짜 범위 초과 또는 이미 추가된 장소",
                     content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN400_8","message":"여행 날짜 범위에 포함되지 않는 날짜입니다.","result":null}
+                            {"isSuccess":false,"code":"PLAN400_9","message":"여행 날짜 범위에 포함되지 않는 날짜입니다.","result":null}
                             """))
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(

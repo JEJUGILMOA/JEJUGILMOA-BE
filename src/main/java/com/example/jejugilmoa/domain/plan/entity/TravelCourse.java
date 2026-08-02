@@ -68,4 +68,9 @@ public class TravelCourse extends BaseEntity {
 
     private int travelTimeFromPrevious;
 
+    public void checkVisit(LocalDateTime visitedAt) {
+        this.visited = true;
+        this.visitedAt = visitedAt;
+    }
+
 }

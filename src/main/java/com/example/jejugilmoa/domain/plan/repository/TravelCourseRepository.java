@@ -8,8 +8,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface TravelCourseRepository extends JpaRepository<TravelCourse, Long> {
+
+    List<TravelCourse> findAllByTravelPlanIdOrderBySequenceOrderAsc(Long planId);
+
+    // 방문 인증 순서 검증용 — sequenceOrder가 가장 빠른 미방문 경유지 (= 다음에 인증해야 할 경유지)
+    Optional<TravelCourse> findFirstByTravelPlanIdAndVisitedFalseOrderByVisitDateAscSequenceOrderAsc(Long planId);
 
     boolean existsByTravelPlanIdAndPlaceId(Long planId, Long placeId);
 

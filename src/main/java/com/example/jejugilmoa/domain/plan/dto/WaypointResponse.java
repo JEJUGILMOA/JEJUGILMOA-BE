@@ -3,6 +3,7 @@ package com.example.jejugilmoa.domain.plan.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record WaypointResponse(
 
@@ -28,6 +29,12 @@ public record WaypointResponse(
         String imageUrl,
 
         @Schema(description = "주소", example = "제주특별자치도 제주시 애월읍")
-        String address
+        String address,
+
+        @Schema(description = "방문 완료 여부", example = "false")
+        boolean visited,
+
+        @Schema(description = "실제 방문 인증 시각")
+        LocalDateTime visitedAt
 
 ) {}
