@@ -66,7 +66,8 @@ public class GeneralExceptionAdvice {
     public ResponseEntity<ApiResponse<List<String>>> handleValidationException(
             MethodArgumentNotValidException ex
     ) {
-        log.warn("Validation exception occurred", ex);
+        log.warn("Validation exception occurred: fields={}", ex.getBindingResult()
+                .getFieldErrors().stream().map(FieldError::getField).distinct().toList());
 
         List<String> errors = ex.getBindingResult()
                 .getFieldErrors()
@@ -87,7 +88,7 @@ public class GeneralExceptionAdvice {
     public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(
             HttpMessageNotReadableException ex
     ) {
-        log.warn("HttpMessageNotReadable: {}", ex.getMessage());
+        log.warn("HttpMessageNotReadable: request body parsing failed");
         BaseCode code = GeneralErrorCode.BAD_REQUEST;
         return ResponseEntity.status(code.getStatus())
                 .body(ApiResponse.onFailure(code, null));
