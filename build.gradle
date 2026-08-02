@@ -18,7 +18,7 @@ repositories {
 }
 
 dependencies {
-	implementation platform('software.amazon.awssdk:bom:2.31.77')
+    implementation platform('software.amazon.awssdk:bom:2.50.2')
 
 	// Spring
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
