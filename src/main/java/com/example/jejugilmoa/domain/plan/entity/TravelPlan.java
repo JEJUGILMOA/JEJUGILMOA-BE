@@ -124,4 +124,10 @@ public class TravelPlan extends BaseEntity {
 
     private Integer budgetEtc;
 
+    public void updateBudget(Integer transportation, Integer accommodation, Integer food, Integer etc) {
+        this.budgetTransportation = transportation;
+        this.budgetAccommodation = accommodation;
+        this.budgetFood = food;
+        this.budgetEtc = etc;
+    }
 }

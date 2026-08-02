@@ -15,6 +15,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -22,7 +25,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceQueryServiceTest {
@@ -66,6 +72,15 @@ class PlaceQueryServiceTest {
             .isInstanceOf(GeneralException.class)
             .extracting(e -> ((GeneralException) e).getCode())
             .isEqualTo(PlaceErrorCode.PLACE_NOT_FOUND);
+    }
+
+    @Test
+    void browse_escapesLikeWildcardsInKeyword() {
+        given(placeRepository.search(any(), any(), any())).willReturn(Page.empty());
+
+        placeQueryService.browse("%카페_", null, PageRequest.of(0, 10));
+
+        verify(placeRepository).search(eq("\\%카페\\_"), isNull(), any());
     }
 
     @Test

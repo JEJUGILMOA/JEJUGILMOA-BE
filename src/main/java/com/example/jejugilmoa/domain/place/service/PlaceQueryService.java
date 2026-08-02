@@ -27,11 +27,16 @@ public class PlaceQueryService {
     private final PopularPlaceRepository popularPlaceRepository;
     private final PlaceConverter placeConverter;
 
-    public PageResponse<PlaceSummaryDto> browse(String categoryName, Pageable pageable) {
-        var page = (categoryName == null || categoryName.isBlank())
-            ? placeRepository.findByPublishedTrue(pageable)
-            : placeRepository.findByCategoryNameAndPublishedTrue(categoryName, pageable);
-        return PageResponse.of(page.map(placeConverter::toSummary));
+    public PageResponse<PlaceSummaryDto> browse(String keyword, String categoryName, Pageable pageable) {
+        String kw = (keyword == null || keyword.isBlank()) ? null : escapeLike(keyword.trim());
+        String cat = (categoryName == null || categoryName.isBlank()) ? null : categoryName.trim();
+        return PageResponse.of(placeRepository.search(kw, cat, pageable).map(placeConverter::toSummary));
+    }
+
+    private static String escapeLike(String value) {
+        return value.replace("\\", "\\\\")
+                    .replace("%", "\\%")
+                    .replace("_", "\\_");
     }
 
     @Cacheable(value = "popularPlaces", key = "#limit")

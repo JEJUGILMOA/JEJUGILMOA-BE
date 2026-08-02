@@ -65,12 +65,19 @@ public interface PlaceControllerDocs {
     );
 
     @Operation(
-        summary = "카테고리별 장소 목록",
+        summary = "장소 검색 / 카테고리 목록",
         description = """
-            등록된 관광지를 페이지네이션으로 조회합니다.
+            등록된 관광지를 키워드 검색 또는 카테고리 필터로 조회합니다.
 
-            - `category` 미입력 시 전체 장소를 반환합니다.
-            - 사용 가능한 카테고리: `자연`, `음식`, `카페`, `전통시장`, `역사`, `체험`, `쇼핑`, `사진명소`
+            **파라미터 조합**
+            - `keyword`만 입력 → 장소명·주소에서 키워드 포함 검색
+            - `category`만 입력 → 해당 카테고리 전체 조회
+            - `keyword` + `category` → 카테고리 내 키워드 검색
+            - 둘 다 미입력 → 전체 장소 조회
+
+            **검색 대상 필드**: 장소명(`name`), 주소(`address`) — 대소문자 무시
+
+            **사용 가능한 카테고리**: `자연`, `음식`, `카페`, `전통시장`, `역사`, `체험`, `쇼핑`, `사진명소`
             """
     )
     @ApiResponses({
@@ -78,42 +85,92 @@ public interface PlaceControllerDocs {
             responseCode = "200",
             description = "조회 성공",
             content = @Content(
-                examples = @ExampleObject(
-                    value = """
-                        {
-                          "isSuccess": true,
-                          "code": "FOUND200",
-                          "message": "조회에 성공했습니다.",
-                          "result": {
-                            "content": [
-                              {
-                                "id": 1,
-                                "name": "성산일출봉",
-                                "address": "제주특별자치도 서귀포시",
-                                "imageUrl": "https://example.com/seongsan.jpg",
-                                "categoryName": "자연"
+                examples = {
+                    @ExampleObject(
+                        name = "키워드 검색 결과",
+                        summary = "keyword=애월 검색 시",
+                        value = """
+                            {
+                              "isSuccess": true,
+                              "code": "FOUND200",
+                              "message": "조회에 성공했습니다.",
+                              "result": {
+                                "content": [
+                                  {
+                                    "id": 10,
+                                    "name": "애월 카페거리",
+                                    "address": "제주특별자치도 제주시 애월읍",
+                                    "imageUrl": "https://example.com/aewol.jpg",
+                                    "categoryName": "카페"
+                                  },
+                                  {
+                                    "id": 11,
+                                    "name": "애월해안도로",
+                                    "address": "제주특별자치도 제주시 애월읍 애월리",
+                                    "imageUrl": null,
+                                    "categoryName": "자연"
+                                  }
+                                ],
+                                "page": 0,
+                                "size": 20,
+                                "totalElements": 2,
+                                "totalPages": 1,
+                                "last": true
                               }
-                            ],
-                            "page": 0,
-                            "size": 20,
-                            "totalElements": 1,
-                            "totalPages": 1,
-                            "last": true
-                          }
-                        }
-                        """
-                )
+                            }
+                            """
+                    ),
+                    @ExampleObject(
+                        name = "카테고리 필터 결과",
+                        summary = "category=자연 필터 시",
+                        value = """
+                            {
+                              "isSuccess": true,
+                              "code": "FOUND200",
+                              "message": "조회에 성공했습니다.",
+                              "result": {
+                                "content": [
+                                  {
+                                    "id": 1,
+                                    "name": "성산일출봉",
+                                    "address": "제주특별자치도 서귀포시 성산읍",
+                                    "imageUrl": "https://example.com/seongsan.jpg",
+                                    "categoryName": "자연"
+                                  }
+                                ],
+                                "page": 0,
+                                "size": 20,
+                                "totalElements": 1,
+                                "totalPages": 1,
+                                "last": true
+                              }
+                            }
+                            """
+                    )
+                }
+            )
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "잘못된 페이지 파라미터",
+            content = @Content(
+                examples = @ExampleObject(value = """
+                    {"isSuccess":false,"code":"PLACE400_2","message":"페이지 번호는 0 이상이어야 합니다.","result":null}
+                    """)
             )
         )
     })
     ApiResponse<PageResponse<PlaceSummaryDto>> browse(
-        @Parameter(description = "카테고리명 (미입력 시 전체 조회)", example = "자연")
+        @Parameter(description = "검색 키워드 — 장소명·주소 대상 (미입력 시 전체 조회)", example = "애월")
+        @RequestParam(required = false) String keyword,
+
+        @Parameter(description = "카테고리명 필터 (미입력 시 전체 조회)", example = "자연")
         @RequestParam(required = false) String category,
 
         @Parameter(description = "페이지 번호 (0부터 시작)", example = "0")
         @RequestParam(defaultValue = "0") int page,
 
-        @Parameter(description = "페이지 크기", example = "20")
+        @Parameter(description = "페이지 크기 (1~100)", example = "20")
         @RequestParam(defaultValue = "20") int size
     );
 
