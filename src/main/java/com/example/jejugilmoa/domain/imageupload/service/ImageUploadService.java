@@ -51,6 +51,7 @@ public class ImageUploadService {
                 .bucket(awsProperties.s3().bucket())
                 .key(objectKey)
                 .contentType(request.contentType())
+                .contentLength(request.fileSize())
                 .build();
 
         try {
