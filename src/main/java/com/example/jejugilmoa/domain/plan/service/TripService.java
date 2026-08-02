@@ -79,7 +79,7 @@ public class TripService {
         }
 
         TravelCourse nextUnvisited = travelCourseRepository
-                .findFirstByTravelPlanIdAndVisitedFalseOrderBySequenceOrderAsc(tripId)
+                .findFirstByTravelPlanIdAndVisitedFalseOrderByVisitDateAscSequenceOrderAsc(tripId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.WAYPOINT_NOT_FOUND));
         if (!nextUnvisited.getId().equals(target.getId())) {
             throw new GeneralException(PlanErrorCode.WAYPOINT_OUT_OF_ORDER);
