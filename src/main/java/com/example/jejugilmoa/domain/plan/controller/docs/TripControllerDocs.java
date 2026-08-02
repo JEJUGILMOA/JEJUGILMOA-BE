@@ -56,13 +56,13 @@ public interface TripControllerDocs {
                                 "waypoints": [
                                   {
                                     "waypointId": 7,
+                                    "visitDate": "2026-08-15",
                                     "sequenceOrder": 1,
                                     "placeId": 42,
                                     "placeName": "애월 카페거리",
                                     "categoryName": "카페",
                                     "imageUrl": "https://cdn.example.com/42.jpg",
                                     "address": "제주시 애월읍",
-                                    "memo": null,
                                     "visited": false,
                                     "visitedAt": null
                                   }
@@ -154,7 +154,7 @@ public interface TripControllerDocs {
                                     {"isSuccess":false,"code":"PLAN400_11","message":"이미 방문 인증된 경유지입니다.","result":null}
                                     """),
                             @ExampleObject(name = "위치 인증 실패", value = """
-                                    {"isSuccess":false,"code":"PLAN400_12","message":"현재 위치가 장소와 너무 멀리 떨어져 있어 방문 인증할 수 없습니다.","result":null}
+                                    {"isSuccess":false,"code":"PLAN400_12","message":"방문할 경유지와 거리가 멉니다.","result":null}
                                     """),
                             @ExampleObject(name = "순서 위반", value = """
                                     {"isSuccess":false,"code":"PLAN400_13","message":"이전 경유지를 먼저 방문 인증해야 합니다.","result":null}
