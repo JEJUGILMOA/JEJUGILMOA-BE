@@ -90,9 +90,18 @@ erDiagram
     REPORT }o--|| USER : "filed by (reporter_id)"
 
     USER ||--o{ REFRESH_TOKEN : "issued to (user_id)"
+
+    LOCATION_USAGE_LOG {
+        bigint subject_id "User PK value; no FK"
+        string acquisition_path
+        string service_code
+        string recipient
+        timestamptz received_at
+    }
 ```
 
 `Report`는 FK 없이 `targetType(RECORD/PHOTO/USER) + targetId`로 다형 참조한다.
+`LocationUsageLog.subjectId`도 사용자 탈퇴 후 보존을 위해 User 연관관계와 FK 없이 PK 값만 저장한다.
 
 ## 주요 설계 결정 (요약 — 상세는 ADR)
 
