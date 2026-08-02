@@ -6,21 +6,22 @@ import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 
 public class WaypointConverter {
 
-    private WaypointConverter() {}
+    private WaypointConverter() {
+    }
 
     public static WaypointResponse toResponse(TravelCourse course) {
         Place place = course.getPlace();
         return new WaypointResponse(
-                course.getId(),
-                course.getSequenceOrder(),
-                place.getId(),
-                place.getName(),
-                place.getCategory().getName(),
-                place.getImageUrl(),
-                place.getAddress(),
-                course.getMemo(),
-                course.isVisited(),
-                course.getVisitedAt()
+            course.getId(),
+            course.getVisitDate(),
+            course.getSequenceOrder(),
+            place.getId(),
+            place.getName(),
+            place.getCategory().getName(),
+            place.getImageUrl(),
+            place.getAddress(),
+            course.isVisited(),
+            course.getVisitedAt()
         );
     }
 }

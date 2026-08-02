@@ -101,11 +101,11 @@ public interface TripControllerDocs {
                     진행중인 여행의 경유지를 방문 완료로 체크합니다. GPS 기반 위치 인증을 거칩니다.
 
                     - 경유지는 `sequenceOrder` 순서대로만 체크할 수 있습니다. 아직 방문하지 않은
-                      경유지 중 순번이 가장 빠른 것이 아니면 `PLAN400_12` 오류가 반환됩니다.
+                      경유지 중 순번이 가장 빠른 것이 아니면 `PLAN400_13` 오류가 반환됩니다.
                     - 요청의 `latitude`/`longitude`(현재 위치)가 경유지 장소로부터 반경 100m 이내가
-                      아니면 `PLAN400_11` 오류가 반환됩니다 (일반적인 GPS 오차를 감안한 값).
-                    - 여행이 진행중(IN_PROGRESS)이 아니면 `PLAN400_9` 오류가 반환됩니다.
-                    - 이미 방문 체크된 경유지를 다시 체크하면 `PLAN400_10` 오류가 반환됩니다.
+                      아니면 `PLAN400_12` 오류가 반환됩니다 (일반적인 GPS 오차를 감안한 값).
+                    - 여행이 진행중(IN_PROGRESS)이 아니면 `PLAN400_10` 오류가 반환됩니다.
+                    - 이미 방문 체크된 경유지를 다시 체크하면 `PLAN400_11` 오류가 반환됩니다.
                     - 응답으로 방문 체크 후 전체 경유지 목록(순서 오름차순)을 반환합니다.
                     """
     )
@@ -130,13 +130,13 @@ public interface TripControllerDocs {
                               "result": [
                                 {
                                   "waypointId": 7,
+                                  "visitDate": "2026-08-15",
                                   "sequenceOrder": 1,
                                   "placeId": 42,
                                   "placeName": "애월 카페거리",
                                   "categoryName": "카페",
                                   "imageUrl": "https://cdn.example.com/42.jpg",
                                   "address": "제주시 애월읍",
-                                  "memo": null,
                                   "visited": true,
                                   "visitedAt": "2026-07-31T09:12:34"
                                 }
@@ -148,16 +148,16 @@ public interface TripControllerDocs {
                     responseCode = "400", description = "진행중이 아닌 여행, 이미 방문 체크된 경유지, 순서 위반, 또는 위치 인증 실패",
                     content = @Content(examples = {
                             @ExampleObject(name = "진행중이 아닌 여행", value = """
-                                    {"isSuccess":false,"code":"PLAN400_9","message":"진행중인 여행이 아닙니다.","result":null}
+                                    {"isSuccess":false,"code":"PLAN400_10","message":"진행중인 여행이 아닙니다.","result":null}
                                     """),
                             @ExampleObject(name = "이미 방문 체크됨", value = """
-                                    {"isSuccess":false,"code":"PLAN400_10","message":"이미 방문 체크된 경유지입니다.","result":null}
+                                    {"isSuccess":false,"code":"PLAN400_11","message":"이미 방문 체크된 경유지입니다.","result":null}
                                     """),
                             @ExampleObject(name = "위치 인증 실패", value = """
-                                    {"isSuccess":false,"code":"PLAN400_11","message":"현재 위치가 장소와 너무 멀리 떨어져 있어 방문 체크할 수 없습니다.","result":null}
+                                    {"isSuccess":false,"code":"PLAN400_12","message":"현재 위치가 장소와 너무 멀리 떨어져 있어 방문 체크할 수 없습니다.","result":null}
                                     """),
                             @ExampleObject(name = "순서 위반", value = """
-                                    {"isSuccess":false,"code":"PLAN400_12","message":"이전 경유지를 먼저 방문 체크해야 합니다.","result":null}
+                                    {"isSuccess":false,"code":"PLAN400_13","message":"이전 경유지를 먼저 방문 체크해야 합니다.","result":null}
                                     """)
                     })
             ),

@@ -116,4 +116,12 @@ public class TravelPlan extends BaseEntity {
         this.actualStartedAt = startedAt;
     }
 
+    private Integer budgetTransportation;
+
+    private Integer budgetAccommodation;
+
+    private Integer budgetFood;
+
+    private Integer budgetEtc;
+
 }
