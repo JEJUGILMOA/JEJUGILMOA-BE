@@ -27,6 +27,13 @@ spring:
 server:
   shutdown: graceful
 
+aws:
+  region: ${AWS_REGION:ap-northeast-2}
+  s3:
+    bucket: ${AWS_S3_BUCKET:jejugilmoa-dev-images-bk}
+    presign-expiration-seconds: ${AWS_S3_PRESIGN_EXPIRATION_SECONDS:600}
+    max-image-size-bytes: ${AWS_S3_MAX_IMAGE_SIZE_BYTES:10485760}
+
 jwt:
   access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:1800000}    # 30분
   refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:1209600000}  # 14일
