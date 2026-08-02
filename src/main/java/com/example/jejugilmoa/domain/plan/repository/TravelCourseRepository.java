@@ -14,7 +14,7 @@ public interface TravelCourseRepository extends JpaRepository<TravelCourse, Long
 
     List<TravelCourse> findAllByTravelPlanIdOrderBySequenceOrderAsc(Long planId);
 
-    // 방문 체크 순서 검증용 — sequenceOrder가 가장 빠른 미방문 경유지 (= 다음에 체크해야 할 경유지)
+    // 방문 인증 순서 검증용 — sequenceOrder가 가장 빠른 미방문 경유지 (= 다음에 인증해야 할 경유지)
     Optional<TravelCourse> findFirstByTravelPlanIdAndVisitedFalseOrderBySequenceOrderAsc(Long planId);
 
     boolean existsByTravelPlanIdAndPlaceId(Long planId, Long placeId);

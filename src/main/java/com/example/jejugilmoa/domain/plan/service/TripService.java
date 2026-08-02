@@ -51,16 +51,16 @@ public class TripService {
     }
 
     /**
-     * 진행중인 여행의 경유지를 방문 체크합니다.
+     * 진행중인 여행의 경유지를 방문 인증합니다.
      *
-     * <p>경유지는 {@code sequenceOrder} 순서대로만 체크할 수 있습니다 — 아직 미방문인
+     * <p>경유지는 {@code sequenceOrder} 순서대로만 인증할 수 있습니다 — 아직 미방문인
      * 경유지 중 순번이 가장 빠른 것이 아니면 {@code WAYPOINT_OUT_OF_ORDER} 예외가 발생합니다.</p>
      *
      * <p>요청에 담긴 현재 위치(latitude/longitude)가 경유지 장소 반경
      * {@value #VISIT_RADIUS_METERS}m 이내가 아니면 {@code WAYPOINT_LOCATION_MISMATCH}
-     * 예외가 발생해 실제 방문하지 않은 체크인을 막습니다.</p>
+     * 예외가 발생해 실제 방문하지 않은 인증을 막습니다.</p>
      *
-     * @return 방문 체크 후 갱신된 전체 경유지 목록 (순서 오름차순)
+     * @return 방문 인증 후 갱신된 전체 경유지 목록 (순서 오름차순)
      */
     @Transactional
     public List<WaypointResponse> checkVisit(Long tripId, Long userId, VisitCheckRequest request) {
@@ -96,7 +96,7 @@ public class TripService {
         return waypointService.listWaypoints(tripId);
     }
 
-    // SELECT FOR UPDATE: 같은 plan에 대한 시작/방문체크 요청을 직렬화
+    // SELECT FOR UPDATE: 같은 plan에 대한 시작/방문인증 요청을 직렬화
     private TravelPlan findPlanAndVerifyOwner(Long planId, Long userId) {
         TravelPlan plan = travelPlanRepository.findByIdForUpdate(planId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));

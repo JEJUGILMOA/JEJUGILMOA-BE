@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record VisitCheckRequest(
 
-        @Schema(description = "방문 체크할 경유지(TravelCourse) ID", example = "7")
+        @Schema(description = "방문 인증할 경유지(TravelCourse) ID", example = "7")
         @NotNull(message = "경유지 ID는 필수입니다.")
         Long waypointId,
 

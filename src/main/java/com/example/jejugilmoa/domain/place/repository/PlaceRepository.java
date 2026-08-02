@@ -144,7 +144,7 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
     );
 
     /**
-     * 주어진 좌표가 장소 반경(radiusMeters) 이내인지 확인합니다. 방문 체크(GPS 인증)에 사용.
+     * 주어진 좌표가 장소 반경(radiusMeters) 이내인지 확인합니다. 방문 인증(GPS 기반)에 사용.
      * ST_MakePoint는 경도(lng) 우선, 위도(lat) 후순으로 전달합니다 (ADR-0002).
      */
     @Query(value = """

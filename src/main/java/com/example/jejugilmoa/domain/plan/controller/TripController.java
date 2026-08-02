@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "여행 진행", description = "여행 시작 및 진행 중 활동(방문 체크 등)")
+@Tag(name = "여행 진행", description = "여행 시작 및 진행 중 활동(방문 인증 등)")
 @RestController
 @RequestMapping("/api/trips")
 @RequiredArgsConstructor

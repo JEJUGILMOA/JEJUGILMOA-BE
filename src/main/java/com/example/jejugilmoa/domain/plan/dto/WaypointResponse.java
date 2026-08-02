@@ -34,7 +34,7 @@ public record WaypointResponse(
         @Schema(description = "방문 완료 여부", example = "false")
         boolean visited,
 
-        @Schema(description = "실제 방문 체크 시각")
+        @Schema(description = "실제 방문 인증 시각")
         LocalDateTime visitedAt
 
 ) {}
