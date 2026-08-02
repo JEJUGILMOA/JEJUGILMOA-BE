@@ -18,6 +18,7 @@ repositories {
 }
 
 dependencies {
+	implementation platform('software.amazon.awssdk:bom:2.31.77')
 
 	// Spring
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
@@ -46,6 +47,9 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+	// AWS SDK v2 (EC2 Instance Profile을 포함한 기본 자격증명 체인 사용)
+	implementation 'software.amazon.awssdk:s3'
 
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
