@@ -203,14 +203,17 @@ public class RecommendationService {
 
         Set<String> excludeSet = new HashSet<>(request.excludeContentIds());
 
-        // 경유지별 병렬 호출
-        List<CompletableFuture<List<LocationBasedItem>>> futures = request.waypoints().stream()
-                .map(wp -> CompletableFuture.supplyAsync(() -> {
+        // 경유지별 병렬 호출 (좌표는 코스에 포함된 Place에서 추출)
+        List<CompletableFuture<List<LocationBasedItem>>> futures = courses.stream()
+                .map(c -> c.getPlace())
+                .filter(p -> p.getLatitude() != null && p.getLongitude() != null)
+                .map(p -> CompletableFuture.supplyAsync(() -> {
+                    double lat = p.getLatitude().doubleValue();
+                    double lng = p.getLongitude().doubleValue();
                     try {
-                        return korServiceClient.locationBasedList1(
-                                wp.lat(), wp.lng(), NEARBY_RADIUS_METERS, NEARBY_NUM_OF_ROWS);
+                        return korServiceClient.locationBasedList1(lat, lng, NEARBY_RADIUS_METERS, NEARBY_NUM_OF_ROWS);
                     } catch (TourApiException e) {
-                        log.warn("locationBasedList1 호출 실패: lat={}, lng={}", wp.lat(), wp.lng(), e);
+                        log.warn("locationBasedList1 호출 실패: lat={}, lng={}", lat, lng, e);
                         return List.<LocationBasedItem>of();
                     }
                 }))

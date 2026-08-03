@@ -422,7 +422,8 @@ public interface TravelPlanControllerDocs {
     @Operation(
         summary = "경유지 근처 추천 장소 조회",
         description = """
-                    경유지 좌표들을 기준으로 TourAPI(`locationBasedList1`)를 호출해 근처 관광정보 3개를 추천합니다.
+                    여행 계획에 추가된 경유지 좌표를 기준으로 TourAPI(`locationBasedList2`)를 호출해 근처 관광정보 3개를 추천합니다.
+                    경유지 좌표는 서버에서 자동으로 추출하므로 별도 전달이 불필요합니다.
 
                     **추천 우선순위**
                     - 현재 코스에 없는 카테고리 장소를 우선 추천합니다.
@@ -431,7 +432,7 @@ public interface TravelPlanControllerDocs {
 
                     **다시 추천**
                     - 이미 노출된 장소의 `contentId`를 `excludeContentIds`에 누적 전달하면 새로운 3개를 반환합니다.
-                    - `hasMore: false`이면 TourAPI 후보가 소진된 것이므로 프론트에서 Kakao API fallback으로 전환하세요.
+                    - `hasMore: false`이면 TourAPI 후보가 소진된 것이므로 프론트에서 Naver API fallback으로 전환하세요.
                     """
     )
     @RequestBody(
@@ -445,10 +446,6 @@ public interface TravelPlanControllerDocs {
                     summary = "처음 추천 요청 (excludeContentIds 빈 배열)",
                     value = """
                                             {
-                                              "waypoints": [
-                                                { "lat": 33.4996, "lng": 126.5312 },
-                                                { "lat": 33.3617, "lng": 126.5319 }
-                                              ],
                                               "excludeContentIds": []
                                             }
                                             """
@@ -458,10 +455,6 @@ public interface TravelPlanControllerDocs {
                     summary = "이전에 노출된 contentId를 누적해서 전달",
                     value = """
                                             {
-                                              "waypoints": [
-                                                { "lat": 33.4996, "lng": 126.5312 },
-                                                { "lat": 33.3617, "lng": 126.5319 }
-                                              ],
                                               "excludeContentIds": ["126508", "264570", "987654"]
                                             }
                                             """
@@ -493,12 +486,6 @@ public interface TravelPlanControllerDocs {
                                 "hasMore": true
                               }
                             }
-                            """))
-        ),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "400", description = "waypoints 누락",
-            content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"COMMON400_1","message":"경유지 좌표를 1개 이상 입력해주세요.","result":null}
                             """))
         ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
