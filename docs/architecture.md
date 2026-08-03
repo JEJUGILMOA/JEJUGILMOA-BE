@@ -110,6 +110,5 @@ erDiagram
 | 응답 봉투 | `ApiResponse` + `BaseCode` enum 체계 | [0001](adr/0001-api-response-envelope.md) |
 | 공간 데이터 | `Place`에 lat/lng(BigDecimal)와 PostGIS `geom` **이중 저장** — 항상 같이 갱신 | [0002](adr/0002-postgis-dual-storage.md) |
 | 소프트 삭제 | `deletedAt` timestamp (User, TravelRecord) — 조회 시 필터 필수 | [0003](adr/0003-soft-delete.md) |
-데이터베이스 스키마 변경은 Flyway를 통해 관리하며,
-마이그레이션 파일은 `src/main/resources/db/migration` 경로에 버전 순서대로 추가한다.
+| 데이터베이스 스키마 | Flyway를 통해 관리하며, 마이그레이션 파일은 `src/main/resources/db/migration` 경로에 버전 순서대로 추가한다. | — |
 | 인증 | 외부 OAuth 로그인 + 앱 자체 JWT(액세스/리프레시, HttpOnly 쿠키). 리프레시 토큰은 DB 저장, 재발급 시 회전 + 재사용 탐지. **인가는 여전히 미구현 — 전 요청 permitAll** | [0006](adr/0006-jwt-cookie-auth.md) |
