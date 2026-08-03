@@ -17,10 +17,13 @@ import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import com.example.jejugilmoa.global.external.tourapi.KorServiceClient;
 import com.example.jejugilmoa.global.external.tourapi.TourApiException;
 import com.example.jejugilmoa.global.external.tourapi.dto.LocationBasedItem;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -69,6 +72,22 @@ public class RecommendationService {
     private final TravelCourseRepository travelCourseRepository;
     private final PlaceRepository placeRepository;
     private final KorServiceClient korServiceClient;
+    private final PlatformTransactionManager txManager;
+
+    private TransactionTemplate readOnlyTx;
+
+    @PostConstruct
+    void init() {
+        readOnlyTx = new TransactionTemplate(txManager);
+        readOnlyTx.setReadOnly(true);
+    }
+
+    // DB 조회 결과를 트랜잭션 밖으로 전달하기 위한 값 객체
+    private record NearbyQueryContext(
+            Set<String> addedExternalIds,
+            Set<Integer> existingTypeIds,
+            List<double[]> coords
+    ) {}
 
     /**
      * 경유지를 추천합니다 (최초 추천 / 재추천 공통 진입점).
@@ -182,34 +201,40 @@ public class RecommendationService {
      *   최대 3개를 반환하며, 추가 후보가 남아 있으면 {@code hasMore=true}로 응답합니다.
      */
     public NearbyPlaceRecommendResponse recommendNearby(Long planId, Long userId, NearbyPlaceRecommendRequest request) {
-        TravelPlan plan = travelPlanRepository.findById(planId)
-                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
-        verifyOwner(plan, userId);
+        // DB 조회만 트랜잭션 안에서 수행하고 커넥션을 즉시 반납
+        NearbyQueryContext ctx = readOnlyTx.execute(status -> {
+            TravelPlan plan = travelPlanRepository.findById(planId)
+                    .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
+            verifyOwner(plan, userId);
 
-        List<TravelCourse> courses = travelCourseRepository
-                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId);
+            List<TravelCourse> courses = travelCourseRepository
+                    .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId);
 
-        // 이미 추가된 장소의 TourAPI contentId (externalId)
-        Set<String> addedExternalIds = courses.stream()
-                .map(c -> c.getPlace().getExternalId())
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+            Set<String> addedExternalIds = courses.stream()
+                    .map(c -> c.getPlace().getExternalId())
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
 
-        // 현재 코스 카테고리명 → TourAPI contentTypeId 변환 (우선순위 판단용)
-        Set<Integer> existingTypeIds = courses.stream()
-                .map(c -> c.getPlace().getCategory().getName())
-                .flatMap(name -> CATEGORY_CONTENT_TYPES.getOrDefault(name, Set.of()).stream())
-                .collect(Collectors.toSet());
+            Set<Integer> existingTypeIds = courses.stream()
+                    .map(c -> c.getPlace().getCategory().getName())
+                    .flatMap(name -> CATEGORY_CONTENT_TYPES.getOrDefault(name, Set.of()).stream())
+                    .collect(Collectors.toSet());
 
+            List<double[]> coords = courses.stream()
+                    .map(TravelCourse::getPlace)
+                    .filter(p -> p.getLatitude() != null && p.getLongitude() != null)
+                    .map(p -> new double[]{p.getLatitude().doubleValue(), p.getLongitude().doubleValue()})
+                    .toList();
+
+            return new NearbyQueryContext(addedExternalIds, existingTypeIds, coords);
+        });
+
+        // 트랜잭션 종료 후 TourAPI 병렬 호출
         Set<String> excludeSet = new HashSet<>(request.excludeContentIds());
 
-        // 경유지별 병렬 호출 (좌표는 코스에 포함된 Place에서 추출)
-        List<CompletableFuture<List<LocationBasedItem>>> futures = courses.stream()
-                .map(c -> c.getPlace())
-                .filter(p -> p.getLatitude() != null && p.getLongitude() != null)
-                .map(p -> CompletableFuture.supplyAsync(() -> {
-                    double lat = p.getLatitude().doubleValue();
-                    double lng = p.getLongitude().doubleValue();
+        List<CompletableFuture<List<LocationBasedItem>>> futures = ctx.coords().stream()
+                .map(latLng -> CompletableFuture.supplyAsync(() -> {
+                    double lat = latLng[0], lng = latLng[1];
                     try {
                         return korServiceClient.locationBasedList1(lat, lng, NEARBY_RADIUS_METERS, NEARBY_NUM_OF_ROWS);
                     } catch (TourApiException e) {
@@ -228,7 +253,7 @@ public class RecommendationService {
 
         // 이미 추가된 장소 및 이전 노출 장소 제외
         List<LocationBasedItem> candidates = deduplicated.values().stream()
-                .filter(item -> !addedExternalIds.contains(item.contentid()))
+                .filter(item -> !ctx.addedExternalIds().contains(item.contentid()))
                 .filter(item -> !excludeSet.contains(item.contentid()))
                 .toList();
 
@@ -238,7 +263,7 @@ public class RecommendationService {
         List<LocationBasedItem> priority = new ArrayList<>();
         List<LocationBasedItem> fallback = new ArrayList<>();
         for (LocationBasedItem item : candidates) {
-            if (!existingTypeIds.contains(parseTypeId(item.contenttypeid()))) {
+            if (!ctx.existingTypeIds().contains(parseTypeId(item.contenttypeid()))) {
                 priority.add(item);
             } else {
                 fallback.add(item);
