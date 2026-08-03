@@ -251,10 +251,11 @@ public class RecommendationService {
                 .flatMap(List::stream)
                 .forEach(item -> deduplicated.putIfAbsent(item.contentid(), item));
 
-        // 이미 추가된 장소 및 이전 노출 장소 제외
+        // 이미 추가된 장소, 이전 노출 장소, 좌표 파싱 불가 항목 제외
         List<LocationBasedItem> candidates = deduplicated.values().stream()
                 .filter(item -> !ctx.addedExternalIds().contains(item.contentid()))
                 .filter(item -> !excludeSet.contains(item.contentid()))
+                .filter(item -> isValidCoord(item.mapx()) && isValidCoord(item.mapy()))
                 .toList();
 
         boolean hasMore = candidates.size() > NEARBY_RESULT_SIZE;
@@ -299,9 +300,14 @@ public class RecommendationService {
                 item.addr1(),
                 item.firstimage(),
                 parseDist(item.dist()),
-                parseDouble(item.mapx()),
-                parseDouble(item.mapy())
+                Double.parseDouble(item.mapx()),
+                Double.parseDouble(item.mapy())
         );
+    }
+
+    private boolean isValidCoord(String value) {
+        if (value == null || value.isBlank()) return false;
+        try { Double.parseDouble(value); return true; } catch (NumberFormatException e) { return false; }
     }
 
     private int parseTypeId(String value) {
@@ -311,11 +317,6 @@ public class RecommendationService {
     private int parseDist(String value) {
         if (value == null || value.isBlank()) return Integer.MAX_VALUE;
         try { return (int) Double.parseDouble(value); } catch (NumberFormatException e) { return Integer.MAX_VALUE; }
-    }
-
-    private double parseDouble(String value) {
-        if (value == null || value.isBlank()) return 0.0;
-        try { return Double.parseDouble(value); } catch (NumberFormatException e) { return 0.0; }
     }
 
     private void verifyOwner(TravelPlan plan, Long userId) {
