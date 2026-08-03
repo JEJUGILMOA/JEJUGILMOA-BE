@@ -414,6 +414,113 @@ public interface TravelPlanControllerDocs {
             @Valid @org.springframework.web.bind.annotation.RequestBody RecommendationSkipRequest request
     );
 
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 경유지 근처 추천 장소 (TourAPI)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Operation(
+        summary = "경유지 근처 추천 장소 조회",
+        description = """
+                    경유지 좌표들을 기준으로 TourAPI(`locationBasedList1`)를 호출해 근처 관광정보 3개를 추천합니다.
+
+                    **추천 우선순위**
+                    - 현재 코스에 없는 카테고리 장소를 우선 추천합니다.
+                    - 다른 카테고리가 3개 미만이면 같은 카테고리로 보충합니다.
+                    - 각 경유지 반경 5km 내 결과를 거리 오름차순으로 정렬합니다.
+
+                    **다시 추천**
+                    - 이미 노출된 장소의 `contentId`를 `excludeContentIds`에 누적 전달하면 새로운 3개를 반환합니다.
+                    - `hasMore: false`이면 TourAPI 후보가 소진된 것이므로 프론트에서 Kakao API fallback으로 전환하세요.
+                    """
+    )
+    @RequestBody(
+        required = true,
+        content = @Content(
+            mediaType = "application/json",
+            schema = @Schema(implementation = NearbyPlaceRecommendRequest.class),
+            examples = {
+                @ExampleObject(
+                    name = "최초 추천",
+                    summary = "처음 추천 요청 (excludeContentIds 빈 배열)",
+                    value = """
+                                            {
+                                              "waypoints": [
+                                                { "lat": 33.4996, "lng": 126.5312 },
+                                                { "lat": 33.3617, "lng": 126.5319 }
+                                              ],
+                                              "excludeContentIds": []
+                                            }
+                                            """
+                ),
+                @ExampleObject(
+                    name = "다시 추천",
+                    summary = "이전에 노출된 contentId를 누적해서 전달",
+                    value = """
+                                            {
+                                              "waypoints": [
+                                                { "lat": 33.4996, "lng": 126.5312 },
+                                                { "lat": 33.3617, "lng": 126.5319 }
+                                              ],
+                                              "excludeContentIds": ["126508", "264570", "987654"]
+                                            }
+                                            """
+                )
+            }
+        )
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200", description = "추천 성공",
+            content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": {
+                                "recommendations": [
+                                  {
+                                    "contentId": "126508",
+                                    "contentTypeId": 14,
+                                    "title": "제주 민속자연사박물관",
+                                    "address": "제주특별자치도 제주시 일주동로 17",
+                                    "imageUrl": "https://cdn.visitjeju.net/photo/museum.jpg",
+                                    "dist": 320,
+                                    "mapX": 126.5312,
+                                    "mapY": 33.4996
+                                  }
+                                ],
+                                "hasMore": true
+                              }
+                            }
+                            """))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400", description = "waypoints 누락",
+            content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"COMMON400_1","message":"경유지 좌표를 1개 이상 입력해주세요.","result":null}
+                            """))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403", description = "접근 권한 없음",
+            content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404", description = "여행 계획 없음",
+            content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                            """))
+        )
+    })
+    ApiResponse<NearbyPlaceRecommendResponse> recommendNearbyPlaces(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @Parameter(description = "여행 계획 ID") Long planId,
+        @Valid @org.springframework.web.bind.annotation.RequestBody NearbyPlaceRecommendRequest request
+    );
+
+
     // ──────────────────────────────────────────────────────────────────────────
     // 경유지 추가 / 제거
     // ──────────────────────────────────────────────────────────────────────────
