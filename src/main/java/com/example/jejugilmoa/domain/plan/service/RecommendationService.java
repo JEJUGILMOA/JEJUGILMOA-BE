@@ -194,7 +194,7 @@ public class RecommendationService {
     }
 
     /**
-     * 경유지 좌표 기반 주변 추천 장소 조회 (TourAPI locationBasedList1).
+     * 경유지 좌표 기반 주변 추천 장소 조회 (TourAPI locationBasedList2).
      *   각 경유지 좌표로 TourAPI를 병렬 호출해 반경 5km 내 관광정보를 가져옵니다.
      *   이미 추가된 경유지와 이전에 노출된 장소({@code excludeContentIds})를 제외합니다.
      *   현재 코스에 없는 카테고리를 우선 추천하고, 부족하면 같은 카테고리로 보충합니다.
@@ -236,9 +236,9 @@ public class RecommendationService {
                 .map(latLng -> CompletableFuture.supplyAsync(() -> {
                     double lat = latLng[0], lng = latLng[1];
                     try {
-                        return korServiceClient.locationBasedList1(lat, lng, NEARBY_RADIUS_METERS, NEARBY_NUM_OF_ROWS);
+                        return korServiceClient.locationBasedList2(lat, lng, NEARBY_RADIUS_METERS, NEARBY_NUM_OF_ROWS);
                     } catch (TourApiException e) {
-                        log.warn("locationBasedList1 호출 실패: lat={}, lng={}", lat, lng, e);
+                        log.warn("locationBasedList2 호출 실패: lat={}, lng={}", lat, lng, e);
                         return List.<LocationBasedItem>of();
                     }
                 }))

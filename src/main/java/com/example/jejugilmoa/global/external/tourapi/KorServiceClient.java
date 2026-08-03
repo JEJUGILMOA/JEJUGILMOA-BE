@@ -34,10 +34,10 @@ public class KorServiceClient {
     }
 
     /**
-     * 위치기반 관광정보 조회 (locationBasedList1)
+     * 위치기반 관광정보 조회 (locationBasedList2)
      * mapX=경도, mapY=위도 순서 (ADR-0002 동일 규칙)
      */
-    public List<LocationBasedItem> locationBasedList1(double lat, double lng, int radiusMeters, int numOfRows) {
+    public List<LocationBasedItem> locationBasedList2(double lat, double lng, int radiusMeters, int numOfRows) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/locationBasedList2")
                 .queryParam("serviceKey", serviceKey)
                 .queryParam("MobileOS", MOBILE_OS)
@@ -57,7 +57,7 @@ public class KorServiceClient {
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
-            throw new TourApiException("KorService2 locationBasedList2 호출 오류", e);
+            throw new TourApiException("locationBasedList2 호출 오류", e);
         }
 
         if (response == null || !response.isSuccess()) {
