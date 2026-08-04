@@ -24,7 +24,11 @@ public enum PlanErrorCode implements BaseCode {
     TRIP_NOT_IN_PROGRESS(HttpStatus.BAD_REQUEST, "PLAN400_10", "진행중인 여행이 아닙니다."),
     WAYPOINT_ALREADY_VISITED(HttpStatus.BAD_REQUEST, "PLAN400_11", "이미 방문 인증된 경유지입니다."),
     WAYPOINT_LOCATION_MISMATCH(HttpStatus.BAD_REQUEST, "PLAN400_12", "방문할 경유지와 거리가 멉니다."),
-    WAYPOINT_OUT_OF_ORDER(HttpStatus.BAD_REQUEST, "PLAN400_13", "이전 경유지를 먼저 방문 인증해야 합니다.");
+    WAYPOINT_OUT_OF_ORDER(HttpStatus.BAD_REQUEST, "PLAN400_13", "이전 경유지를 먼저 방문 인증해야 합니다."),
+    SHARE_TOKEN_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN404_4", "유효한 여행 계획 공유 링크를 찾을 수 없습니다."),
+    SHARE_LINK_EXPIRED(HttpStatus.GONE, "PLAN410_1", "여행 계획 공유 링크가 만료되었습니다."),
+    SHARE_LINK_INACTIVE(HttpStatus.NOT_FOUND, "PLAN404_5", "유효한 여행 계획 공유 링크를 찾을 수 없습니다."),
+    SHARE_LINK_SAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "PLAN500_1", "여행 계획 공유 링크를 생성할 수 없습니다.");
 
 
     private final HttpStatus status;
