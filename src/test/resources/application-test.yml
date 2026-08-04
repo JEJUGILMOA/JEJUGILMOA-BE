@@ -4,3 +4,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+app:
+  location-usage:
+    retention:
+      enabled: false

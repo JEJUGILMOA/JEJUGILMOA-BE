@@ -23,4 +23,9 @@ public record VisitCheckRequest(
         @DecimalMax(value = "180", message = "경도 값이 올바르지 않습니다.")
         Double longitude
 
-) {}
+) {
+    @Override
+    public String toString() {
+        return "VisitCheckRequest[waypointId=" + waypointId + ", location=REDACTED]";
+    }
+}

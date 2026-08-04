@@ -1,6 +1,7 @@
 package com.example.jejugilmoa.domain.plan.service;
 
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
+import com.example.jejugilmoa.domain.locationusage.service.LocationUsageLogService;
 import com.example.jejugilmoa.domain.plan.converter.TripConverter;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
@@ -32,6 +33,7 @@ public class TripService {
     private final TravelCourseRepository travelCourseRepository;
     private final PlaceRepository placeRepository;
     private final WaypointService waypointService;
+    private final LocationUsageLogService locationUsageLogService;
 
     /**
      * 여행 계획(DRAFT)을 시작해 진행중(IN_PROGRESS) 상태로 전환합니다.
@@ -64,6 +66,8 @@ public class TripService {
      */
     @Transactional
     public List<WaypointResponse> checkVisit(Long tripId, Long userId, VisitCheckRequest request) {
+        locationUsageLogService.recordVisitVerification(userId);
+
         TravelPlan plan = findPlanAndVerifyOwner(tripId, userId);
 
         if (plan.getStatus() != TravelPlanStatus.IN_PROGRESS) {

@@ -90,9 +90,18 @@ erDiagram
     REPORT }o--|| USER : "filed by (reporter_id)"
 
     USER ||--o{ REFRESH_TOKEN : "issued to (user_id)"
+
+    LOCATION_USAGE_LOG {
+        bigint subject_id "User PK value; no FK"
+        string acquisition_path
+        string service_code
+        string recipient
+        timestamptz received_at
+    }
 ```
 
 `Report`는 FK 없이 `targetType(RECORD/PHOTO/USER) + targetId`로 다형 참조한다.
+`LocationUsageLog.subjectId`도 사용자 탈퇴 후 보존을 위해 User 연관관계와 FK 없이 PK 값만 저장한다.
 
 ## 주요 설계 결정 (요약 — 상세는 ADR)
 
@@ -101,5 +110,5 @@ erDiagram
 | 응답 봉투 | `ApiResponse` + `BaseCode` enum 체계 | [0001](adr/0001-api-response-envelope.md) |
 | 공간 데이터 | `Place`에 lat/lng(BigDecimal)와 PostGIS `geom` **이중 저장** — 항상 같이 갱신 | [0002](adr/0002-postgis-dual-storage.md) |
 | 소프트 삭제 | `deletedAt` timestamp (User, TravelRecord) — 조회 시 필터 필수 | [0003](adr/0003-soft-delete.md) |
-| 스키마 관리 | dev=`update`, prod=`validate`. 마이그레이션 도구는 미도입 (제안 상태) | [0005](adr/0005-schema-management.md) |
+| 데이터베이스 스키마 | Flyway를 통해 관리하며, 마이그레이션 파일은 `src/main/resources/db/migration` 경로에 버전 순서대로 추가한다. | — |
 | 인증 | 외부 OAuth 로그인 + 앱 자체 JWT(액세스/리프레시, HttpOnly 쿠키). 리프레시 토큰은 DB 저장, 재발급 시 회전 + 재사용 탐지. **인가는 여전히 미구현 — 전 요청 permitAll** | [0006](adr/0006-jwt-cookie-auth.md) |
