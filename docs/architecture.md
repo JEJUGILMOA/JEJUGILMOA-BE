@@ -69,6 +69,7 @@ erDiagram
     USER ||--o{ TRAVEL_PLAN : creates
     TRAVEL_PLAN ||--o{ TRAVEL_COURSE : "ordered stops"
     TRAVEL_PLAN ||--o{ TRAVEL_PLAN_PREFERENCE : "styled by"
+    TRAVEL_PLAN ||--o| TRAVEL_SHARED_PLAN : "shared as current plan"
     PLACE ||--o{ TRAVEL_COURSE : "visited in"
     USER ||--o{ FAVORITE : saves
     PLACE ||--o{ FAVORITE : "saved as"
