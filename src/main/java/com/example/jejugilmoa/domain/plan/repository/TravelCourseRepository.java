@@ -12,15 +12,44 @@ import java.util.Optional;
 
 public interface TravelCourseRepository extends JpaRepository<TravelCourse, Long> {
 
-    List<TravelCourse> findAllByTravelPlanIdOrderBySequenceOrderAsc(Long planId);
-
     // 방문 인증 순서 검증용 — sequenceOrder가 가장 빠른 미방문 경유지 (= 다음에 인증해야 할 경유지)
     Optional<TravelCourse> findFirstByTravelPlanIdAndVisitedFalseOrderByVisitDateAscSequenceOrderAsc(Long planId);
+
+    // 부채꼴 추천용 — 가장 최근 방문 인증 경유지 (= B점)
+    Optional<TravelCourse> findFirstByTravelPlanIdAndVisitedTrueOrderByVisitDateDescSequenceOrderDesc(Long planId);
 
     boolean existsByTravelPlanIdAndPlaceId(Long planId, Long placeId);
 
     // visitDate 기준 오름차순 정렬 — 목록 조회용
     List<TravelCourse> findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(Long planId);
+
+    // RecommendationService용 — Place fetch join으로 N+1 방지
+    @Query("""
+            SELECT c FROM TravelCourse c
+            JOIN FETCH c.place
+            WHERE c.travelPlan.id = :planId
+            ORDER BY c.visitDate ASC, c.sequenceOrder ASC
+            """)
+    List<TravelCourse> findAllByTravelPlanIdWithPlaceOrderByVisitDateAscSequenceOrderAsc(
+            @Param("planId") Long planId);
+
+    @Query("""
+            SELECT c FROM TravelCourse c
+            JOIN FETCH c.place
+            WHERE c.travelPlan.id = :planId AND c.visited = false
+            ORDER BY c.visitDate ASC, c.sequenceOrder ASC
+            """)
+    Optional<TravelCourse> findFirstByTravelPlanIdAndVisitedFalseWithPlaceOrderByVisitDateAscSequenceOrderAsc(
+            @Param("planId") Long planId);
+
+    @Query("""
+            SELECT c FROM TravelCourse c
+            JOIN FETCH c.place
+            WHERE c.travelPlan.id = :planId AND c.visited = true
+            ORDER BY c.visitDate DESC, c.sequenceOrder DESC
+            """)
+    Optional<TravelCourse> findFirstByTravelPlanIdAndVisitedTrueWithPlaceOrderByVisitDateDescSequenceOrderDesc(
+            @Param("planId") Long planId);
 
     // 특정 Day의 경유지만 조회 — 재정렬 유효성 검사용
     List<TravelCourse> findAllByTravelPlanIdAndVisitDateOrderBySequenceOrderAsc(Long planId, LocalDate visitDate);

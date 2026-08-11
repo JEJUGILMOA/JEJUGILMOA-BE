@@ -23,55 +23,80 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
     Page<Place> search(@Param("keyword") String keyword, @Param("categoryName") String categoryName, Pageable pageable);
 
     /**
-     * 출발지-목적지 직선 경로(corridor) 주변의 장소를 추천합니다.
+     * 출발지·경유지·도착지 각각의 반경 이내 장소를 추천합니다. DRAFT 상태 경유지 추천에 사용합니다.
      *
-     * <p>ST_MakeLine으로 출발지→목적지 직선 선분을 만들고 ::geography 캐스트로
-     * ST_DWithin에 미터 단위 반경(corridorWidthMeters)을 적용합니다.
-     * ST_MakePoint는 경도(lng) 우선, 위도(lat) 후순으로 전달해야 합니다 (ADR-0002).</p>
+     * <p>{@code anchorsWkt}는 WKT MULTIPOINT 문자열로 전달합니다
+     * (예: {@code MULTIPOINT((126.49 33.48),(126.55 33.45))}).
+     * 경도 우선, 위도 후순입니다 (ADR-0002).</p>
      *
-     * <p>ST_LineLocatePoint(line, point)는 선분 위 투영 위치(0~1)를 반환하므로
-     * 경유지를 출발지→목적지 방향으로 정렬할 수 있습니다.
-     * 이 함수는 geography가 아닌 geometry를 받으므로 캐스트 없이 사용합니다.</p>
+     * <p>ST_DWithin(geometry, multipoint, radius)는 geometry가 MULTIPOINT 내
+     * 임의 점으로부터 radius 이내인지 검사합니다 — 앵커가 여러 개여도 쿼리 하나로 처리됩니다.
+     * 결과는 인기도(visitor_count) 내림차순으로 반환합니다.</p>
      *
-     * <p>excludedIds가 빈 경우 반드시 -1L 을 포함시켜 IN 절 오류를 방지해야 합니다.</p>
-     *
-     * @param deptLng             출발지 경도
-     * @param deptLat             출발지 위도
-     * @param destLng             목적지 경도
-     * @param destLat             목적지 위도
-     * @param corridorWidthMeters 경로 좌우 허용 폭 (미터)
-     * @param categoryIds         선호 카테고리 ID 목록 (최소 1개)
-     * @param excludedIds         제외할 장소 ID 목록 (이미 추가됐거나 건너뛴 장소, 최소 -1L)
-     * @param limit               최대 반환 개수
+     * @param anchorsWkt  WKT MULTIPOINT 문자열 (좌표 있는 앵커만 포함)
+     * @param radiusMeters 각 앵커로부터의 탐색 반경 (미터)
      */
     @Query(value = """
-            SELECT p.* FROM place p
+            WITH anchors AS (
+                SELECT ST_GeomFromText(:anchorsWkt, 4326) AS geom
+            )
+            SELECT p.* FROM place p, anchors
             WHERE p.is_published = true
               AND p.category_id IN (:categoryIds)
               AND p.id NOT IN (:excludedIds)
-              AND ST_DWithin(
-                  p.geom::geography,
-                  ST_MakeLine(
-                      ST_SetSRID(ST_MakePoint(:deptLng, :deptLat), 4326),
-                      ST_SetSRID(ST_MakePoint(:destLng, :destLat), 4326)
-                  )::geography,
-                  :corridorWidthMeters
-              )
-            ORDER BY ST_LineLocatePoint(
-                ST_MakeLine(
-                    ST_SetSRID(ST_MakePoint(:deptLng, :deptLat), 4326),
-                    ST_SetSRID(ST_MakePoint(:destLng, :destLat), 4326)
-                ),
-                p.geom
-            ) ASC
+              AND ST_DWithin(p.geom::geography, anchors.geom::geography, :radiusMeters)
+            ORDER BY p.visitor_count DESC
             LIMIT :limit
             """, nativeQuery = true)
-    List<Place> findAlongCorridor(
+    List<Place> findNearAnchors(
+            @Param("anchorsWkt") String anchorsWkt,
+            @Param("radiusMeters") double radiusMeters,
+            @Param("categoryIds") List<Long> categoryIds,
+            @Param("excludedIds") List<Long> excludedIds,
+            @Param("limit") int limit
+    );
+
+    /**
+     * 앵커 반경 OR 출발지→도착지 코리도 합집합 범위의 장소를 추천합니다. DRAFT 상태에서
+     * 출발지·도착지 좌표가 모두 있을 때 사용합니다.
+     *
+     * <ul>
+     *   <li>앵커 반경: 출발지·경유지·도착지 각각으로부터 {@code widthMeters} 이내</li>
+     *   <li>코리도: 출발지→도착지 직선 선분으로부터 {@code widthMeters} 이내</li>
+     * </ul>
+     *
+     * <p>두 조건을 OR로 결합해 단일 쿼리로 처리합니다. 결과는 인기도(visitor_count)
+     * 내림차순으로 반환합니다.</p>
+     */
+    @Query(value = """
+            WITH anchors AS (
+                SELECT ST_GeomFromText(:anchorsWkt, 4326) AS geom
+            ),
+            corridor AS (
+                SELECT ST_MakeLine(
+                    ST_SetSRID(ST_MakePoint(:deptLng, :deptLat), 4326),
+                    ST_SetSRID(ST_MakePoint(:destLng, :destLat), 4326)
+                ) AS geom
+            )
+            SELECT p.* FROM place p, anchors, corridor
+            WHERE p.is_published = true
+              AND p.category_id IN (:categoryIds)
+              AND p.id NOT IN (:excludedIds)
+              AND (
+                  ST_DWithin(p.geom::geography, anchors.geom::geography, :widthMeters)
+                  OR
+                  ST_DWithin(p.geom::geography, corridor.geom::geography, :widthMeters)
+              )
+            ORDER BY p.visitor_count DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Place> findNearAnchorsOrCorridor(
+            @Param("anchorsWkt") String anchorsWkt,
             @Param("deptLng") double deptLng,
             @Param("deptLat") double deptLat,
             @Param("destLng") double destLng,
             @Param("destLat") double destLat,
-            @Param("corridorWidthMeters") double corridorWidthMeters,
+            @Param("widthMeters") double widthMeters,
             @Param("categoryIds") List<Long> categoryIds,
             @Param("excludedIds") List<Long> excludedIds,
             @Param("limit") int limit
@@ -92,6 +117,60 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findByCategoriesOrderByPopularity(
+            @Param("categoryIds") List<Long> categoryIds,
+            @Param("excludedIds") List<Long> excludedIds,
+            @Param("limit") int limit
+    );
+
+    /**
+     * B→C 방향 부채꼴(sector) 범위의 장소를 추천합니다. 여행 진행 중 경유지 추천에 사용합니다.
+     *
+     * <p>두 가지 조건을 AND로 적용합니다.</p>
+     * <ol>
+     *   <li>반경 조건: B({@code bLon},{@code bLat})로부터 {@code radiusMeters} 이내 (geography 단위)</li>
+     *   <li>각도 조건: B→P와 B→C 방향의 각도 ≤ arccos({@code cosHalfAngle}).
+     *       내적 공식 사용 — cos(θ) = (B→C · B→P) / (|B→C| × |B→P|) ≥ cosHalfAngle.
+     *       좌표계 기반 근사(경위도 degree 단위)이므로 소규모 지역(제주도 수준)에서만 사용합니다.</li>
+     * </ol>
+     *
+     * <p>결과는 B로부터의 거리 오름차순(가까운 것 우선)으로 반환합니다.</p>
+     *
+     * @param cosHalfAngle 부채꼴 반각의 코사인 값 (예: cos(60°) = 0.5 → ±60° = 120° 부채꼴)
+     */
+    @Query(value = """
+            SELECT p.* FROM place p
+            WHERE p.is_published = true
+              AND p.category_id IN (:categoryIds)
+              AND p.id NOT IN (:excludedIds)
+              AND ST_DWithin(
+                  p.geom::geography,
+                  ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography,
+                  :radiusMeters
+              )
+              AND CASE
+                    WHEN (power(ST_X(p.geom) - :bLon, 2) + power(ST_Y(p.geom) - :bLat, 2)) < 1e-18
+                    THEN false
+                    ELSE (
+                        (:cLon - :bLon) * (ST_X(p.geom) - :bLon) +
+                        (:cLat - :bLat) * (ST_Y(p.geom) - :bLat)
+                    ) >= :cosHalfAngle * (
+                        sqrt(power(:cLon - :bLon, 2) + power(:cLat - :bLat, 2)) *
+                        sqrt(power(ST_X(p.geom) - :bLon, 2) + power(ST_Y(p.geom) - :bLat, 2))
+                    )
+                  END
+            ORDER BY ST_Distance(
+                p.geom::geography,
+                ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography
+            )
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Place> findInSector(
+            @Param("bLon") double bLon,
+            @Param("bLat") double bLat,
+            @Param("cLon") double cLon,
+            @Param("cLat") double cLat,
+            @Param("radiusMeters") double radiusMeters,
+            @Param("cosHalfAngle") double cosHalfAngle,
             @Param("categoryIds") List<Long> categoryIds,
             @Param("excludedIds") List<Long> excludedIds,
             @Param("limit") int limit

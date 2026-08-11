@@ -6,6 +6,7 @@ import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
+import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.service.TripService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
@@ -43,6 +44,26 @@ public class TripController implements TripControllerDocs {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.CREATED,
                 tripService.checkVisit(tripId, principal.userId(), request));
+    }
+
+    @PostMapping("/{tripId}/waypoints")
+    public ApiResponse<List<WaypointResponse>> addWaypoint(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long tripId,
+            @Valid @RequestBody WaypointAddRequest request) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.CREATED,
+                tripService.addWaypoint(tripId, principal.userId(), request));
+    }
+
+    @DeleteMapping("/{tripId}/waypoints/{waypointId}")
+    public ApiResponse<List<WaypointResponse>> removeWaypoint(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long tripId,
+            @PathVariable Long waypointId) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                tripService.removeWaypoint(tripId, principal.userId(), waypointId));
     }
 
     @PostMapping("/{tripId}/complete")

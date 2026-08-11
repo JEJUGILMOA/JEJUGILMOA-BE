@@ -1176,6 +1176,13 @@ CREATE INDEX idx_place_geom_published ON public.place USING gist (geom) WHERE (i
 
 
 --
+-- Name: idx_place_geom_geography_published; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_place_geom_geography_published ON public.place USING gist ((geom::geography)) WHERE (is_published = true);
+
+
+--
 -- Name: idx_place_image_place; Type: INDEX; Schema: public; Owner: -
 --
 
