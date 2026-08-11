@@ -2,6 +2,7 @@ package com.example.jejugilmoa.domain.plan.controller;
 
 import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.plan.controller.docs.TripControllerDocs;
+import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
@@ -42,5 +43,14 @@ public class TripController implements TripControllerDocs {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.CREATED,
                 tripService.checkVisit(tripId, principal.userId(), request));
+    }
+
+    @PostMapping("/{tripId}/complete")
+    public ApiResponse<TripCompleteResponse> complete(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long tripId) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                tripService.complete(tripId, principal.userId()));
     }
 }
