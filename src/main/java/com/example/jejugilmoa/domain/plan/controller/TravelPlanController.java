@@ -12,6 +12,7 @@ import com.example.jejugilmoa.global.apiPayload.code.GeneralSuccessCode;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,6 +57,7 @@ public class TravelPlanController implements TravelPlanControllerDocs {
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TravelPlanCreateResponse> create(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody TravelPlanCreateRequest request) {
@@ -84,6 +86,7 @@ public class TravelPlanController implements TravelPlanControllerDocs {
     }
 
     @PostMapping("/{planId}/waypoints")
+    @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<List<WaypointResponse>> addWaypoint(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long planId,
