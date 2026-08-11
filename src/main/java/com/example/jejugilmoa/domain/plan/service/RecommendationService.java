@@ -124,7 +124,7 @@ public class RecommendationService {
 
         // 이미 담긴 경유지 목록 (place_id 수집 + DRAFT 앵커 구성에 재사용)
         List<TravelCourse> existingCourses = travelCourseRepository
-                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId);
+                .findAllByTravelPlanIdWithPlaceOrderByVisitDateAscSequenceOrderAsc(planId);
         List<Long> addedPlaceIds = existingCourses.stream()
                 .map(c -> c.getPlace().getId())
                 .toList();
@@ -196,7 +196,7 @@ public class RecommendationService {
 
         // C: 다음 미방문 경유지
         Optional<TravelCourse> nextOpt = travelCourseRepository
-                .findFirstByTravelPlanIdAndVisitedFalseOrderByVisitDateAscSequenceOrderAsc(plan.getId());
+                .findFirstByTravelPlanIdAndVisitedFalseWithPlaceOrderByVisitDateAscSequenceOrderAsc(plan.getId());
 
         if (nextOpt.isEmpty()) {
             // 모든 경유지 방문 완료 — 인기 기반 폴백
@@ -209,7 +209,7 @@ public class RecommendationService {
 
         // B: 마지막 방문 경유지, 없으면 출발지 Place
         Optional<TravelCourse> lastOpt = travelCourseRepository
-                .findFirstByTravelPlanIdAndVisitedTrueOrderByVisitDateDescSequenceOrderDesc(plan.getId());
+                .findFirstByTravelPlanIdAndVisitedTrueWithPlaceOrderByVisitDateDescSequenceOrderDesc(plan.getId());
 
         Place b;
         String departureName;
@@ -333,7 +333,7 @@ public class RecommendationService {
             verifyOwner(plan, userId);
 
             List<TravelCourse> courses = travelCourseRepository
-                    .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId);
+                    .findAllByTravelPlanIdWithPlaceOrderByVisitDateAscSequenceOrderAsc(planId);
 
             Set<String> addedExternalIds = courses.stream()
                     .map(c -> c.getPlace().getExternalId())

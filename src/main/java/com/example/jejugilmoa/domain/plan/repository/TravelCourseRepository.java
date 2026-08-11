@@ -23,6 +23,34 @@ public interface TravelCourseRepository extends JpaRepository<TravelCourse, Long
     // visitDate 기준 오름차순 정렬 — 목록 조회용
     List<TravelCourse> findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(Long planId);
 
+    // RecommendationService용 — Place fetch join으로 N+1 방지
+    @Query("""
+            SELECT c FROM TravelCourse c
+            JOIN FETCH c.place
+            WHERE c.travelPlan.id = :planId
+            ORDER BY c.visitDate ASC, c.sequenceOrder ASC
+            """)
+    List<TravelCourse> findAllByTravelPlanIdWithPlaceOrderByVisitDateAscSequenceOrderAsc(
+            @Param("planId") Long planId);
+
+    @Query("""
+            SELECT c FROM TravelCourse c
+            JOIN FETCH c.place
+            WHERE c.travelPlan.id = :planId AND c.visited = false
+            ORDER BY c.visitDate ASC, c.sequenceOrder ASC
+            """)
+    Optional<TravelCourse> findFirstByTravelPlanIdAndVisitedFalseWithPlaceOrderByVisitDateAscSequenceOrderAsc(
+            @Param("planId") Long planId);
+
+    @Query("""
+            SELECT c FROM TravelCourse c
+            JOIN FETCH c.place
+            WHERE c.travelPlan.id = :planId AND c.visited = true
+            ORDER BY c.visitDate DESC, c.sequenceOrder DESC
+            """)
+    Optional<TravelCourse> findFirstByTravelPlanIdAndVisitedTrueWithPlaceOrderByVisitDateDescSequenceOrderDesc(
+            @Param("planId") Long planId);
+
     // 특정 Day의 경유지만 조회 — 재정렬 유효성 검사용
     List<TravelCourse> findAllByTravelPlanIdAndVisitDateOrderBySequenceOrderAsc(Long planId, LocalDate visitDate);
 
