@@ -10,6 +10,7 @@ import com.example.jejugilmoa.domain.plan.dto.PlaceRecommendationItem;
 import com.example.jejugilmoa.domain.plan.dto.RecommendationResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
+import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
@@ -33,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -49,6 +51,10 @@ public class RecommendationService {
      * 제주도 폭(약 41km)을 고려해 5km로 설정했습니다.
      */
     private static final double CORRIDOR_WIDTH_METERS = 5_000.0;
+
+    /** 여행 중 부채꼴 추천: B→C 방향 기준 ±60° (cos 60° = 0.5) */
+    private static final double COS_HALF_ANGLE = 0.5;
+    private static final double EARTH_RADIUS_M = 6_371_000.0;
 
     /** 한 번에 반환할 추천 경유지 수 */
     private static final int RECOMMENDATION_LIMIT = 5;
@@ -82,6 +88,14 @@ public class RecommendationService {
         readOnlyTx.setReadOnly(true);
     }
 
+    // 여행 중 부채꼴 추천 결과를 담는 값 객체
+    private record TripRecommendContext(
+            List<Place> candidates,
+            String departureName,
+            String destinationName,
+            double[] referenceCoords  // 이동 시간 추정 기준 좌표 [경도, 위도], null이면 생략
+    ) {}
+
     // DB 조회 결과를 트랜잭션 밖으로 전달하기 위한 값 객체
     private record NearbyQueryContext(
             Set<String> addedExternalIds,
@@ -108,10 +122,10 @@ public class RecommendationService {
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
         verifyOwner(plan, userId);
 
-        // 이미 담긴 경유지의 place_id 수집
-        List<Long> addedPlaceIds = travelCourseRepository
-                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId)
-                .stream()
+        // 이미 담긴 경유지 목록 (place_id 수집 + DRAFT 앵커 구성에 재사용)
+        List<TravelCourse> existingCourses = travelCourseRepository
+                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId);
+        List<Long> addedPlaceIds = existingCourses.stream()
                 .map(c -> c.getPlace().getId())
                 .toList();
 
@@ -135,7 +149,20 @@ public class RecommendationService {
                 .toList();
         if (categoryIds.isEmpty()) categoryIds = List.of(-1L); // 빈 IN 절 방지
 
-        List<Place> candidates = queryCandidates(plan, categoryIds, excludedIds);
+        // 여행 진행 중이면 B→C 부채꼴 추천, 그 외는 기존 출발지→목적지 코리도 추천
+        if (plan.getStatus() == TravelPlanStatus.IN_PROGRESS) {
+            TripRecommendContext ctx = buildTripRecommendContext(plan, categoryIds, excludedIds);
+            List<PlaceRecommendationItem> items = ctx.candidates().stream()
+                    .map(p -> RecommendationConverter.toItem(p, ctx.referenceCoords(), plan.getTransportMode()))
+                    .toList();
+            return new RecommendationResponse(ctx.departureName(), ctx.destinationName(), items);
+        }
+
+        // DRAFT: 앵커 반경 + 코리도 합산 추천
+        List<Place> waypointPlaces = existingCourses.stream().map(TravelCourse::getPlace).toList();
+        List<Place> candidates = queryCandidates(
+                plan.getDeparturePlace(), waypointPlaces, plan.getDestinationPlace(),
+                categoryIds, excludedIds);
 
         // 이동 시간 추정을 위한 출발지 좌표 [경도, 위도]
         double[] deptLngLat = extractDepartureCoords(plan);
@@ -155,32 +182,130 @@ public class RecommendationService {
     }
 
     /**
-     * 출발지·목적지에 Place 엔티티가 모두 있으면 PostGIS corridor 쿼리,
-     * 그렇지 않으면 인기도 순 폴백 쿼리를 실행합니다.
+     * 여행 진행 중 B→C 부채꼴 추천 컨텍스트를 구성합니다.
      *
-     * <p>corridor 쿼리: ST_DWithin으로 경로 선분에서 {@value CORRIDOR_WIDTH_METERS}m 이내
-     * 장소를 찾고, ST_LineLocatePoint로 출발지→목적지 방향 순서로 정렬합니다.</p>
+     * <ul>
+     *   <li>B = 마지막으로 방문 인증한 경유지. 아직 없으면 출발지 Place 사용.</li>
+     *   <li>C = 다음 미방문 경유지.</li>
+     *   <li>C가 없거나(전 경유지 방문 완료) B 좌표가 없으면 인기순 폴백.</li>
+     *   <li>부채꼴 결과가 없어도 인기순 폴백.</li>
+     * </ul>
      */
-    private List<Place> queryCandidates(TravelPlan plan, List<Long> categoryIds, List<Long> excludedIds) {
-        Place dept = plan.getDeparturePlace();
-        Place dest = plan.getDestinationPlace();
+    private TripRecommendContext buildTripRecommendContext(
+            TravelPlan plan, List<Long> categoryIds, List<Long> excludedIds) {
 
-        if (dept != null && dest != null) {
-            // ST_MakePoint(경도, 위도) — 경도 우선 (ADR-0002)
-            return placeRepository.findAlongCorridor(
-                    dept.getLongitude().doubleValue(),
-                    dept.getLatitude().doubleValue(),
-                    dest.getLongitude().doubleValue(),
-                    dest.getLatitude().doubleValue(),
-                    CORRIDOR_WIDTH_METERS,
-                    categoryIds,
-                    excludedIds,
-                    RECOMMENDATION_LIMIT
-            );
+        // C: 다음 미방문 경유지
+        Optional<TravelCourse> nextOpt = travelCourseRepository
+                .findFirstByTravelPlanIdAndVisitedFalseOrderByVisitDateAscSequenceOrderAsc(plan.getId());
+
+        if (nextOpt.isEmpty()) {
+            // 모든 경유지 방문 완료 — 인기 기반 폴백
+            return new TripRecommendContext(
+                    placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT),
+                    null, null, null);
         }
 
-        // 텍스트 입력 출발지/목적지만 있는 경우 → 인기도 기반 폴백
-        return placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT);
+        Place c = nextOpt.get().getPlace();
+
+        // B: 마지막 방문 경유지, 없으면 출발지 Place
+        Optional<TravelCourse> lastOpt = travelCourseRepository
+                .findFirstByTravelPlanIdAndVisitedTrueOrderByVisitDateDescSequenceOrderDesc(plan.getId());
+
+        Place b;
+        String departureName;
+        if (lastOpt.isPresent()) {
+            b = lastOpt.get().getPlace();
+            departureName = b.getName();
+        } else {
+            b = plan.getDeparturePlace();
+            departureName = b != null ? b.getName() : plan.getDepartureLocationName();
+        }
+
+        String destinationName = c.getName();
+
+        if (b == null || b.getLatitude() == null || c.getLatitude() == null) {
+            return new TripRecommendContext(
+                    placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT),
+                    departureName, destinationName, null);
+        }
+
+        double bLon = b.getLongitude().doubleValue();
+        double bLat = b.getLatitude().doubleValue();
+        double cLon = c.getLongitude().doubleValue();
+        double cLat = c.getLatitude().doubleValue();
+        double radiusMeters = haversineMeters(bLat, bLon, cLat, cLon);
+        double[] refCoords = {bLon, bLat};
+
+        List<Place> results = placeRepository.findInSector(
+                bLon, bLat, cLon, cLat,
+                radiusMeters, COS_HALF_ANGLE,
+                categoryIds, excludedIds, RECOMMENDATION_LIMIT);
+
+        if (results.isEmpty()) {
+            results = placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT);
+        }
+
+        return new TripRecommendContext(results, departureName, destinationName, refCoords);
+    }
+
+    private double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    /**
+     * DRAFT 상태 경유지 추천.
+     *
+     * <ul>
+     *   <li>출발지·도착지 좌표가 모두 있으면: 앵커 반경 OR 코리도 합집합 ({@code findNearAnchorsOrCorridor})</li>
+     *   <li>둘 중 하나만 있으면: 앵커 반경만 ({@code findNearAnchors})</li>
+     *   <li>좌표 있는 앵커가 없으면: 인기도 폴백</li>
+     * </ul>
+     */
+    private List<Place> queryCandidates(
+            Place departurePlace, List<Place> waypointPlaces, Place destinationPlace,
+            List<Long> categoryIds, List<Long> excludedIds) {
+
+        List<Place> allAnchors = new ArrayList<>();
+        if (departurePlace != null) allAnchors.add(departurePlace);
+        allAnchors.addAll(waypointPlaces);
+        if (destinationPlace != null) allAnchors.add(destinationPlace);
+
+        List<Place> withCoords = allAnchors.stream()
+                .filter(p -> p.getLatitude() != null && p.getLongitude() != null)
+                .toList();
+
+        if (withCoords.isEmpty()) {
+            return placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT);
+        }
+
+        String wkt = buildMultiPointWkt(withCoords);
+
+        boolean hasDept = departurePlace != null && departurePlace.getLatitude() != null;
+        boolean hasDest = destinationPlace != null && destinationPlace.getLatitude() != null;
+
+        if (hasDept && hasDest) {
+            return placeRepository.findNearAnchorsOrCorridor(
+                    wkt,
+                    departurePlace.getLongitude().doubleValue(), departurePlace.getLatitude().doubleValue(),
+                    destinationPlace.getLongitude().doubleValue(), destinationPlace.getLatitude().doubleValue(),
+                    CORRIDOR_WIDTH_METERS,
+                    categoryIds, excludedIds, RECOMMENDATION_LIMIT);
+        }
+
+        return placeRepository.findNearAnchors(wkt, CORRIDOR_WIDTH_METERS, categoryIds, excludedIds, RECOMMENDATION_LIMIT);
+    }
+
+    /** MULTIPOINT WKT 생성. 경도 우선, 위도 후순 (ADR-0002). */
+    private String buildMultiPointWkt(List<Place> places) {
+        String points = places.stream()
+                .map(p -> "(" + p.getLongitude().doubleValue() + " " + p.getLatitude().doubleValue() + ")")
+                .collect(Collectors.joining(","));
+        return "MULTIPOINT(" + points + ")";
     }
 
     /**
