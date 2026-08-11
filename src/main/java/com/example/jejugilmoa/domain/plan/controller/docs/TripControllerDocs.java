@@ -1,6 +1,7 @@
 package com.example.jejugilmoa.domain.plan.controller.docs;
 
 import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
+import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
@@ -178,5 +179,68 @@ public interface TripControllerDocs {
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId,
             @Valid @org.springframework.web.bind.annotation.RequestBody VisitCheckRequest request
+    );
+
+    @Operation(
+            summary = "여행 완료 처리",
+            description = """
+                    진행중(IN_PROGRESS)인 여행을 완료(COMPLETED) 상태로 전환합니다.
+
+                    - 모든 경유지가 방문 인증되어 있어야 완료할 수 있습니다. 하나라도 미방문이면
+                      `PLAN400_14` 오류가 반환됩니다.
+                    - 진행중 상태가 아니면 `PLAN400_10` 오류가 반환됩니다.
+                    - 응답에는 체류일수, 담은 장소 수, 방문 순서를 따라 계산한 총 이동거리(km)가 포함됩니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "여행 완료 처리 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": {
+                                "tripId": 1,
+                                "title": "제주 3박4일",
+                                "status": "COMPLETED",
+                                "startDate": "2026-07-20",
+                                "endDate": "2026-07-23",
+                                "durationDays": 4,
+                                "placeCount": 7,
+                                "totalDistanceKm": 86.0,
+                                "actualStartedAt": "2026-07-20T09:00:00",
+                                "actualCompletedAt": "2026-07-23T17:30:00"
+                              }
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "진행중이 아닌 여행 또는 미방문 경유지 존재",
+                    content = @Content(examples = {
+                            @ExampleObject(name = "진행중이 아닌 여행", value = """
+                                    {"isSuccess":false,"code":"PLAN400_10","message":"진행중인 여행이 아닙니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "미방문 경유지 존재", value = """
+                                    {"isSuccess":false,"code":"PLAN400_14","message":"모든 경유지를 방문해야 여행을 완료할 수 있습니다.","result":null}
+                                    """)
+                    })
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "접근 권한 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "여행 계획 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<TripCompleteResponse> complete(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId
     );
 }
