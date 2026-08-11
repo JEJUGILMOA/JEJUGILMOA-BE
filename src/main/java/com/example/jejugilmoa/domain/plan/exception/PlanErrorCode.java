@@ -29,7 +29,9 @@ public enum PlanErrorCode implements BaseCode {
     SHARE_LINK_EXPIRED(HttpStatus.GONE, "PLAN410_1", "여행 계획 공유 링크가 만료되었습니다."),
     SHARE_LINK_INACTIVE(HttpStatus.NOT_FOUND, "PLAN404_5", "유효한 여행 계획 공유 링크를 찾을 수 없습니다."),
     SHARE_LINK_SAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "PLAN500_1", "여행 계획 공유 링크를 생성할 수 없습니다."),
-    TRIP_NOT_COMPLETABLE(HttpStatus.BAD_REQUEST, "PLAN400_14", "모든 경유지를 방문해야 여행을 완료할 수 있습니다.");
+    TRIP_NOT_COMPLETABLE(HttpStatus.BAD_REQUEST, "PLAN400_14", "모든 경유지를 방문해야 여행을 완료할 수 있습니다."),
+    VISITED_WAYPOINT_NOT_REMOVABLE(HttpStatus.BAD_REQUEST, "PLAN400_15", "이미 방문한 경유지는 삭제할 수 없습니다."),
+    START_OR_DESTINATION_NOT_REMOVABLE(HttpStatus.BAD_REQUEST, "PLAN400_16", "출발지 또는 목적지는 삭제할 수 없습니다.");
 
 
     private final HttpStatus status;

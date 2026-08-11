@@ -8,6 +8,7 @@ import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
+import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
@@ -101,6 +102,56 @@ public class TripService {
         target.checkVisit(LocalDateTime.now());
 
         return waypointService.listWaypoints(tripId);
+    }
+
+    /**
+     * 진행중인 여행에 경유지를 추가합니다.
+     *
+     * <p>여행 계획 편집({@code /api/plans})과 달리, 여행이 진행중(IN_PROGRESS)일 때만
+     * 허용됩니다 — 그 외 상태이면 {@code TRIP_NOT_IN_PROGRESS} 예외가 발생합니다.
+     * 날짜 범위·중복 검증 및 순번 계산은 {@link WaypointService#addWaypoint}에 위임합니다.</p>
+     *
+     * @return 추가 후 갱신된 전체 경유지 목록 (순서 오름차순)
+     */
+    @Transactional
+    public List<WaypointResponse> addWaypoint(Long tripId, Long userId, WaypointAddRequest request) {
+        TravelPlan plan = findPlanAndVerifyOwner(tripId, userId);
+
+        if (plan.getStatus() != TravelPlanStatus.IN_PROGRESS) {
+            throw new GeneralException(PlanErrorCode.TRIP_NOT_IN_PROGRESS);
+        }
+
+        return waypointService.addWaypoint(tripId, userId, request);
+    }
+
+    /**
+     * 진행중인 여행에서 경유지를 삭제합니다.
+     *
+     * <p>여행이 진행중(IN_PROGRESS)일 때만 허용되며, 이미 방문 인증된 경유지는
+     * 삭제할 수 없습니다({@code VISITED_WAYPOINT_NOT_REMOVABLE}). 삭제 후 같은 날짜의
+     * 순번 당김은 {@link WaypointService#removeWaypoint}에 위임합니다.</p>
+     *
+     * @return 삭제 후 갱신된 전체 경유지 목록 (순서 오름차순)
+     */
+    @Transactional
+    public List<WaypointResponse> removeWaypoint(Long tripId, Long userId, Long waypointId) {
+        TravelPlan plan = findPlanAndVerifyOwner(tripId, userId);
+
+        if (plan.getStatus() != TravelPlanStatus.IN_PROGRESS) {
+            throw new GeneralException(PlanErrorCode.TRIP_NOT_IN_PROGRESS);
+        }
+
+        TravelCourse target = travelCourseRepository.findById(waypointId)
+                .filter(c -> c.getTravelPlan().getId().equals(tripId))
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.WAYPOINT_NOT_FOUND));
+        if (target.isStart() || target.isDestination()) {
+            throw new GeneralException(PlanErrorCode.START_OR_DESTINATION_NOT_REMOVABLE);
+        }
+        if (target.isVisited()) {
+            throw new GeneralException(PlanErrorCode.VISITED_WAYPOINT_NOT_REMOVABLE);
+        }
+
+        return waypointService.removeWaypoint(tripId, userId, waypointId);
     }
 
     /**

@@ -5,6 +5,7 @@ import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
+import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -179,6 +180,142 @@ public interface TripControllerDocs {
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId,
             @Valid @org.springframework.web.bind.annotation.RequestBody VisitCheckRequest request
+    );
+
+    @Operation(
+            summary = "여행 중 경유지 추가",
+            description = """
+                    진행중(IN_PROGRESS)인 여행에 경유지(방문할 장소)를 추가합니다.
+
+                    - 여행이 진행중이 아니면 `PLAN400_10` 오류가 반환됩니다.
+                    - `visitDate`는 여행 계획의 시작일~종료일 범위 내여야 하며, 범위를 벗어나면 `PLAN400_9` 오류가 반환됩니다.
+                    - 같은 여행에 이미 담긴 장소를 다시 추가하면 `PLAN400_6` 오류가 반환됩니다.
+                    - 추가된 경유지는 해당 날짜의 마지막 순번으로 배치됩니다.
+                    - 응답으로 추가 후 전체 경유지 목록(방문 인증 상태 포함, 순서 오름차순)을 반환합니다.
+                    """
+    )
+    @RequestBody(
+            required = true,
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = WaypointAddRequest.class),
+                    examples = @ExampleObject(value = """
+                            { "placeId": 42, "visitDate": "2026-08-15" }
+                            """)
+            )
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "201", description = "경유지 추가 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON201",
+                              "message": "성공적으로 응답이 생성되었습니다.",
+                              "result": [
+                                {
+                                  "waypointId": 7,
+                                  "visitDate": "2026-08-15",
+                                  "sequenceOrder": 1,
+                                  "placeId": 42,
+                                  "placeName": "애월 카페거리",
+                                  "categoryName": "카페",
+                                  "imageUrl": "https://cdn.example.com/42.jpg",
+                                  "address": "제주시 애월읍",
+                                  "visited": false,
+                                  "visitedAt": null
+                                }
+                              ]
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "진행중이 아닌 여행, 날짜 범위 초과, 또는 이미 담긴 장소",
+                    content = @Content(examples = {
+                            @ExampleObject(name = "진행중이 아닌 여행", value = """
+                                    {"isSuccess":false,"code":"PLAN400_10","message":"진행중인 여행이 아닙니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "날짜 범위 초과", value = """
+                                    {"isSuccess":false,"code":"PLAN400_9","message":"여행 날짜 범위에 포함되지 않는 날짜입니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "이미 담긴 장소", value = """
+                                    {"isSuccess":false,"code":"PLAN400_6","message":"이미 추가된 장소입니다.","result":null}
+                                    """)
+                    })
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "접근 권한 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "여행 또는 장소 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<List<WaypointResponse>> addWaypoint(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId,
+            @Valid @org.springframework.web.bind.annotation.RequestBody WaypointAddRequest request
+    );
+
+    @Operation(
+            summary = "여행 중 경유지 삭제",
+            description = """
+                    진행중(IN_PROGRESS)인 여행에서 경유지를 삭제합니다.
+
+                    - 여행이 진행중이 아니면 `PLAN400_10` 오류가 반환됩니다.
+                    - 이미 방문 인증된 경유지는 삭제할 수 없습니다 — `PLAN400_15` 오류가 반환됩니다.
+                    - 삭제 후 같은 날짜의 이후 경유지 순번이 자동으로 당겨집니다.
+                    - 응답으로 삭제 후 전체 경유지 목록(순서 오름차순)을 반환합니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "경유지 삭제 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": []
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "진행중이 아닌 여행 또는 이미 방문한 경유지",
+                    content = @Content(examples = {
+                            @ExampleObject(name = "진행중이 아닌 여행", value = """
+                                    {"isSuccess":false,"code":"PLAN400_10","message":"진행중인 여행이 아닙니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "출발지·목적지 삭제 시도", value = """
+                                    {"isSuccess":false,"code":"PLAN400_16","message":"출발지 또는 목적지는 삭제할 수 없습니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "이미 방문한 경유지", value = """
+                                    {"isSuccess":false,"code":"PLAN400_15","message":"이미 방문한 경유지는 삭제할 수 없습니다.","result":null}
+                                    """)
+                    })
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "접근 권한 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "여행 또는 경유지 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_3","message":"존재하지 않는 경유지입니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<List<WaypointResponse>> removeWaypoint(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId,
+            @Parameter(description = "경유지(TravelCourse) ID") Long waypointId
     );
 
     @Operation(
