@@ -97,6 +97,13 @@ public class RecommendationService {
     }
 
     /**
+     * 위도와 경도가 모두 있으면 true를 반환합니다.
+     */
+    private boolean hasCoords(Place place) {
+        return place != null && place.getLatitude() != null && place.getLongitude() != null;
+    }
+
+    /**
      * 경유지를 추천합니다 (최초 추천 / 재추천 공통 진입점).
      *
      * <ol>
@@ -222,7 +229,7 @@ public class RecommendationService {
 
         String destinationName = c.getName();
 
-        if (b == null || b.getLatitude() == null || c.getLatitude() == null) {
+        if (!hasCoords(b) || !hasCoords(c)) {
             return new TripRecommendContext(
                 placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT),
                 departureName, destinationName, null);
@@ -275,7 +282,7 @@ public class RecommendationService {
         if (destinationPlace != null) allAnchors.add(destinationPlace);
 
         List<Place> withCoords = allAnchors.stream()
-            .filter(p -> p.getLatitude() != null && p.getLongitude() != null)
+            .filter(this::hasCoords)
             .toList();
 
         if (withCoords.isEmpty()) {
@@ -284,8 +291,8 @@ public class RecommendationService {
 
         String wkt = buildMultiPointWkt(withCoords);
 
-        boolean hasDept = departurePlace != null && departurePlace.getLatitude() != null;
-        boolean hasDest = destinationPlace != null && destinationPlace.getLatitude() != null;
+        boolean hasDept = hasCoords(departurePlace);
+        boolean hasDest = hasCoords(destinationPlace);
 
         if (hasDept && hasDest) {
             return placeRepository.findNearAnchorsOrCorridor(
