@@ -268,6 +268,7 @@ public interface TripControllerDocs {
                     진행중(IN_PROGRESS)인 여행에서 경유지를 삭제합니다.
 
                     - 여행이 진행중이 아니면 `PLAN400_10` 오류가 반환됩니다.
+                    - 출발지 또는 목적지는 삭제할 수 없습니다 — `PLAN400_16` 오류가 반환됩니다.
                     - 이미 방문 인증된 경유지는 삭제할 수 없습니다 — `PLAN400_15` 오류가 반환됩니다.
                     - 삭제 후 같은 날짜의 이후 경유지 순번이 자동으로 당겨집니다.
                     - 응답으로 삭제 후 전체 경유지 목록(순서 오름차순)을 반환합니다.
@@ -286,7 +287,7 @@ public interface TripControllerDocs {
                             """))
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "400", description = "진행중이 아닌 여행 또는 이미 방문한 경유지",
+                    responseCode = "400", description = "진행중이 아닌 여행, 출발지·목적지, 또는 이미 방문한 경유지",
                     content = @Content(examples = {
                             @ExampleObject(name = "진행중이 아닌 여행", value = """
                                     {"isSuccess":false,"code":"PLAN400_10","message":"진행중인 여행이 아닙니다.","result":null}
