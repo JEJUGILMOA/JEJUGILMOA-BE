@@ -1,8 +1,10 @@
 package com.example.jejugilmoa.domain.plan.service;
 
+import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.locationusage.service.LocationUsageLogService;
 import com.example.jejugilmoa.domain.plan.converter.TripConverter;
+import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
@@ -28,6 +30,7 @@ public class TripService {
 
     // 방문 인증 허용 반경 — 일반적인 GPS 오차(약 10~50m)를 감안한 값
     private static final double VISIT_RADIUS_METERS = 100.0;
+    private static final double EARTH_RADIUS_KM = 6371.0;
 
     private final TravelPlanRepository travelPlanRepository;
     private final TravelCourseRepository travelCourseRepository;
@@ -98,6 +101,54 @@ public class TripService {
         target.checkVisit(LocalDateTime.now());
 
         return waypointService.listWaypoints(tripId);
+    }
+
+    /**
+     * 진행중인 여행을 완료 처리합니다.
+     *
+     * <p>모든 경유지가 방문 인증되어 있어야 하며, 하나라도 미방문이면
+     * {@code TRIP_NOT_COMPLETABLE} 예외가 발생합니다.</p>
+     */
+    @Transactional
+    public TripCompleteResponse complete(Long tripId, Long userId) {
+        TravelPlan plan = findPlanAndVerifyOwner(tripId, userId);
+
+        if (plan.getStatus() != TravelPlanStatus.IN_PROGRESS) {
+            throw new GeneralException(PlanErrorCode.TRIP_NOT_IN_PROGRESS);
+        }
+
+        List<TravelCourse> courses = travelCourseRepository
+                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(tripId);
+        if (courses.isEmpty() || courses.stream().anyMatch(course -> !course.isVisited())) {
+            throw new GeneralException(PlanErrorCode.TRIP_NOT_COMPLETABLE);
+        }
+
+        plan.complete(LocalDateTime.now());
+
+        return TripConverter.toCompleteResponse(plan, courses.size(), calculateTotalDistanceKm(courses));
+    }
+
+    // 방문 순서(visitDate, sequenceOrder)를 그대로 따라 인접 장소 간 직선거리를 합산 (Haversine)
+    private double calculateTotalDistanceKm(List<TravelCourse> orderedCourses) {
+        double totalKm = 0.0;
+        for (int i = 1; i < orderedCourses.size(); i++) {
+            Place from = orderedCourses.get(i - 1).getPlace();
+            Place to = orderedCourses.get(i).getPlace();
+            totalKm += haversineKm(
+                    from.getLatitude().doubleValue(), from.getLongitude().doubleValue(),
+                    to.getLatitude().doubleValue(), to.getLongitude().doubleValue());
+        }
+        return totalKm;
+    }
+
+    private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return EARTH_RADIUS_KM * c;
     }
 
     // SELECT FOR UPDATE: 같은 plan에 대한 시작/방문인증 요청을 직렬화
