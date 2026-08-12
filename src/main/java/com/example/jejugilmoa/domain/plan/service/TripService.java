@@ -57,6 +57,17 @@ public class TripService {
     }
 
     /**
+     * 로그인한 유저의 진행중(IN_PROGRESS)인 여행을 조회합니다.
+     * 유저당 진행중 여행은 최대 1건이라는 규칙을 전제로 tripId 없이 조회합니다.
+     */
+    public TripResponse getCurrentTrip(Long userId) {
+        TravelPlan plan = travelPlanRepository.findByUserIdAndStatus(userId, TravelPlanStatus.IN_PROGRESS)
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.CURRENT_TRIP_NOT_FOUND));
+
+        return TripConverter.toResponse(plan, waypointService.listWaypoints(plan.getId()));
+    }
+
+    /**
      * 진행중인 여행의 경유지를 방문 인증합니다.
      *
      * <p>경유지는 {@code sequenceOrder} 순서대로만 인증할 수 있습니다 — 아직 미방문인

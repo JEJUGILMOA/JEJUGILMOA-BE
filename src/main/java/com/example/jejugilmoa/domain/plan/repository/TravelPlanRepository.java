@@ -20,6 +20,10 @@ public interface TravelPlanRepository extends JpaRepository<TravelPlan, Long> {
     @Query("SELECT p FROM TravelPlan p WHERE p.user.id = :userId AND p.user.deletedAt IS NULL AND p.status = :status ORDER BY p.createdAt DESC")
     List<TravelPlan> findMyPlansByStatus(@Param("userId") Long userId, @Param("status") TravelPlanStatus status);
 
+    // 유저당 진행중(IN_PROGRESS) 여행은 최대 1건이라는 비즈니스 규칙을 전제로 함
+    @Query("SELECT p FROM TravelPlan p WHERE p.user.id = :userId AND p.user.deletedAt IS NULL AND p.status = :status")
+    Optional<TravelPlan> findByUserIdAndStatus(@Param("userId") Long userId, @Param("status") TravelPlanStatus status);
+
     @Query("SELECT p.id, COUNT(c) FROM TravelPlan p LEFT JOIN p.travelCourses c WHERE p.id IN :planIds GROUP BY p.id")
     List<Object[]> countCoursesByPlanIds(@Param("planIds") List<Long> planIds);
 
