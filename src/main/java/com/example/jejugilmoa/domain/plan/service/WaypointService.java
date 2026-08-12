@@ -64,6 +64,7 @@ public class WaypointService {
             throw new GeneralException(PlanErrorCode.PLACE_ALREADY_ADDED);
         }
 
+        refreshStartDestinationFlags(planId, visitDate);
         return listWaypoints(planId);
     }
 
@@ -81,6 +82,7 @@ public class WaypointService {
         // 같은 Day에서 제거된 순번 이후만 당김
         travelCourseRepository.decrementSequenceOrderAfter(planId, visitDate, removedOrder);
 
+        refreshStartDestinationFlags(planId, visitDate);
         return listWaypoints(planId);
     }
 
@@ -108,6 +110,7 @@ public class WaypointService {
             travelCourseRepository.updateSequenceOrder(newOrder.get(i), planId, i + 1);
         }
 
+        refreshStartDestinationFlags(planId, visitDate);
         return listWaypoints(planId);
     }
 
@@ -127,5 +130,15 @@ public class WaypointService {
             throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
         }
         return plan;
+    }
+
+    // 경유지 추가/삭제/재정렬 후 해당 날짜의 첫 번째(is_start)·마지막(is_destination) 플래그를 재계산
+    private void refreshStartDestinationFlags(Long planId, LocalDate visitDate) {
+        List<TravelCourse> courses = travelCourseRepository
+                .findAllByTravelPlanIdAndVisitDateOrderBySequenceOrderAsc(planId, visitDate);
+        if (courses.isEmpty()) return;
+        for (int i = 0; i < courses.size(); i++) {
+            courses.get(i).updateStartDestination(i == 0, i == courses.size() - 1);
+        }
     }
 }

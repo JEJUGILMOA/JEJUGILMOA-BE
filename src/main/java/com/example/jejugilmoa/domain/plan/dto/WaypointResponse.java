@@ -35,6 +35,12 @@ public record WaypointResponse(
         boolean visited,
 
         @Schema(description = "실제 방문 인증 시각")
-        LocalDateTime visitedAt
+        LocalDateTime visitedAt,
+
+        @Schema(description = "해당 날짜의 시작 경유지 여부", example = "true")
+        boolean isStart,
+
+        @Schema(description = "해당 날짜의 도착 경유지 여부", example = "false")
+        boolean isDestination
 
 ) {}
