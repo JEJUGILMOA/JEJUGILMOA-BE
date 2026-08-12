@@ -18,6 +18,7 @@ import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +53,15 @@ public class TripService {
         }
 
         plan.start(LocalDateTime.now());
+
+        // 유저별 IN_PROGRESS 단일성은 부분 유니크 인덱스(idx_travel_plan_user_in_progress)가 보장한다.
+        // findByIdForUpdate는 이 plan 행만 잠그므로, 서로 다른 DRAFT 계획에 대한 동시 시작 요청은
+        // 여기서 걸러야 여러 IN_PROGRESS 행이 만들어지는 것을 막을 수 있다.
+        try {
+            travelPlanRepository.saveAndFlush(plan);
+        } catch (DataIntegrityViolationException e) {
+            throw new GeneralException(PlanErrorCode.TRIP_ALREADY_IN_PROGRESS);
+        }
 
         return TripConverter.toResponse(plan, waypointService.listWaypoints(plan.getId()));
     }
