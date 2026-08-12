@@ -1,0 +1,162 @@
+package com.example.jejugilmoa.domain.record.service;
+
+import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
+import com.example.jejugilmoa.domain.imageupload.service.ImageObjectVerifier;
+import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
+import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
+import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
+import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
+import com.example.jejugilmoa.domain.record.converter.TravelRecordConverter;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateResponse;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordPlaceMemoRequest;
+import com.example.jejugilmoa.domain.record.entity.TravelRecordImage;
+import com.example.jejugilmoa.domain.record.entity.TravelRecordPlace;
+import com.example.jejugilmoa.domain.record.exception.RecordErrorCode;
+import com.example.jejugilmoa.domain.record.repository.TravelRecordImageRepository;
+import com.example.jejugilmoa.domain.record.repository.TravelRecordPlaceRepository;
+import com.example.jejugilmoa.domain.record.repository.TravelRecordRepository;
+import com.example.jejugilmoa.domain.user.exception.UserErrorCode;
+import com.example.jejugilmoa.domain.user.repository.UserRepository;
+import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
+import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class TravelRecordService {
+
+    private static final String RECORD_PLAN_UNIQUE_CONSTRAINT = "uk_travel_record_plan";
+
+    private final UserRepository userRepository;
+    private final TravelPlanRepository travelPlanRepository;
+    private final TravelCourseRepository travelCourseRepository;
+    private final TravelRecordRepository travelRecordRepository;
+    private final TravelRecordPlaceRepository travelRecordPlaceRepository;
+    private final TravelRecordImageRepository travelRecordImageRepository;
+    private final ImageObjectVerifier imageObjectVerifier;
+
+    @Transactional
+    public TravelRecordCreateResponse create(Long userId, TravelRecordCreateRequest request) {
+        var user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new GeneralException(UserErrorCode.USER_NOT_FOUND));
+        var plan = travelPlanRepository.findByIdForUpdate(request.tripId())
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
+
+        if (!plan.getUser().getId().equals(userId)) {
+            throw new GeneralException(RecordErrorCode.RECORD_TRIP_ACCESS_DENIED);
+        }
+        if (plan.getStatus() != TravelPlanStatus.COMPLETED) {
+            throw new GeneralException(RecordErrorCode.RECORD_TRIP_NOT_COMPLETED);
+        }
+        if (travelRecordRepository.existsByTravelPlanId(request.tripId())) {
+            throw new GeneralException(RecordErrorCode.RECORD_ALREADY_EXISTS);
+        }
+
+        List<TravelCourse> courses = travelCourseRepository
+                .findAllByTravelPlanIdWithPlaceOrderByVisitDateAscSequenceOrderAsc(request.tripId());
+        Map<Long, TravelRecordPlaceMemoRequest> placeInputs = validateAndIndexPlaceInputs(
+                request.placeMemos(), courses);
+        List<String> recordImageObjectKeys = nullSafe(request.imageObjectKeys());
+        List<String> placeImageObjectKeys = placeInputs.values().stream()
+                .map(TravelRecordPlaceMemoRequest::imageObjectKey)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        validateObjectKeys(java.util.stream.Stream.concat(
+                recordImageObjectKeys.stream(), placeImageObjectKeys.stream()).toList(), userId);
+
+        var record = TravelRecordConverter.toEntity(request, plan, user);
+        try {
+            record = travelRecordRepository.saveAndFlush(record);
+        } catch (DataIntegrityViolationException exception) {
+            if (hasConstraint(exception, RECORD_PLAN_UNIQUE_CONSTRAINT)) {
+                throw new GeneralException(RecordErrorCode.RECORD_ALREADY_EXISTS);
+            }
+            throw exception;
+        }
+
+        var recordPlaces = new ArrayList<TravelRecordPlace>();
+        Map<Long, TravelRecordPlace> recordPlacesByCourseId = new HashMap<>();
+        for (int index = 0; index < courses.size(); index++) {
+            TravelCourse course = courses.get(index);
+            TravelRecordPlaceMemoRequest placeInput = placeInputs.get(course.getId());
+            TravelRecordPlace recordPlace = TravelRecordConverter.toPlace(
+                    record, course, index + 1, placeInput == null ? null : placeInput.memo());
+            recordPlaces.add(recordPlace);
+            recordPlacesByCourseId.put(course.getId(), recordPlace);
+        }
+        travelRecordPlaceRepository.saveAll(recordPlaces);
+
+        var images = new ArrayList<TravelRecordImage>();
+        int imageSequence = 1;
+        for (String objectKey : recordImageObjectKeys) {
+            images.add(TravelRecordConverter.toImage(record, objectKey, imageSequence++));
+        }
+        for (TravelCourse course : courses) {
+            TravelRecordPlaceMemoRequest placeInput = placeInputs.get(course.getId());
+            if (placeInput != null && placeInput.imageObjectKey() != null) {
+                images.add(TravelRecordConverter.toImage(record, recordPlacesByCourseId.get(course.getId()),
+                        placeInput.imageObjectKey(), imageSequence++));
+            }
+        }
+        travelRecordImageRepository.saveAll(images);
+
+        return TravelRecordConverter.toCreateResponse(record, request.tripId());
+    }
+
+    private Map<Long, TravelRecordPlaceMemoRequest> validateAndIndexPlaceInputs(
+            List<TravelRecordPlaceMemoRequest> requestedMemos, List<TravelCourse> courses) {
+        Set<Long> courseIds = courses.stream().map(TravelCourse::getId).collect(Collectors.toSet());
+        Set<Long> memoCourseIds = new HashSet<>();
+        Map<Long, TravelRecordPlaceMemoRequest> placeInputs = new HashMap<>();
+        for (TravelRecordPlaceMemoRequest requestedMemo : nullSafe(requestedMemos)) {
+            if (!courseIds.contains(requestedMemo.travelCourseId())
+                    || !memoCourseIds.add(requestedMemo.travelCourseId())) {
+                throw new GeneralException(RecordErrorCode.RECORD_MEMO_TARGET_MISMATCH);
+            }
+            placeInputs.put(requestedMemo.travelCourseId(), requestedMemo);
+        }
+        return placeInputs;
+    }
+
+    private void validateObjectKeys(List<String> requestedObjectKeys, Long userId) {
+        List<String> objectKeys = nullSafe(requestedObjectKeys);
+        String expectedPrefix = "records/%d/".formatted(userId);
+        Set<String> uniqueKeys = new HashSet<>();
+        if (objectKeys.stream().anyMatch(key -> !key.startsWith(expectedPrefix)
+                || key.length() == expectedPrefix.length() || !uniqueKeys.add(key))) {
+            throw new GeneralException(RecordErrorCode.RECORD_INVALID_OBJECT_KEY);
+        }
+        objectKeys.forEach(imageObjectVerifier::verify);
+    }
+
+    private <T> List<T> nullSafe(List<T> values) {
+        return values == null ? List.of() : values;
+    }
+
+    private boolean hasConstraint(Throwable throwable, String constraintName) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof ConstraintViolationException constraintViolation
+                    && constraintName.equals(constraintViolation.getConstraintName())) {
+                return true;
+            }
+            if (current.getMessage() != null && current.getMessage().contains(constraintName)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+}

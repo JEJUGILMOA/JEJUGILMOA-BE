@@ -17,6 +17,8 @@ import java.util.List;
         @Index(name = "idx_record_user_visibility", columnList = "user_id,visibility"),
         @Index(name = "idx_record_plan", columnList = "plan_id"),
         @Index(name = "idx_record_created_at", columnList = "created_at")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_travel_record_plan", columnNames = "plan_id")
 })
 @Getter
 @Builder
@@ -56,7 +58,7 @@ public class TravelRecord extends BaseEntity {
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Visibility visibility = Visibility.PRIVATE;;  // 공개 여부
+    private Visibility visibility = Visibility.PRIVATE;  // 공개 여부
 
     @Builder.Default
     @Column(nullable = false)
