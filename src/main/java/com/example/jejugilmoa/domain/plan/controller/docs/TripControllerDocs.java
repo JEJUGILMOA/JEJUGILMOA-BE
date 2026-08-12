@@ -131,7 +131,9 @@ public interface TripControllerDocs {
                                     "imageUrl": "https://cdn.example.com/42.jpg",
                                     "address": "제주시 애월읍",
                                     "visited": false,
-                                    "visitedAt": null
+                                    "visitedAt": null,
+                                    "isStart": false,
+                                    "isDestination": false
                                   }
                                 ]
                               }
