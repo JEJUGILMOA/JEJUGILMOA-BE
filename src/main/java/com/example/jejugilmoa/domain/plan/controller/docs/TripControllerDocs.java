@@ -98,6 +98,60 @@ public interface TripControllerDocs {
     );
 
     @Operation(
+            summary = "진행중인 여행 조회",
+            description = """
+                    로그인한 유저의 현재 진행중(IN_PROGRESS)인 여행을 조회합니다.
+
+                    - 유저당 진행중인 여행은 최대 1건이라는 규칙을 전제로 tripId 없이 조회합니다.
+                    - 진행중인 여행이 없으면 `PLAN404_6` 오류가 반환됩니다.
+                    - 응답의 `waypoints`는 방문 인증 상태를 포함한 전체 경유지 목록입니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "진행중인 여행 조회 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": {
+                                "tripId": 1,
+                                "title": "제주 3박4일",
+                                "status": "IN_PROGRESS",
+                                "actualStartedAt": "2026-07-31T09:00:00",
+                                "waypoints": [
+                                  {
+                                    "waypointId": 7,
+                                    "visitDate": "2026-08-15",
+                                    "sequenceOrder": 1,
+                                    "placeId": 42,
+                                    "placeName": "애월 카페거리",
+                                    "categoryName": "카페",
+                                    "imageUrl": "https://cdn.example.com/42.jpg",
+                                    "address": "제주시 애월읍",
+                                    "visited": false,
+                                    "visitedAt": null,
+                                    "isStart": false,
+                                    "isDestination": false
+                                  }
+                                ]
+                              }
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "진행중인 여행 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_6","message":"진행중인 여행이 없습니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<TripResponse> getCurrentTrip(
+            @AuthenticationPrincipal UserPrincipal principal
+    );
+
+    @Operation(
             summary = "경유지 방문 인증",
             description = """
                     진행중인 여행의 경유지를 방문 완료로 인증합니다. GPS 기반 위치 인증을 거칩니다.

@@ -36,6 +36,14 @@ public class TripController implements TripControllerDocs {
                 tripService.start(principal.userId(), request));
     }
 
+    @GetMapping("/current")
+    public ApiResponse<TripResponse> getCurrentTrip(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                tripService.getCurrentTrip(principal.userId()));
+    }
+
     @PostMapping("/{tripId}/visits")
     public ApiResponse<List<WaypointResponse>> checkVisit(
             @AuthenticationPrincipal UserPrincipal principal,
