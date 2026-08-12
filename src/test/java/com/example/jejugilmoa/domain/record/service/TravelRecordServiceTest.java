@@ -164,8 +164,20 @@ class TravelRecordServiceTest {
     void create_failsWhenRecordAlreadyExists() {
         TravelPlan plan = completedPlan(owner);
         given(travelPlanRepository.findByIdForUpdate(TRIP_ID)).willReturn(Optional.of(plan));
-        given(travelRecordRepository.existsByTravelPlanId(TRIP_ID)).willReturn(true);
+        given(travelRecordRepository.existsByTravelPlanIdAndDeletedAtIsNull(TRIP_ID)).willReturn(true);
         assertCode(request(null, null, null), RecordErrorCode.RECORD_ALREADY_EXISTS);
+    }
+
+    @Test
+    void create_succeedsWhenOnlySoftDeletedRecordExists() {
+        TravelPlan plan = completedPlan(owner);
+        given(travelRecordRepository.existsByTravelPlanIdAndDeletedAtIsNull(TRIP_ID)).willReturn(false);
+        stubCreate(plan, List.of());
+
+        travelRecordService.create(USER_ID, request(null, null, null));
+
+        verify(travelRecordRepository).existsByTravelPlanIdAndDeletedAtIsNull(TRIP_ID);
+        verify(travelRecordRepository).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -175,7 +187,7 @@ class TravelRecordServiceTest {
         given(travelCourseRepository.findAllByTravelPlanIdWithPlaceOrderByVisitDateAscSequenceOrderAsc(TRIP_ID))
                 .willReturn(List.of());
         given(travelRecordRepository.saveAndFlush(org.mockito.ArgumentMatchers.any()))
-                .willThrow(new DataIntegrityViolationException("uk_travel_record_plan"));
+                .willThrow(new DataIntegrityViolationException("uk_travel_record_active_plan"));
 
         assertCode(request(null, null, null), RecordErrorCode.RECORD_ALREADY_EXISTS);
     }

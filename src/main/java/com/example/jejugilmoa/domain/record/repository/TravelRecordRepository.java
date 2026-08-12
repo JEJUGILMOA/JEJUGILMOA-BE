@@ -6,6 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface TravelRecordRepository extends JpaRepository<TravelRecord, Long> {
     long countByUserIdAndDeletedAtIsNull(Long userId);
 
-    boolean existsByTravelPlanId(Long planId);
+    boolean existsByTravelPlanIdAndDeletedAtIsNull(Long planId);
 
 }

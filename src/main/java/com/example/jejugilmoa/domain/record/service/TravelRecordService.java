@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TravelRecordService {
 
-    private static final String RECORD_PLAN_UNIQUE_CONSTRAINT = "uk_travel_record_plan";
+    private static final String RECORD_PLAN_UNIQUE_CONSTRAINT = "uk_travel_record_active_plan";
 
     private final UserRepository userRepository;
     private final TravelPlanRepository travelPlanRepository;
@@ -60,7 +60,7 @@ public class TravelRecordService {
         if (plan.getStatus() != TravelPlanStatus.COMPLETED) {
             throw new GeneralException(RecordErrorCode.RECORD_TRIP_NOT_COMPLETED);
         }
-        if (travelRecordRepository.existsByTravelPlanId(request.tripId())) {
+        if (travelRecordRepository.existsByTravelPlanIdAndDeletedAtIsNull(request.tripId())) {
             throw new GeneralException(RecordErrorCode.RECORD_ALREADY_EXISTS);
         }
 
