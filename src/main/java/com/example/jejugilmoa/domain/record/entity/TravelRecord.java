@@ -17,8 +17,6 @@ import java.util.List;
         @Index(name = "idx_record_user_visibility", columnList = "user_id,visibility"),
         @Index(name = "idx_record_plan", columnList = "plan_id"),
         @Index(name = "idx_record_created_at", columnList = "created_at")
-}, uniqueConstraints = {
-        @UniqueConstraint(name = "uk_travel_record_plan", columnNames = "plan_id")
 })
 @Getter
 @Builder
@@ -43,7 +41,7 @@ public class TravelRecord extends BaseEntity {
     )
     private User user;
 
-    @Column(length = 200, nullable = false)
+    @Column(length = 50, nullable = false)
     private String title;  // 기록 제목
 
     @Column(columnDefinition = "TEXT")

@@ -10,10 +10,12 @@ import com.example.jejugilmoa.global.apiPayload.code.GeneralSuccessCode;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "여행 기록", description = "완료 여행의 기록 생성")
@@ -25,6 +27,7 @@ public class TravelRecordController implements TravelRecordControllerDocs {
     private final TravelRecordService travelRecordService;
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TravelRecordCreateResponse> create(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody TravelRecordCreateRequest request) {

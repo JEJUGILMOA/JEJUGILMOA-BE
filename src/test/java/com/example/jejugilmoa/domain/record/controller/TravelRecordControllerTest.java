@@ -49,7 +49,7 @@ class TravelRecordControllerTest {
                         .content("""
                                 {"tripId":10,"title":"여행 기록","imageObjectKeys":[]}
                                 """))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.isSuccess").value(true))
                 .andExpect(jsonPath("$.code").value("COMMON201"))
                 .andExpect(jsonPath("$.result.recordId").value(77))
@@ -102,6 +102,81 @@ class TravelRecordControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.isSuccess").value(false));
+    }
+
+    @Test
+    void titleWith50CharactersIsAccepted() throws Exception {
+        stubSuccessfulCreate();
+
+        mockMvc.perform(post("/api/records")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"tripId\":10,\"title\":\"%s\"}".formatted("가".repeat(50))))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void titleWith51CharactersIsRejected() throws Exception {
+        mockMvc.perform(post("/api/records")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"tripId\":10,\"title\":\"%s\"}".formatted("가".repeat(51))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void placeMemoWith1000CharactersIsAccepted() throws Exception {
+        stubSuccessfulCreate();
+
+        mockMvc.perform(post("/api/records")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("""
+                                {"tripId":10,"title":"기록","placeMemos":[
+                                  {"travelCourseId":101,"memo":"%s"}
+                                ]}
+                                """.formatted("가".repeat(1000))))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void placeMemoWith1001CharactersIsRejected() throws Exception {
+        mockMvc.perform(post("/api/records")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("""
+                                {"tripId":10,"title":"기록","placeMemos":[
+                                  {"travelCourseId":101,"memo":"%s"}
+                                ]}
+                                """.formatted("가".repeat(1001))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void imageObjectKeyWith500CharactersIsAccepted() throws Exception {
+        stubSuccessfulCreate();
+
+        mockMvc.perform(post("/api/records")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"tripId\":10,\"title\":\"기록\",\"imageObjectKeys\":[\"%s\"]}"
+                                .formatted("k".repeat(500))))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void imageObjectKeyWith501CharactersIsRejected() throws Exception {
+        mockMvc.perform(post("/api/records")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"tripId\":10,\"title\":\"기록\",\"imageObjectKeys\":[\"%s\"]}"
+                                .formatted("k".repeat(501))))
+                .andExpect(status().isBadRequest());
+    }
+
+    private void stubSuccessfulCreate() {
+        given(travelRecordService.create(eq(42L), any())).willReturn(new TravelRecordCreateResponse(
+                77L, 10L, "여행 기록", Visibility.PRIVATE, Instant.parse("2026-08-12T03:00:00Z")));
     }
 
     private UsernamePasswordAuthenticationToken authenticationFor(Long userId) {

@@ -58,7 +58,7 @@ public class TravelRecordPlace extends BaseEntity {
     @Column(nullable = false)
     private int sequenceOrder;  // 방문 순서
 
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 1000)
     private String memo;  // 감상/팁/메모
 
     @Builder.Default
