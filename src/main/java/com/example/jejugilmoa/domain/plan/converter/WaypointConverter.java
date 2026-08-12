@@ -21,7 +21,9 @@ public class WaypointConverter {
             place.getImageUrl(),
             place.getAddress(),
             course.isVisited(),
-            course.getVisitedAt()
+            course.getVisitedAt(),
+            course.isStart(),
+            course.isDestination()
         );
     }
 }

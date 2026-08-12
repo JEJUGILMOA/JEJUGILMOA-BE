@@ -73,4 +73,9 @@ public class TravelCourse extends BaseEntity {
         this.visitedAt = visitedAt;
     }
 
+    public void updateStartDestination(boolean start, boolean destination) {
+        this.start = start;
+        this.destination = destination;
+    }
+
 }
