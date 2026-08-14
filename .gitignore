@@ -41,5 +41,9 @@ out/
 .env.*
 !.env.example
 
+### Firebase ###
+*-service-account.json
+firebase-credentials.json
+
 # Generated deployment override
 deploy/dev/.deploy-image.override.yml
