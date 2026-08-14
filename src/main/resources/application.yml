@@ -75,6 +75,10 @@ external:
       service-key: ${VISITOR_DATA_API_KEY:}
       base-url: ${VISITOR_DATA_BASE_URL:}
 
+firebase:
+  credentials:
+    encoded: ${FIREBASE_CREDENTIALS_JSON:}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

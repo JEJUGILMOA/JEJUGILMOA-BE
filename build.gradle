@@ -51,6 +51,9 @@ dependencies {
 	// AWS SDK v2 (EC2 Instance Profile을 포함한 기본 자격증명 체인 사용)
 	implementation 'software.amazon.awssdk:s3'
 
+	// Firebase Admin SDK
+	implementation 'com.google.firebase:firebase-admin:9.4.2'
+
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
