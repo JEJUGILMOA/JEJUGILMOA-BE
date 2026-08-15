@@ -12,11 +12,11 @@ import java.time.Instant;
 @Table(
         name = "device_token",
         indexes = {
-                @Index(name = "idx_device_token_user", columnList = "user_id"),
-                @Index(name = "idx_device_token_token", columnList = "token")
+                @Index(name = "idx_device_token_user", columnList = "user_id")
         },
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_device_token_user_device", columnNames = {"user_id", "device_id"})
+                @UniqueConstraint(name = "uk_device_token_user_device", columnNames = {"user_id", "device_id"}),
+                @UniqueConstraint(name = "uk_device_token_token", columnNames = {"token"})
         }
 )
 @Getter

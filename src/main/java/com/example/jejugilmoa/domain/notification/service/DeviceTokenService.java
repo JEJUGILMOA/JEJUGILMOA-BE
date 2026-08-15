@@ -23,6 +23,9 @@ public class DeviceTokenService {
 
     @Transactional
     public void registerOrUpdateToken(Long userId, DeviceTokenRegisterRequest request) {
+        // 동일 FCM 토큰이 다른 사용자 또는 다른 기기에 등록되어 있으면 먼저 제거
+        deviceTokenRepository.evictTokenExcluding(request.token(), userId, request.deviceId());
+
         deviceTokenRepository.findByUserIdAndDeviceId(userId, request.deviceId())
                 .ifPresentOrElse(
                         existing -> existing.updateToken(request.token()),
