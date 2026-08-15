@@ -1,5 +1,6 @@
 package com.example.jejugilmoa.domain.user.controller.docs;
 
+import com.example.jejugilmoa.domain.notification.dto.DeviceTokenRegisterRequest;
 import com.example.jejugilmoa.domain.user.dto.TravelPreferenceResponse;
 import com.example.jejugilmoa.domain.user.dto.TravelPreferenceUpdateRequest;
 import com.example.jejugilmoa.domain.user.dto.UserProfileResponse;
@@ -14,9 +15,82 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 
 public interface UserControllerDocs {
+
+    @Operation(
+            summary = "디바이스 토큰 등록",
+            description = """
+                    FCM 푸시 알림을 수신할 디바이스 토큰을 등록합니다.
+
+                    같은 deviceId로 이미 등록된 토큰이 있으면 새 토큰으로 갱신합니다.
+
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "토큰 등록/갱신 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "사용자를 찾을 수 없음",
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "isSuccess": false,
+                                              "code": "USER404_1",
+                                              "message": "사용자를 찾을 수 없습니다.",
+                                              "result": null
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    ApiResponse<Void> registerDeviceToken(
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody DeviceTokenRegisterRequest request
+    );
+
+    @Operation(
+            summary = "디바이스 토큰 삭제",
+            description = """
+                    로그아웃 시 해당 디바이스의 FCM 토큰을 삭제합니다.
+
+                    삭제 후에는 해당 기기로 푸시 알림이 전송되지 않습니다.
+
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "토큰 삭제 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "등록된 토큰 없음",
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "isSuccess": false,
+                                              "code": "NOTIFICATION404_1",
+                                              "message": "등록된 디바이스 토큰을 찾을 수 없습니다.",
+                                              "result": null
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    ApiResponse<Void> deleteDeviceToken(
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String deviceId
+    );
 
     @Operation(
             summary = "내 프로필 조회",
