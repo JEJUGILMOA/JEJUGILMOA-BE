@@ -2,7 +2,6 @@ package com.example.jejugilmoa.domain.notification.service;
 
 import com.example.jejugilmoa.domain.notification.dto.DeviceTokenRegisterRequest;
 import com.example.jejugilmoa.domain.notification.entity.DeviceToken;
-import com.example.jejugilmoa.domain.notification.exception.NotificationErrorCode;
 import com.example.jejugilmoa.domain.notification.repository.DeviceTokenRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.exception.UserErrorCode;
@@ -39,12 +38,5 @@ public class DeviceTokenService {
                                     .build());
                         }
                 );
-    }
-
-    @Transactional
-    public void deleteToken(Long userId, String deviceId) {
-        DeviceToken token = deviceTokenRepository.findByUserIdAndDeviceId(userId, deviceId)
-                .orElseThrow(() -> new GeneralException(NotificationErrorCode.DEVICE_TOKEN_NOT_FOUND));
-        deviceTokenRepository.delete(token);
     }
 }

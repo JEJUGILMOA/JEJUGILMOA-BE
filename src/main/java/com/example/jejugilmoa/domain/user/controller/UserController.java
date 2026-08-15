@@ -18,7 +18,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "유저", description = "유저 관련 API")
 @RestController
@@ -66,17 +71,6 @@ public class UserController implements UserControllerDocs {
             @Valid @RequestBody DeviceTokenRegisterRequest request
     ) {
         deviceTokenService.registerOrUpdateToken(principal.userId(), request);
-        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, null);
-    }
-
-    @Override
-    @Operation(summary = "디바이스 토큰 삭제", description = "로그아웃 시 FCM 디바이스 토큰을 삭제합니다.")
-    @DeleteMapping("/device-token/{deviceId}")
-    public ApiResponse<Void> deleteDeviceToken(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable String deviceId
-    ) {
-        deviceTokenService.deleteToken(principal.userId(), deviceId);
         return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, null);
     }
 
