@@ -99,7 +99,7 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isSuccess").value(true));
 
-        verify(authService).logout("refresh-token");
+        verify(authService).logout("refresh-token", null);
         verify(cookieProvider).clearAuthCookies(any());
     }
 
@@ -110,7 +110,7 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isSuccess").value(true));
 
-        verify(authService).logout(isNull());
+        verify(authService).logout(isNull(), isNull());
     }
 
     @Test

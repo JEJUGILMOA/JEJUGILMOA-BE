@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "인증", description = "로그인/로그아웃/토큰 재발급 API")
@@ -50,9 +51,10 @@ public class AuthController implements AuthControllerDocs {
     @PostMapping("/logout")
     public ApiResponse<Void> logout(
             @CookieValue(value = CookieProvider.REFRESH_TOKEN_COOKIE, required = false) String refreshToken,
+            @RequestParam(required = false) String deviceId,
             HttpServletResponse response
     ) {
-        authService.logout(refreshToken);
+        authService.logout(refreshToken, deviceId);
         cookieProvider.clearAuthCookies(response);
 
         return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, null);

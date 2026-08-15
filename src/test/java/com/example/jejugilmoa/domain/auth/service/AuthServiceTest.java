@@ -230,7 +230,7 @@ class AuthServiceTest {
                 .build();
         given(refreshTokenRepository.findByTokenId("jti-1")).willReturn(Optional.of(savedToken));
 
-        authService.logout("refresh-token");
+        authService.logout("refresh-token", null);
 
         assertThat(savedToken.isRevoked()).isTrue();
     }
@@ -238,7 +238,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("리프레시 토큰이 없으면 로그아웃은 아무 것도 하지 않는다")
     void logoutNoOpWhenRefreshTokenMissing() {
-        authService.logout(null);
+        authService.logout(null, null);
 
         verifyNoInteractions(jwtProvider, refreshTokenRepository);
     }
