@@ -21,7 +21,7 @@ ALTER TABLE travel_record_place
     ADD COLUMN IF NOT EXISTS longitude  numeric(11,8),
     ADD COLUMN IF NOT EXISTS visit_date date;
 
--- 2a. place 데이터로 백필
+-- 2a. place 데이터로 백필 (모든 대상 컬럼의 NULL을 조건에 포함)
 UPDATE travel_record_place trp
 SET place_name = COALESCE(trp.place_name, p.name),
     address    = COALESCE(trp.address, p.address),
@@ -32,32 +32,50 @@ SET place_name = COALESCE(trp.place_name, p.name),
 FROM place p, travel_record tr
 WHERE trp.travel_place_id = p.id
   AND trp.travel_record_id = tr.id
-  AND (trp.place_name IS NULL OR trp.visit_date IS NULL);
+  AND (trp.place_name IS NULL OR trp.address IS NULL
+       OR trp.latitude IS NULL OR trp.longitude IS NULL OR trp.visit_date IS NULL);
 
--- 2b. 백필 후에도 NULL이 남는 행을 dev용 기본값으로 채운다
-UPDATE travel_record_place SET
-    place_name  = COALESCE(place_name, '알 수 없음'),
-    address     = COALESCE(address, '알 수 없음'),
-    latitude    = COALESCE(latitude, 33.5),
-    longitude   = COALESCE(longitude, 126.5),
-    visit_date  = COALESCE(visit_date, CURRENT_DATE)
+-- 2b. 백필 후에도 NULL이 남는 행은 원본 데이터가 없는 것이므로 삭제 (dev 전용 정제)
+DELETE FROM travel_record_place
 WHERE place_name IS NULL OR address IS NULL
    OR latitude IS NULL OR longitude IS NULL OR visit_date IS NULL;
 
--- 2c. NOT NULL 제약 적용 (이미 NOT NULL이면 건너뜀)
+-- 2c. NOT NULL 제약 적용 (컬럼별로 개별 검사)
 DO $$ BEGIN
     IF EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_name = 'travel_record_place'
-          AND column_name = 'place_name'
-          AND is_nullable = 'YES'
+          AND column_name = 'place_name' AND is_nullable = 'YES'
     ) THEN
-        ALTER TABLE travel_record_place
-            ALTER COLUMN place_name SET NOT NULL,
-            ALTER COLUMN address    SET NOT NULL,
-            ALTER COLUMN latitude   SET NOT NULL,
-            ALTER COLUMN longitude  SET NOT NULL,
-            ALTER COLUMN visit_date SET NOT NULL;
+        ALTER TABLE travel_record_place ALTER COLUMN place_name SET NOT NULL;
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'travel_record_place'
+          AND column_name = 'address' AND is_nullable = 'YES'
+    ) THEN
+        ALTER TABLE travel_record_place ALTER COLUMN address SET NOT NULL;
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'travel_record_place'
+          AND column_name = 'latitude' AND is_nullable = 'YES'
+    ) THEN
+        ALTER TABLE travel_record_place ALTER COLUMN latitude SET NOT NULL;
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'travel_record_place'
+          AND column_name = 'longitude' AND is_nullable = 'YES'
+    ) THEN
+        ALTER TABLE travel_record_place ALTER COLUMN longitude SET NOT NULL;
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'travel_record_place'
+          AND column_name = 'visit_date' AND is_nullable = 'YES'
+    ) THEN
+        ALTER TABLE travel_record_place ALTER COLUMN visit_date SET NOT NULL;
     END IF;
 END $$;
 
