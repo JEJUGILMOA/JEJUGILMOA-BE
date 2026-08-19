@@ -50,4 +50,11 @@ public class DeviceToken extends BaseEntity {
         this.token = newToken;
         this.lastUsedAt = Instant.now();
     }
+
+    public void updateOwner(User newUser, String newDeviceId, FcmPlatform newPlatform) {
+        this.user = newUser;
+        this.deviceId = newDeviceId;
+        this.platform = newPlatform;
+        this.lastUsedAt = Instant.now();
+    }
 }
