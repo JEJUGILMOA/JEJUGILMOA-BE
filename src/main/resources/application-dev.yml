@@ -10,9 +10,6 @@ spring:
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
-  flyway:
-    validate-on-migrate: false
-
   jpa:
     hibernate:
       ddl-auto: validate
