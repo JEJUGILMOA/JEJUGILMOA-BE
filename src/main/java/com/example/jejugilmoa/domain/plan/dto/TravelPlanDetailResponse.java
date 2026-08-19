@@ -1,8 +1,6 @@
 package com.example.jejugilmoa.domain.plan.dto;
 
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
-import com.example.jejugilmoa.domain.plan.enums.TravelRegion;
-import com.example.jejugilmoa.domain.plan.enums.TransportMode;
 import com.example.jejugilmoa.domain.user.enums.TravelStyle;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -31,12 +29,6 @@ public record TravelPlanDetailResponse(
 
         @Schema(description = "계획 상태", example = "DRAFT")
         TravelPlanStatus status,
-
-        @Schema(description = "여행 지역", example = "JEJU_ALL")
-        TravelRegion region,
-
-        @Schema(description = "이동 수단", example = "CAR")
-        TransportMode transportMode,
 
         @Schema(description = "여행 스타일", example = "RELAXED")
         TravelStyle travelStyle,

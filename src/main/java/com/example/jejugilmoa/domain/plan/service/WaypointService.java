@@ -9,6 +9,7 @@ import com.example.jejugilmoa.domain.plan.dto.WaypointReorderRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
+import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
@@ -88,7 +89,10 @@ public class WaypointService {
 
     @Transactional
     public List<WaypointResponse> reorderWaypoints(Long planId, Long userId, WaypointReorderRequest request) {
-        findPlanAndVerifyOwner(planId, userId);
+        TravelPlan plan = findPlanAndVerifyOwner(planId, userId);
+        if (plan.getStatus() != TravelPlanStatus.DRAFT) {
+            throw new GeneralException(PlanErrorCode.PLAN_NOT_EDITABLE);
+        }
 
         LocalDate visitDate = request.visitDate();
         List<Long> newOrder = request.waypointIds();

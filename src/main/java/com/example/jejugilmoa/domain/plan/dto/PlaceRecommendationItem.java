@@ -25,9 +25,6 @@ public record PlaceRecommendationItem(
         BigDecimal latitude,
 
         @Schema(description = "경도", example = "126.31466")
-        BigDecimal longitude,
-
-        @Schema(description = "출발지로부터의 이동 시간 추정치 (분, 직선거리 기반)", example = "8")
-        int estimatedTravelMinutes
+        BigDecimal longitude
 
 ) {}

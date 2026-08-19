@@ -83,8 +83,7 @@ public class RecommendationService {
     private record TripRecommendContext(
         List<Place> candidates,
         String departureName,
-        String destinationName,
-        double[] referenceCoords  // 이동 시간 추정 기준 좌표 [경도, 위도], null이면 생략
+        String destinationName
     ) {
     }
 
@@ -153,7 +152,7 @@ public class RecommendationService {
         if (plan.getStatus() == TravelPlanStatus.IN_PROGRESS) {
             TripRecommendContext ctx = buildTripRecommendContext(plan, categoryIds, excludedIds);
             List<PlaceRecommendationItem> items = ctx.candidates().stream()
-                .map(p -> RecommendationConverter.toItem(p, ctx.referenceCoords(), plan.getTransportMode()))
+                .map(p -> RecommendationConverter.toItem(p))
                 .toList();
             return new RecommendationResponse(ctx.departureName(), ctx.destinationName(), items);
         }
@@ -164,11 +163,8 @@ public class RecommendationService {
             plan.getDeparturePlace(), waypointPlaces, plan.getDestinationPlace(),
             categoryIds, excludedIds);
 
-        // 이동 시간 추정을 위한 출발지 좌표 [경도, 위도]
-        double[] deptLngLat = extractDepartureCoords(plan);
-
         List<PlaceRecommendationItem> items = candidates.stream()
-            .map(p -> RecommendationConverter.toItem(p, deptLngLat, plan.getTransportMode()))
+            .map(p -> RecommendationConverter.toItem(p))
             .toList();
 
         String departureName = plan.getDeparturePlace() != null
@@ -208,7 +204,7 @@ public class RecommendationService {
             // 모든 경유지 방문 완료 — 인기 기반 폴백
             return new TripRecommendContext(
                 placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT),
-                planDepartureName, planDestinationName, null);
+                planDepartureName, planDestinationName);
         }
 
         Place c = nextOpt.get().getPlace();
@@ -232,7 +228,7 @@ public class RecommendationService {
         if (!hasCoords(b) || !hasCoords(c)) {
             return new TripRecommendContext(
                 placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT),
-                departureName, destinationName, null);
+                departureName, destinationName);
         }
 
         double bLon = b.getLongitude().doubleValue();
@@ -240,7 +236,6 @@ public class RecommendationService {
         double cLon = c.getLongitude().doubleValue();
         double cLat = c.getLatitude().doubleValue();
         double radiusMeters = haversineMeters(bLat, bLon, cLat, cLon);
-        double[] refCoords = {bLon, bLat};
 
         List<Place> results = placeRepository.findInSector(
             bLon, bLat, cLon, cLat,
@@ -251,7 +246,7 @@ public class RecommendationService {
             results = placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT);
         }
 
-        return new TripRecommendContext(results, departureName, destinationName, refCoords);
+        return new TripRecommendContext(results, departureName, destinationName);
     }
 
     private double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
@@ -314,16 +309,6 @@ public class RecommendationService {
             .map(p -> "(" + p.getLongitude().doubleValue() + " " + p.getLatitude().doubleValue() + ")")
             .collect(Collectors.joining(","));
         return "MULTIPOINT(" + points + ")";
-    }
-
-    /**
-     * 출발지 Place 가 있으면 [경도, 위도] 배열 반환, 없으면 null 반환.
-     * null 이면 RecommendationConverter 에서 이동 시간 추정을 건너뜁니다.
-     */
-    private double[] extractDepartureCoords(TravelPlan plan) {
-        Place dept = plan.getDeparturePlace();
-        if (dept == null) return null;
-        return new double[]{dept.getLongitude().doubleValue(), dept.getLatitude().doubleValue()};
     }
 
     /**
