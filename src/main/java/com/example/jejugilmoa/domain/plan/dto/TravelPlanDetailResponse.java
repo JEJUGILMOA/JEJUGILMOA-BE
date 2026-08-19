@@ -1,5 +1,6 @@
 package com.example.jejugilmoa.domain.plan.dto;
 
+import com.example.jejugilmoa.domain.plan.enums.TravelCompanion;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.user.enums.TravelStyle;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -32,6 +33,9 @@ public record TravelPlanDetailResponse(
 
         @Schema(description = "여행 스타일", example = "RELAXED")
         TravelStyle travelStyle,
+
+        @Schema(description = "동반자 유형", example = "COUPLE")
+        TravelCompanion companion,
 
         @Schema(description = "출발지 이름", example = "제주국제공항")
         String departureLocationName,

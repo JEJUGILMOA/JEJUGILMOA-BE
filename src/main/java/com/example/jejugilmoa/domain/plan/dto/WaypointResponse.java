@@ -41,6 +41,9 @@ public record WaypointResponse(
         boolean isStart,
 
         @Schema(description = "해당 날짜의 도착 경유지 여부", example = "false")
-        boolean isDestination
+        boolean isDestination,
+
+        @Schema(description = "선호 경유지 여부 (앵커 추천 기준점)", example = "false")
+        boolean isPreferred
 
 ) {}

@@ -147,10 +147,18 @@ public interface TravelPlanControllerDocs {
     );
 
     @Operation(summary = "여행 계획 생성", description = """
-            새로운 여행 계획을 생성합니다.
+            새로운 여행 계획을 단일 요청으로 생성합니다. 일정(날짜별 경유지), 예산, 동반자를 한 번에 저장할 수 있습니다.
 
-            - `departurePlaceId`와 `departureLocationName` 중 하나는 필수입니다.
-            - `destinationPlaceId`와 `destinationLocationName` 중 하나는 필수입니다.
+            **출발지 (둘 중 하나 필수)**
+            - `departurePlaceId`: 앱 내 등록된 Place ID
+            - `departureLocationName`: 텍스트 직접 입력
+
+            **날짜별 경유지 (`days`, 선택)**
+            - 생략하거나 빈 배열을 전달하면 경유지 없이 계획만 생성됩니다.
+            - 각 경유지에 `isPreferred: true`를 설정하면 추천 기준점(앵커)으로 지정됩니다.
+            - `visitDate`는 `startDate`~`endDate` 범위 내여야 합니다.
+
+            **기타**
             - `categoryIds`는 1개 이상이어야 합니다. 유효한 ID는 DB `category` 테이블에서 확인하세요.
             - `startDate`는 오늘 이후여야 합니다.
             - `endDate`는 `startDate`와 같거나 이후여야 합니다.
@@ -166,10 +174,30 @@ public interface TravelPlanControllerDocs {
                               "startDate": "2027-08-15",
                               "endDate": "2027-08-17",
                               "departurePlaceId": null,
-                              "departureLocationName": "새별오름",
-                              "destinationPlaceId": null,
-                              "destinationLocationName": "중문관광단지",
-                              "categoryIds": [1, 2]
+                              "departureLocationName": "제주국제공항",
+                              "departureLatitude": 33.5070,
+                              "departureLongitude": 126.4927,
+                              "companion": "COUPLE",
+                              "categoryIds": [1, 2],
+                              "days": [
+                                {
+                                  "visitDate": "2027-08-15",
+                                  "waypoints": [
+                                    { "placeId": 42, "isPreferred": true },
+                                    { "placeId": 10, "isPreferred": false }
+                                  ]
+                                },
+                                {
+                                  "visitDate": "2027-08-16",
+                                  "waypoints": []
+                                }
+                              ],
+                              "budget": {
+                                "budgetTransportation": 50000,
+                                "budgetAccommodation": 150000,
+                                "budgetFood": 80000,
+                                "budgetEtc": null
+                              }
                             }
                             """)
             )
@@ -186,13 +214,34 @@ public interface TravelPlanControllerDocs {
                                       "message": "성공적으로 응답이 생성되었습니다.",
                                       "result": {
                                         "planId": 1,
-                                        "title": "제주 여름 휴가",
-                                        "startDate": "2026-08-15",
-                                        "endDate": "2026-08-17",
+                                        "title": "제주 가을 여행",
+                                        "startDate": "2027-08-15",
+                                        "endDate": "2027-08-17",
+                                        "nights": 2,
+                                        "days": 3,
                                         "status": "DRAFT",
-                                        "categories": ["자연", "음식"],
+                                        "travelStyle": "RELAXED",
+                                        "companion": "COUPLE",
                                         "departureLocationName": "제주국제공항",
-                                        "destinationLocationName": "성산일출봉"
+                                        "destinationLocationName": null,
+                                        "categories": ["자연", "카페"],
+                                        "itinerary": [
+                                          {
+                                            "date": "2027-08-15",
+                                            "dayNumber": 1,
+                                            "waypoints": [
+                                              {"waypointId": 1, "visitDate": "2027-08-15", "sequenceOrder": 1, "placeId": 42, "placeName": "협재해수욕장", "isPreferred": true, "isStart": true, "isDestination": false, "visited": false, "visitedAt": null},
+                                              {"waypointId": 2, "visitDate": "2027-08-15", "sequenceOrder": 2, "placeId": 10, "placeName": "애월 카페거리", "isPreferred": false, "isStart": false, "isDestination": true, "visited": false, "visitedAt": null}
+                                            ]
+                                          },
+                                          {"date": "2027-08-16", "dayNumber": 2, "waypoints": []},
+                                          {"date": "2027-08-17", "dayNumber": 3, "waypoints": []}
+                                        ],
+                                        "budgetTransportation": 50000,
+                                        "budgetAccommodation": 150000,
+                                        "budgetFood": 80000,
+                                        "budgetEtc": null,
+                                        "totalBudget": 280000
                                       }
                                     }
                                     """)
@@ -200,7 +249,7 @@ public interface TravelPlanControllerDocs {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
-                    description = "잘못된 요청 (날짜 오류, 출발지/목적지 누락 등)",
+                    description = "잘못된 요청 (날짜 오류, 출발지 누락 등)",
                     content = @Content(
                             examples = @ExampleObject(value = """
                                     {
@@ -227,7 +276,7 @@ public interface TravelPlanControllerDocs {
                     )
             )
     })
-    ApiResponse<TravelPlanCreateResponse> create(
+    ApiResponse<TravelPlanDetailResponse> create(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @org.springframework.web.bind.annotation.RequestBody TravelPlanCreateRequest request
     );
@@ -488,7 +537,7 @@ public interface TravelPlanControllerDocs {
                     mediaType = "application/json",
                     schema = @Schema(implementation = WaypointAddRequest.class),
                     examples = @ExampleObject(value = """
-                            { "placeId": 42, "visitDate": "2027-08-15" }
+                            { "placeId": 42, "visitDate": "2027-08-15", "isPreferred": false }
                             """)
             )
     )
@@ -566,6 +615,97 @@ public interface TravelPlanControllerDocs {
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행 계획 ID") Long planId,
             @Parameter(description = "경유지(TravelCourse) ID") Long waypointId
+    );
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 선호 경유지 설정
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Operation(
+            summary = "선호 경유지 설정/해제",
+            description = """
+                    경유지를 선호 경유지로 지정하거나 해제합니다.
+
+                    선호 경유지는 추천 로직의 **기준점(앵커)**으로 활용됩니다.
+                    선호 경유지를 기준으로 주변 장소를 우선 추천합니다.
+
+                    - **계획 중(DRAFT)** 상태에서만 변경할 수 있습니다. 진행중·완료 상태는 `PLAN400_17`.
+                    - `waypointId`가 해당 `planId`에 속하지 않으면 `PLAN404_3`.
+                    - 응답으로 설정 반영 후 **전체 경유지 목록**을 반환합니다.
+                    """
+    )
+    @RequestBody(
+            required = true,
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = TogglePreferredRequest.class),
+                    examples = {
+                            @ExampleObject(name = "선호 경유지 지정", value = """
+                                    { "isPreferred": true }
+                                    """),
+                            @ExampleObject(name = "선호 경유지 해제", value = """
+                                    { "isPreferred": false }
+                                    """)
+                    }
+            )
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "설정 성공 — 전체 경유지 목록 반환",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": [
+                                {
+                                  "waypointId": 7,
+                                  "visitDate": "2027-08-15",
+                                  "sequenceOrder": 1,
+                                  "placeId": 42,
+                                  "placeName": "협재해수욕장",
+                                  "categoryName": "자연",
+                                  "imageUrl": null,
+                                  "address": "제주시 한림읍",
+                                  "visited": false,
+                                  "visitedAt": null,
+                                  "isStart": true,
+                                  "isDestination": false,
+                                  "isPreferred": true
+                                }
+                              ]
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "DRAFT 상태가 아닌 계획",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN400_17","message":"계획 중 상태의 여행만 수정할 수 있습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "타인의 여행 계획에 접근",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "계획 또는 경유지 없음",
+                    content = @Content(examples = {
+                            @ExampleObject(name = "계획 미존재", value = """
+                                    {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "경유지 미존재 또는 다른 계획 소속", value = """
+                                    {"isSuccess":false,"code":"PLAN404_3","message":"존재하지 않는 경유지입니다.","result":null}
+                                    """)
+                    })
+            )
+    })
+    ApiResponse<List<WaypointResponse>> togglePreferred(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행 계획 ID") Long planId,
+            @Parameter(description = "경유지(TravelCourse) ID") Long waypointId,
+            @org.springframework.web.bind.annotation.RequestBody TogglePreferredRequest request
     );
 
     // ──────────────────────────────────────────────────────────────────────────

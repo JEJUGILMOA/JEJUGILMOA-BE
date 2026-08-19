@@ -23,7 +23,8 @@ public class WaypointConverter {
             course.isVisited(),
             course.getVisitedAt(),
             course.isStart(),
-            course.isDestination()
+            course.isDestination(),
+            course.isPreferred()
         );
     }
 }

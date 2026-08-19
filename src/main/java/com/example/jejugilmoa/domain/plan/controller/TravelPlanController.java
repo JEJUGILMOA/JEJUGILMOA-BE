@@ -58,12 +58,23 @@ public class TravelPlanController implements TravelPlanControllerDocs {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<TravelPlanCreateResponse> create(
+    public ApiResponse<TravelPlanDetailResponse> create(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody TravelPlanCreateRequest request) {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.CREATED,
                 travelPlanService.create(principal.userId(), request));
+    }
+
+    @PatchMapping("/{planId}/waypoints/{waypointId}/preferred")
+    public ApiResponse<List<WaypointResponse>> togglePreferred(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long planId,
+            @PathVariable Long waypointId,
+            @RequestBody TogglePreferredRequest request) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                waypointService.togglePreferred(planId, principal.userId(), waypointId, request.isPreferred()));
     }
 
     @GetMapping("/{planId}/recommendations")

@@ -58,6 +58,7 @@ public class WaypointService {
                 .place(place)
                 .visitDate(visitDate)
                 .sequenceOrder(nextOrder)
+                .preferred(Boolean.TRUE.equals(request.isPreferred()))
                 .build();
         try {
             travelCourseRepository.saveAndFlush(course);
@@ -115,6 +116,19 @@ public class WaypointService {
         }
 
         refreshStartDestinationFlags(planId, visitDate);
+        return listWaypoints(planId);
+    }
+
+    @Transactional
+    public List<WaypointResponse> togglePreferred(Long planId, Long userId, Long waypointId, boolean preferred) {
+        TravelPlan plan = findPlanAndVerifyOwner(planId, userId);
+        if (plan.getStatus() != TravelPlanStatus.DRAFT) {
+            throw new GeneralException(PlanErrorCode.PLAN_NOT_EDITABLE);
+        }
+        TravelCourse course = travelCourseRepository.findById(waypointId)
+                .filter(c -> c.getTravelPlan().getId().equals(planId))
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.WAYPOINT_NOT_FOUND));
+        course.updatePreferred(preferred);
         return listWaypoints(planId);
     }
 

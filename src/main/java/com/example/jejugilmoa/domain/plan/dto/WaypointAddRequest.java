@@ -13,6 +13,9 @@ public record WaypointAddRequest(
 
         @Schema(description = "추가할 날짜 (여행 계획의 시작일~종료일 범위 내)", example = "2026-08-15")
         @NotNull(message = "방문 날짜는 필수입니다.")
-        LocalDate visitDate
+        LocalDate visitDate,
+
+        @Schema(description = "선호 경유지 여부 (null이면 false)", example = "false")
+        Boolean isPreferred
 
 ) {}
