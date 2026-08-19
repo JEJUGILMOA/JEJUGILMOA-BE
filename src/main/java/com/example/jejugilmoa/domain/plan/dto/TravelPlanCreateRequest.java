@@ -23,14 +23,14 @@ public record TravelPlanCreateRequest(
         @NotNull
         LocalDate endDate,
 
-        @Schema(description = "출발지 Place ID (null이면 departureLocationName 필수)", example = "null")
+        @Schema(description = "출발지 Place ID (null이면 departureLocationName 필수)")
         Long departurePlaceId,
 
         @Schema(description = "출발지 직접 입력 텍스트 (departurePlaceId가 null일 때 필수)", example = "제주국제공항")
         @Size(max = 200)
         String departureLocationName,
 
-        @Schema(description = "목적지 Place ID (null이면 destinationLocationName 필수)", example = "null")
+        @Schema(description = "목적지 Place ID (null이면 destinationLocationName 필수)")
         Long destinationPlaceId,
 
         @Schema(description = "목적지 직접 입력 텍스트 (destinationPlaceId가 null일 때 필수)", example = "성산일출봉")

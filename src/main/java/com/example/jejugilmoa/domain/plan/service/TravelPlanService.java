@@ -13,6 +13,7 @@ import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateRequest;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateResponse;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanDetailResponse;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanListResponse;
+import com.example.jejugilmoa.domain.plan.dto.TravelPlanUpdateRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlanPreference;
@@ -57,6 +58,18 @@ public class TravelPlanService {
     private final TravelRecordReactionRepository travelRecordReactionRepository;
     private final TravelSharedRecordRepository travelSharedRecordRepository;
     private final TravelRecordPlaceRepository travelRecordPlaceRepository;
+
+    @Transactional(readOnly = true)
+    public void assertPlanEditable(Long planId, Long userId) {
+        TravelPlan plan = travelPlanRepository.findById(planId)
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
+        if (!plan.getUser().getId().equals(userId)) {
+            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
+        }
+        if (plan.getStatus() != TravelPlanStatus.DRAFT) {
+            throw new GeneralException(PlanErrorCode.PLAN_NOT_EDITABLE);
+        }
+    }
 
     @Transactional(readOnly = true)
     public TravelPlanDetailResponse getPlanDetail(Long planId, Long userId) {
@@ -163,11 +176,80 @@ public class TravelPlanService {
     }
 
     @Transactional
+    public TravelPlanDetailResponse updatePlan(Long planId, Long userId, TravelPlanUpdateRequest request) {
+        TravelPlan plan = travelPlanRepository.findByIdWithPreferences(planId)
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
+        if (!plan.getUser().getId().equals(userId)) {
+            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
+        }
+        if (plan.getStatus() != TravelPlanStatus.DRAFT) {
+            throw new GeneralException(PlanErrorCode.PLAN_NOT_EDITABLE);
+        }
+
+        String newTitle = (request.title() != null && !request.title().isBlank())
+                ? request.title() : plan.getTitle();
+
+        boolean hasNewDeparture = request.departurePlaceId() != null
+                || (request.departureLocationName() != null && !request.departureLocationName().isBlank());
+        Place departurePlace = plan.getDeparturePlace();
+        String departureName = plan.getDepartureLocationName();
+        if (hasNewDeparture) {
+            departurePlace = request.departurePlaceId() != null
+                    ? placeRepository.findByIdAndPublishedTrue(request.departurePlaceId())
+                            .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND))
+                    : null;
+            departureName = request.departureLocationName();
+        }
+
+        boolean hasNewDestination = request.destinationPlaceId() != null
+                || (request.destinationLocationName() != null && !request.destinationLocationName().isBlank());
+        Place destinationPlace = plan.getDestinationPlace();
+        String destinationName = plan.getDestinationLocationName();
+        if (hasNewDestination) {
+            destinationPlace = request.destinationPlaceId() != null
+                    ? placeRepository.findByIdAndPublishedTrue(request.destinationPlaceId())
+                            .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND))
+                    : null;
+            destinationName = request.destinationLocationName();
+        }
+
+        plan.updatePlanInfo(newTitle, departurePlace, departureName, destinationPlace, destinationName);
+
+        if (request.categoryIds() != null && !request.categoryIds().isEmpty()) {
+            List<Category> categories = categoryRepository.findAllById(request.categoryIds());
+            if (categories.size() != request.categoryIds().size()) {
+                throw new GeneralException(PlanErrorCode.CATEGORY_NOT_FOUND);
+            }
+            // JPA 플러시 순서는 INSERT → DELETE이므로, 기존 카테고리를 먼저 DELETE 확정 후 INSERT해야 유니크 제약 위반을 피할 수 있다
+            plan.getPreferredCategories().clear();
+            travelPlanRepository.flush();
+            List<TravelPlanPreference> newPrefs = categories.stream()
+                    .map(cat -> TravelPlanPreference.builder()
+                            .travelPlan(plan)
+                            .category(cat)
+                            .build())
+                    .toList();
+            plan.getPreferredCategories().addAll(newPrefs);
+        }
+
+        List<WaypointResponse> waypoints = travelCourseRepository
+                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId)
+                .stream()
+                .map(WaypointConverter::toResponse)
+                .toList();
+
+        return TravelPlanConverter.toDetail(plan, waypoints);
+    }
+
+    @Transactional
     public BudgetUpdateResponse updateBudget(Long planId, Long userId, BudgetUpdateRequest request) {
         TravelPlan plan = travelPlanRepository.findById(planId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
         if (!plan.getUser().getId().equals(userId)) {
             throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
+        }
+        if (plan.getStatus() != TravelPlanStatus.DRAFT) {
+            throw new GeneralException(PlanErrorCode.PLAN_NOT_EDITABLE);
         }
         plan.updateBudget(
                 request.budgetTransportation(),

@@ -128,4 +128,14 @@ public class TravelPlan extends BaseEntity {
         this.budgetFood = food;
         this.budgetEtc = etc;
     }
+
+    public void updatePlanInfo(String title, Place departure, String departureName,
+                               Place destination, String destinationName) {
+        this.title = title;
+        this.departurePlace = departure;
+        this.departureLocationName = departureName;
+        this.destinationPlace = destination;
+        this.destinationLocationName = destinationName;
+    }
+
 }

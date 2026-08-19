@@ -91,6 +91,7 @@ public class TravelPlanController implements TravelPlanControllerDocs {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long planId,
             @Valid @RequestBody WaypointAddRequest request) {
+        travelPlanService.assertPlanEditable(planId, principal.userId());
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.CREATED,
                 waypointService.addWaypoint(planId, principal.userId(), request));
@@ -101,6 +102,7 @@ public class TravelPlanController implements TravelPlanControllerDocs {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long planId,
             @PathVariable Long waypointId) {
+        travelPlanService.assertPlanEditable(planId, principal.userId());
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.REQUEST_OK,
                 waypointService.removeWaypoint(planId, principal.userId(), waypointId));
@@ -124,6 +126,16 @@ public class TravelPlanController implements TravelPlanControllerDocs {
         return ApiResponse.onSuccess(
             GeneralSuccessCode.REQUEST_OK,
             recommendationService.recommendNearby(planId, principal.userId(), request));
+    }
+
+    @PatchMapping("/{planId}")
+    public ApiResponse<TravelPlanDetailResponse> updatePlan(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long planId,
+            @Valid @RequestBody TravelPlanUpdateRequest request) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                travelPlanService.updatePlan(planId, principal.userId(), request));
     }
 
     @PatchMapping("/{planId}/budget")
