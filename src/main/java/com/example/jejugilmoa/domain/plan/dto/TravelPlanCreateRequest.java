@@ -3,6 +3,8 @@ package com.example.jejugilmoa.domain.plan.dto;
 import com.example.jejugilmoa.domain.plan.enums.TravelCompanion;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -33,12 +35,16 @@ public record TravelPlanCreateRequest(
         @Size(max = 200)
         String departureLocationName,
 
-        @Schema(description = "출발지 위도", example = "33.5070")
+        @Schema(description = "출발지 위도 (-90 ~ 90)", example = "33.5070")
         @NotNull
+        @DecimalMin(value = "-90", message = "위도는 -90 이상이어야 합니다.")
+        @DecimalMax(value = "90", message = "위도는 90 이하여야 합니다.")
         BigDecimal departureLatitude,
 
-        @Schema(description = "출발지 경도", example = "126.4927")
+        @Schema(description = "출발지 경도 (-180 ~ 180)", example = "126.4927")
         @NotNull
+        @DecimalMin(value = "-180", message = "경도는 -180 이상이어야 합니다.")
+        @DecimalMax(value = "180", message = "경도는 180 이하여야 합니다.")
         BigDecimal departureLongitude,
 
         @Schema(description = "동반자 유형", example = "COUPLE")

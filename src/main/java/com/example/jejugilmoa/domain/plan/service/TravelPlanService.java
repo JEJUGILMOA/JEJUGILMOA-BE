@@ -35,8 +35,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -137,7 +139,10 @@ public class TravelPlanService {
 
         // 날짜별 경유지를 하나의 트랜잭션에서 원자적으로 저장
         List<DayPlanRequest> days = request.days() != null ? request.days() : List.of();
+        Set<LocalDate> seenDates = new HashSet<>();
         for (DayPlanRequest day : days) {
+            if (!seenDates.add(day.visitDate()))
+                throw new GeneralException(PlanErrorCode.DUPLICATE_VISIT_DATE);
             if (day.visitDate().isBefore(plan.getStartDate()) || day.visitDate().isAfter(plan.getEndDate()))
                 throw new GeneralException(PlanErrorCode.INVALID_VISIT_DATE);
 
