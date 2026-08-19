@@ -22,28 +22,17 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 @Slf4j
 public class ImageUploadService {
 
-    private static final Map<String, String> EXTENSIONS = Map.of(
-            "image/jpeg", "jpg",
-            "image/png", "png",
-            "image/webp", "webp"
-    );
-
     private final S3Presigner s3Presigner;
     private final AwsProperties awsProperties;
     private final Clock clock;
+    private final ImageObjectPolicy imageObjectPolicy;
 
     public ImageUploadResponse createUploadUrl(ImageUploadRequest request, Long userId) {
         if (userId == null) {
             throw new GeneralException(ImageUploadErrorCode.AUTHENTICATED_USER_NOT_FOUND);
         }
 
-        String extension = EXTENSIONS.get(request.contentType());
-        if (extension == null) {
-            throw new GeneralException(ImageUploadErrorCode.UNSUPPORTED_CONTENT_TYPE);
-        }
-        if (request.fileSize() <= 0 || request.fileSize() > awsProperties.s3().maxImageSizeBytes()) {
-            throw new GeneralException(ImageUploadErrorCode.INVALID_FILE_SIZE);
-        }
+        String extension = imageObjectPolicy.validateAndGetExtension(request.contentType(), request.fileSize());
 
         String objectKey = "records/%d/%s.%s".formatted(userId, UUID.randomUUID(), extension);
         Duration expiration = Duration.ofSeconds(awsProperties.s3().presignExpirationSeconds());

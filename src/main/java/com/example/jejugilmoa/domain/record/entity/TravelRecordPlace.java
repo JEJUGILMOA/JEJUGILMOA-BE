@@ -6,6 +6,8 @@ import lombok.*;
 
 import jakarta.persistence.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -38,10 +40,25 @@ public class TravelRecordPlace extends BaseEntity {
     )
     private Place place;
 
+    @Column(nullable = false, length = 200)
+    private String placeName;
+
+    @Column(nullable = false, length = 500)
+    private String address;
+
+    @Column(nullable = false, precision = 10, scale = 8)
+    private BigDecimal latitude;
+
+    @Column(nullable = false, precision = 11, scale = 8)
+    private BigDecimal longitude;
+
+    @Column(nullable = false)
+    private LocalDate visitDate;
+
     @Column(nullable = false)
     private int sequenceOrder;  // 방문 순서
 
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 1000)
     private String memo;  // 감상/팁/메모
 
     @Builder.Default
@@ -51,10 +68,10 @@ public class TravelRecordPlace extends BaseEntity {
     @Column
     private LocalDateTime visitedAt;      // 실제 방문 시각
 
-    @Column(nullable = false)
-    private int stayMinutes;          // 실제 머문 시간
+    @Column
+    private Integer stayMinutes;          // 실제 머문 시간
 
-    @Column(nullable = false)
-    private int rating;            // 이 장소에 대한 개인 평점
+    @Column
+    private Integer rating;            // 이 장소에 대한 개인 평점
 
 }

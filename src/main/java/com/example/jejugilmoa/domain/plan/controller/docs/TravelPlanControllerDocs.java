@@ -260,12 +260,14 @@ public interface TravelPlanControllerDocs {
     @Operation(
             summary = "여행 계획 삭제",
             description = """
-                    여행 계획과 관련된 모든 데이터를 삭제합니다.
+                    여행 계획을 삭제합니다.
 
                     **삭제 범위**
                     - 경유지 목록 (TravelCourse)
                     - 선호 카테고리 설정
-                    - 연결된 여행 기록 및 기록 내 이미지·장소·반응·공유 링크
+
+                    이미 생성된 여행 기록(TravelRecord)은 삭제되지 않고 보존됩니다.
+                    보존된 여행 기록의 계획 참조는 해제됩니다.
 
                     본인의 계획만 삭제할 수 있습니다.
                     """
