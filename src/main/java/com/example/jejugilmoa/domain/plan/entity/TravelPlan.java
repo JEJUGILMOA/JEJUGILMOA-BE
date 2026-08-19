@@ -1,9 +1,7 @@
 package com.example.jejugilmoa.domain.plan.entity;
 
 import com.example.jejugilmoa.domain.place.entity.Place;
-import com.example.jejugilmoa.domain.plan.enums.TransportMode;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
-import com.example.jejugilmoa.domain.plan.enums.TravelRegion;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.enums.TravelStyle;
 import com.example.jejugilmoa.global.entity.BaseEntity;
@@ -59,14 +57,6 @@ public class TravelPlan extends BaseEntity {
 
     @Column(nullable = false)
     private int totalAvailableTime;  // 전체 여행 가능 시간 (분)
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private TransportMode transportMode;  // 도보, 대중교통, 차량
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private TravelRegion region;  // 제주 전체 / 제주시 / 서귀포시
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "departure_place_id")
@@ -138,4 +128,14 @@ public class TravelPlan extends BaseEntity {
         this.budgetFood = food;
         this.budgetEtc = etc;
     }
+
+    public void updatePlanInfo(String title, Place departure, String departureName,
+                               Place destination, String destinationName) {
+        this.title = title;
+        this.departurePlace = departure;
+        this.departureLocationName = departureName;
+        this.destinationPlace = destination;
+        this.destinationLocationName = destinationName;
+    }
+
 }

@@ -36,34 +36,37 @@ public interface TravelPlanControllerDocs {
                               "code": "COMMON200",
                               "message": "성공적으로 요청을 처리했습니다.",
                               "result": {
-                                "planId": 1,
-                                "title": "제주 여름 휴가",
-                                "startDate": "2026-08-15",
-                                "endDate": "2026-08-16",
-                                "nights": 1,
-                                "days": 2,
+                                "planId": 26,
+                                "title": "제주 가을 여행",
+                                "startDate": "2027-08-15",
+                                "endDate": "2027-08-17",
+                                "nights": 2,
+                                "days": 3,
                                 "status": "DRAFT",
-                                "region": "JEJU_ALL",
-                                "transportMode": "CAR",
                                 "travelStyle": "RELAXED",
-                                "departureLocationName": "제주국제공항",
-                                "destinationLocationName": "성산일출봉",
+                                "departureLocationName": "새별오름",
+                                "destinationLocationName": "중문관광단지",
                                 "categories": ["자연", "카페"],
                                 "itinerary": [
                                   {
-                                    "date": "2026-08-15",
+                                    "date": "2027-08-15",
                                     "dayNumber": 1,
                                     "waypoints": [
-                                      {"waypointId": 7, "visitDate": "2026-08-15", "sequenceOrder": 1, "placeId": 42, "placeName": "애월 카페거리", "categoryName": "카페", "imageUrl": null, "address": "제주시 애월읍"},
-                                      {"waypointId": 8, "visitDate": "2026-08-15", "sequenceOrder": 2, "placeId": 10, "placeName": "협재해수욕장", "categoryName": "자연", "imageUrl": null, "address": "제주시 한림읍"}
+                                      {"waypointId": 7, "visitDate": "2027-08-15", "sequenceOrder": 1, "placeId": 42, "placeName": "협재해수욕장", "categoryName": "자연", "imageUrl": null, "address": "제주시 한림읍"},
+                                      {"waypointId": 8, "visitDate": "2027-08-15", "sequenceOrder": 2, "placeId": 10, "placeName": "애월 카페거리", "categoryName": "카페", "imageUrl": null, "address": "제주시 애월읍"}
                                     ]
                                   },
                                   {
-                                    "date": "2026-08-16",
+                                    "date": "2027-08-16",
                                     "dayNumber": 2,
                                     "waypoints": [
-                                      {"waypointId": 9, "visitDate": "2026-08-16", "sequenceOrder": 1, "placeId": 5, "placeName": "성산일출봉", "categoryName": "자연", "imageUrl": null, "address": "서귀포시 성산읍"}
+                                      {"waypointId": 9, "visitDate": "2027-08-16", "sequenceOrder": 1, "placeId": 5, "placeName": "성산일출봉", "categoryName": "자연", "imageUrl": null, "address": "서귀포시 성산읍"}
                                     ]
+                                  },
+                                  {
+                                    "date": "2027-08-17",
+                                    "dayNumber": 3,
+                                    "waypoints": []
                                   }
                                 ],
                                 "budgetTransportation": 50000,
@@ -157,44 +160,18 @@ public interface TravelPlanControllerDocs {
             content = @Content(
                     mediaType = "application/json",
                     schema = @Schema(implementation = TravelPlanCreateRequest.class),
-                    examples = {
-                            @ExampleObject(
-                                    name = "텍스트로 출발지·목적지 입력",
-                                    summary = "Place ID 없이 텍스트로 출발지·목적지를 입력하는 케이스",
-                                    value = """
-                                            {
-                                              "title": "제주 여름 휴가",
-                                              "startDate": "2026-08-15",
-                                              "endDate": "2026-08-17",
-                                              "region": "JEJU_ALL",
-                                              "departurePlaceId": null,
-                                              "departureLocationName": "제주국제공항",
-                                              "destinationPlaceId": null,
-                                              "destinationLocationName": "성산일출봉",
-                                              "transportMode": "WALK",
-                                              "categoryIds": [1, 2]
-                                            }
-                                            """
-                            ),
-                            @ExampleObject(
-                                    name = "Place ID로 출발지 지정",
-                                    summary = "등록된 Place를 출발지로 선택하는 케이스",
-                                    value = """
-                                            {
-                                              "title": "서귀포 당일치기",
-                                              "startDate": "2026-08-20",
-                                              "endDate": "2026-08-20",
-                                              "region": "SEOGWIPO",
-                                              "departurePlaceId": 1,
-                                              "departureLocationName": null,
-                                              "destinationPlaceId": null,
-                                              "destinationLocationName": "중문관광단지",
-                                              "transportMode": "CAR",
-                                              "categoryIds": [1]
-                                            }
-                                            """
-                            )
-                    }
+                    examples = @ExampleObject(value = """
+                            {
+                              "title": "제주 가을 여행",
+                              "startDate": "2027-08-15",
+                              "endDate": "2027-08-17",
+                              "departurePlaceId": null,
+                              "departureLocationName": "새별오름",
+                              "destinationPlaceId": null,
+                              "destinationLocationName": "중문관광단지",
+                              "categoryIds": [1, 2]
+                            }
+                            """)
             )
     )
     @ApiResponses({
@@ -212,8 +189,6 @@ public interface TravelPlanControllerDocs {
                                         "title": "제주 여름 휴가",
                                         "startDate": "2026-08-15",
                                         "endDate": "2026-08-17",
-                                        "region": "JEJU_ALL",
-                                        "transportMode": "WALK",
                                         "status": "DRAFT",
                                         "categories": ["자연", "음식"],
                                         "departureLocationName": "제주국제공항",
@@ -309,8 +284,7 @@ public interface TravelPlanControllerDocs {
                     - 출발지·목적지 모두 Place 엔티티를 가진 경우 PostGIS corridor 쿼리(경로 좌우 5km 이내)로 추천합니다.
                     - 텍스트 입력 출발지/목적지만 있는 경우 방문자 수 내림차순 인기 장소로 폴백합니다.
                     - 이미 담은 경유지는 자동으로 제외됩니다.
-                    - `estimatedTravelMinutes`는 출발지로부터의 직선거리 기반 이동 시간 추정치입니다.
-                    """
+"""
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -331,8 +305,7 @@ public interface TravelPlanControllerDocs {
                                     "imageUrl": "https://cdn.example.com/10.jpg",
                                     "address": "제주시 애월읍",
                                     "latitude": 33.46281,
-                                    "longitude": 126.31466,
-                                    "estimatedTravelMinutes": 8
+                                    "longitude": 126.31466
                                   }
                                 ]
                               }
@@ -395,8 +368,7 @@ public interface TravelPlanControllerDocs {
                                     "imageUrl": "https://cdn.example.com/42.jpg",
                                     "address": "서귀포시 성산읍",
                                     "latitude": 33.45691,
-                                    "longitude": 126.93024,
-                                    "estimatedTravelMinutes": 5
+                                    "longitude": 126.93024
                                   }
                                 ]
                               }
@@ -442,26 +414,11 @@ public interface TravelPlanControllerDocs {
         content = @Content(
             mediaType = "application/json",
             schema = @Schema(implementation = NearbyPlaceRecommendRequest.class),
-            examples = {
-                @ExampleObject(
-                    name = "최초 추천",
-                    summary = "처음 추천 요청 (excludeContentIds 빈 배열)",
-                    value = """
-                                            {
-                                              "excludeContentIds": []
-                                            }
-                                            """
-                ),
-                @ExampleObject(
-                    name = "다시 추천",
-                    summary = "이전에 노출된 contentId를 누적해서 전달",
-                    value = """
-                                            {
-                                              "excludeContentIds": ["126508", "264570", "987654"]
-                                            }
-                                            """
-                )
-            }
+            examples = @ExampleObject(value = """
+                    {
+                      "excludeContentIds": []
+                    }
+                    """)
         )
     )
     @ApiResponses({
@@ -531,7 +488,7 @@ public interface TravelPlanControllerDocs {
                     mediaType = "application/json",
                     schema = @Schema(implementation = WaypointAddRequest.class),
                     examples = @ExampleObject(value = """
-                            { "placeId": 42, "visitDate": "2026-08-15" }
+                            { "placeId": 42, "visitDate": "2027-08-15" }
                             """)
             )
     )
@@ -632,7 +589,7 @@ public interface TravelPlanControllerDocs {
                     mediaType = "application/json",
                     schema = @Schema(implementation = WaypointReorderRequest.class),
                     examples = @ExampleObject(value = """
-                            { "visitDate": "2026-08-15", "waypointIds": [3, 1, 2] }
+                            { "visitDate": "2027-08-15", "waypointIds": [3, 1, 2] }
                             """)
             )
     )
@@ -672,6 +629,107 @@ public interface TravelPlanControllerDocs {
     );
 
     // ──────────────────────────────────────────────────────────────────────────
+    // 계획 수정
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Operation(
+            summary = "여행 계획 수정",
+            description = """
+                    여행 계획의 구성 정보를 수정합니다.
+
+                    - **계획 중(DRAFT) 상태**의 여행 계획만 수정할 수 있습니다. 진행중·완료 상태는 `PLAN400_17`.
+                    - **여행 기간(startDate/endDate)은 수정 불가**합니다.
+                    - `null`로 전달한 필드는 수정되지 않습니다(기존 값 유지).
+                    - 출발지: `departurePlaceId` 또는 `departureLocationName` 중 하나라도 전달하면 출발지 정보가 갱신됩니다.
+                    - 목적지: 동일한 규칙이 적용됩니다.
+                    - `categoryIds`를 전달하면 기존 선호 카테고리를 전부 교체합니다.
+                    """
+    )
+    @RequestBody(
+            required = true,
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = TravelPlanUpdateRequest.class),
+                    examples = @ExampleObject(value = """
+                            {
+                              "title": "제주 가을 여행",
+                              "departurePlaceId": null,
+                              "departureLocationName": "새별오름",
+                              "destinationPlaceId": null,
+                              "destinationLocationName": "중문관광단지",
+                              "categoryIds": [1, 2]
+                            }
+                            """)
+            )
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "수정 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": {
+                                "planId": 26,
+                                "title": "제주 가을 여행",
+                                "startDate": "2027-08-15",
+                                "endDate": "2027-08-17",
+                                "nights": 2,
+                                "days": 3,
+                                "status": "DRAFT",
+                                "travelStyle": "RELAXED",
+                                "departureLocationName": "새별오름",
+                                "destinationLocationName": "중문관광단지",
+                                "categories": ["자연", "카페"],
+                                "itinerary": [
+                                  {"date": "2027-08-15", "dayNumber": 1, "waypoints": []},
+                                  {"date": "2027-08-16", "dayNumber": 2, "waypoints": []},
+                                  {"date": "2027-08-17", "dayNumber": 3, "waypoints": []}
+                                ],
+                                "budgetTransportation": null,
+                                "budgetAccommodation": null,
+                                "budgetFood": null,
+                                "budgetEtc": null,
+                                "totalBudget": null
+                              }
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "DRAFT 상태가 아닌 계획 수정 시도",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN400_17","message":"계획 중 상태의 여행만 수정할 수 있습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "타인의 여행 계획에 접근",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "존재하지 않는 계획 또는 장소/카테고리",
+                    content = @Content(examples = {
+                            @ExampleObject(name = "계획 미존재", value = """
+                                    {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "장소 미존재", value = """
+                                    {"isSuccess":false,"code":"PLACE404_1","message":"존재하지 않는 관광지입니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "카테고리 미존재", value = """
+                                    {"isSuccess":false,"code":"PLAN404_2","message":"존재하지 않는 카테고리입니다.","result":null}
+                                    """)
+                    })
+            )
+    })
+    ApiResponse<TravelPlanDetailResponse> updatePlan(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행 계획 ID") Long planId,
+            @Valid @org.springframework.web.bind.annotation.RequestBody TravelPlanUpdateRequest request
+    );
+
+    // ──────────────────────────────────────────────────────────────────────────
     // 예산
     // ──────────────────────────────────────────────────────────────────────────
 
@@ -689,44 +747,14 @@ public interface TravelPlanControllerDocs {
             content = @Content(
                     mediaType = "application/json",
                     schema = @Schema(implementation = BudgetUpdateRequest.class),
-                    examples = {
-                            @ExampleObject(
-                                    name = "전체 항목 입력",
-                                    summary = "4개 항목 모두 입력하는 케이스",
-                                    value = """
-                                            {
-                                              "budgetTransportation": 50000,
-                                              "budgetAccommodation": 150000,
-                                              "budgetFood": 80000,
-                                              "budgetEtc": 30000
-                                            }
-                                            """
-                            ),
-                            @ExampleObject(
-                                    name = "일부 항목만 입력",
-                                    summary = "교통비·식비만 입력, 나머지는 null로 삭제하는 케이스",
-                                    value = """
-                                            {
-                                              "budgetTransportation": 50000,
-                                              "budgetAccommodation": null,
-                                              "budgetFood": 80000,
-                                              "budgetEtc": null
-                                            }
-                                            """
-                            ),
-                            @ExampleObject(
-                                    name = "전체 예산 삭제",
-                                    summary = "모든 항목을 null로 전달해 예산을 초기화하는 케이스",
-                                    value = """
-                                            {
-                                              "budgetTransportation": null,
-                                              "budgetAccommodation": null,
-                                              "budgetFood": null,
-                                              "budgetEtc": null
-                                            }
-                                            """
-                            )
-                    }
+                    examples = @ExampleObject(value = """
+                            {
+                              "budgetTransportation": 50000,
+                              "budgetAccommodation": 150000,
+                              "budgetFood": 80000,
+                              "budgetEtc": 30000
+                            }
+                            """)
             )
     )
     @ApiResponses({

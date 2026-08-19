@@ -33,7 +33,8 @@ public enum PlanErrorCode implements BaseCode {
     VISITED_WAYPOINT_NOT_REMOVABLE(HttpStatus.BAD_REQUEST, "PLAN400_15", "이미 방문한 경유지는 삭제할 수 없습니다."),
     START_OR_DESTINATION_NOT_REMOVABLE(HttpStatus.BAD_REQUEST, "PLAN400_16", "출발지 또는 목적지는 삭제할 수 없습니다."),
     CURRENT_TRIP_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN404_6", "진행중인 여행이 없습니다."),
-    TRIP_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "PLAN409_1", "이미 진행중인 여행이 있습니다.");
+    TRIP_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "PLAN409_1", "이미 진행중인 여행이 있습니다."),
+    PLAN_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "PLAN400_17", "계획 중 상태의 여행만 수정할 수 있습니다.");
 
 
     private final HttpStatus status;
