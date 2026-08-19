@@ -37,7 +37,8 @@ class ImageUploadServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         var properties = new AwsProperties("ap-northeast-2", new AwsProperties.S3("test-bucket", 900, 10_485_760));
-        imageUploadService = new ImageUploadService(s3Presigner, properties, Clock.fixed(NOW, ZoneOffset.UTC));
+        imageUploadService = new ImageUploadService(s3Presigner, properties, Clock.fixed(NOW, ZoneOffset.UTC),
+                new ImageObjectPolicy(properties));
     }
 
     @ParameterizedTest

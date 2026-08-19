@@ -21,11 +21,6 @@ import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanPreferenceRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
-import com.example.jejugilmoa.domain.record.repository.TravelRecordImageRepository;
-import com.example.jejugilmoa.domain.record.repository.TravelRecordPlaceRepository;
-import com.example.jejugilmoa.domain.record.repository.TravelRecordReactionRepository;
-import com.example.jejugilmoa.domain.record.repository.TravelRecordRepository;
-import com.example.jejugilmoa.domain.record.repository.TravelSharedRecordRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.exception.UserErrorCode;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
@@ -52,11 +47,6 @@ public class TravelPlanService {
     private final UserRepository userRepository;
     private final PlaceRepository placeRepository;
     private final CategoryRepository categoryRepository;
-    private final TravelRecordRepository travelRecordRepository;
-    private final TravelRecordImageRepository travelRecordImageRepository;
-    private final TravelRecordReactionRepository travelRecordReactionRepository;
-    private final TravelSharedRecordRepository travelSharedRecordRepository;
-    private final TravelRecordPlaceRepository travelRecordPlaceRepository;
 
     @Transactional(readOnly = true)
     public TravelPlanDetailResponse getPlanDetail(Long planId, Long userId) {
@@ -148,15 +138,6 @@ public class TravelPlanService {
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
         if (!plan.getUser().getId().equals(userId)) {
             throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
-        }
-
-        List<Long> recordIds = travelRecordRepository.findIdsByTravelPlanId(planId);
-        if (!recordIds.isEmpty()) {
-            travelRecordImageRepository.deleteByTravelRecordIdIn(recordIds);
-            travelRecordReactionRepository.deleteByTravelRecordIdIn(recordIds);
-            travelSharedRecordRepository.deleteByTravelRecordIdIn(recordIds);
-            travelRecordPlaceRepository.deleteByTravelRecordIdIn(recordIds);
-            travelRecordRepository.deleteByTravelPlanId(planId);
         }
 
         travelPlanRepository.delete(plan);

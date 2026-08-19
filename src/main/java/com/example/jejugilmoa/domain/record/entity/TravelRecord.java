@@ -41,7 +41,7 @@ public class TravelRecord extends BaseEntity {
     )
     private User user;
 
-    @Column(length = 200, nullable = false)
+    @Column(length = 50, nullable = false)
     private String title;  // 기록 제목
 
     @Column(columnDefinition = "TEXT")
@@ -56,7 +56,7 @@ public class TravelRecord extends BaseEntity {
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Visibility visibility = Visibility.PRIVATE;;  // 공개 여부
+    private Visibility visibility = Visibility.PRIVATE;  // 공개 여부
 
     @Builder.Default
     @Column(nullable = false)

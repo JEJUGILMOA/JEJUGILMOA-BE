@@ -80,8 +80,9 @@ erDiagram
     PLACE ||--o| POPULAR_PLACE : "ranked as"
 
     USER ||--o{ TRAVEL_RECORD : writes
-    TRAVEL_PLAN |o--o{ TRAVEL_RECORD : "recorded from"
+    TRAVEL_PLAN |o--o| TRAVEL_RECORD : "recorded from; retained after plan deletion"
     TRAVEL_RECORD ||--o{ TRAVEL_RECORD_IMAGE : photos
+    TRAVEL_RECORD_PLACE ||--o| TRAVEL_RECORD_IMAGE : "optional place photo"
     TRAVEL_RECORD ||--o{ TRAVEL_RECORD_PLACE : "visited places"
     TRAVEL_RECORD ||--o{ TRAVEL_RECORD_REACTION : "liked/disliked"
     TRAVEL_RECORD ||--o{ TRAVEL_SHARED_RECORD : "shared as"
@@ -111,5 +112,6 @@ erDiagram
 | 응답 봉투 | `ApiResponse` + `BaseCode` enum 체계 | [0001](adr/0001-api-response-envelope.md) |
 | 공간 데이터 | `Place`에 lat/lng(BigDecimal)와 PostGIS `geom` **이중 저장** — 항상 같이 갱신 | [0002](adr/0002-postgis-dual-storage.md) |
 | 소프트 삭제 | `deletedAt` timestamp (User, TravelRecord) — 조회 시 필터 필수 | [0003](adr/0003-soft-delete.md) |
+| 여행 기록 보존 | 계획과 기록의 lifecycle을 분리하고, 계획 삭제 시 `ON DELETE SET NULL`로 기록 snapshot 보존 | [0010](adr/0010-retain-travel-record-after-plan-deletion.md) |
 | 데이터베이스 스키마 | Flyway를 통해 관리하며, 마이그레이션 파일은 `src/main/resources/db/migration` 경로에 버전 순서대로 추가한다. | — |
 | 인증 | 외부 OAuth 로그인 + 앱 자체 JWT(액세스/리프레시, HttpOnly 쿠키). 리프레시 토큰은 DB 저장, 재발급 시 회전 + 재사용 탐지. **인가는 여전히 미구현 — 전 요청 permitAll** | [0006](adr/0006-jwt-cookie-auth.md) |
