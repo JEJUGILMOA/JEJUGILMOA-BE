@@ -177,7 +177,7 @@ public class TravelPlanService {
 
     @Transactional
     public TravelPlanDetailResponse updatePlan(Long planId, Long userId, TravelPlanUpdateRequest request) {
-        TravelPlan plan = travelPlanRepository.findByIdWithPreferences(planId)
+        TravelPlan plan = travelPlanRepository.findByIdForUpdate(planId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
         if (!plan.getUser().getId().equals(userId)) {
             throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
@@ -243,7 +243,7 @@ public class TravelPlanService {
 
     @Transactional
     public BudgetUpdateResponse updateBudget(Long planId, Long userId, BudgetUpdateRequest request) {
-        TravelPlan plan = travelPlanRepository.findById(planId)
+        TravelPlan plan = travelPlanRepository.findByIdForUpdate(planId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
         if (!plan.getUser().getId().equals(userId)) {
             throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
