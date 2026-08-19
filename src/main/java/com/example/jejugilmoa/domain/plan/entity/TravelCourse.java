@@ -54,6 +54,10 @@ public class TravelCourse extends BaseEntity {
     private boolean destination = false;
 
     @Builder.Default
+    @Column(name = "is_preferred", nullable = false)
+    private boolean preferred = false;
+
+    @Builder.Default
     @Column(name = "is_visited", nullable = false)
     private boolean visited = false;
 
@@ -76,6 +80,10 @@ public class TravelCourse extends BaseEntity {
     public void updateStartDestination(boolean start, boolean destination) {
         this.start = start;
         this.destination = destination;
+    }
+
+    public void updatePreferred(boolean preferred) {
+        this.preferred = preferred;
     }
 
 }
