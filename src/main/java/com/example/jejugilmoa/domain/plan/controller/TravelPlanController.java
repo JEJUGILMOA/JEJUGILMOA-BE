@@ -71,7 +71,7 @@ public class TravelPlanController implements TravelPlanControllerDocs {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long planId,
             @PathVariable Long waypointId,
-            @RequestBody TogglePreferredRequest request) {
+            @Valid @RequestBody TogglePreferredRequest request) {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.REQUEST_OK,
                 waypointService.togglePreferred(planId, principal.userId(), waypointId, request.isPreferred()));

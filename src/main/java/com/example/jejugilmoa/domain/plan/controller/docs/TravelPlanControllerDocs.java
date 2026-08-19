@@ -149,9 +149,9 @@ public interface TravelPlanControllerDocs {
     @Operation(summary = "여행 계획 생성", description = """
             새로운 여행 계획을 단일 요청으로 생성합니다. 일정(날짜별 경유지), 예산, 동반자를 한 번에 저장할 수 있습니다.
 
-            **출발지 (둘 중 하나 필수)**
-            - `departurePlaceId`: 앱 내 등록된 Place ID
-            - `departureLocationName`: 텍스트 직접 입력
+            **출발지**
+            - `departureLatitude` / `departureLongitude`: 항상 필수
+            - `departurePlaceId` 또는 `departureLocationName` 중 하나 추가 필수 (둘 다 없으면 `PLAN400_3`)
 
             **날짜별 경유지 (`days`, 선택)**
             - 생략하거나 빈 배열을 전달하면 경유지 없이 계획만 생성됩니다.
@@ -160,7 +160,7 @@ public interface TravelPlanControllerDocs {
 
             **기타**
             - `categoryIds`는 1개 이상이어야 합니다. 유효한 ID는 DB `category` 테이블에서 확인하세요.
-            - `startDate`는 오늘 이후여야 합니다.
+            - `startDate`는 오늘 포함 이후여야 합니다.
             - `endDate`는 `startDate`와 같거나 이후여야 합니다.
             """)
     @RequestBody(
