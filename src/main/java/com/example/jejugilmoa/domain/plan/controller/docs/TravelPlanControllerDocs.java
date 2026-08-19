@@ -708,9 +708,17 @@ public interface TravelPlanControllerDocs {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404", description = "존재하지 않는 계획 또는 장소/카테고리",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
-                            """))
+                    content = @Content(examples = {
+                            @ExampleObject(name = "계획 미존재", value = """
+                                    {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "장소 미존재", value = """
+                                    {"isSuccess":false,"code":"PLACE404_1","message":"존재하지 않는 관광지입니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "카테고리 미존재", value = """
+                                    {"isSuccess":false,"code":"PLAN404_2","message":"존재하지 않는 카테고리입니다.","result":null}
+                                    """)
+                    })
             )
     })
     ApiResponse<TravelPlanDetailResponse> updatePlan(
