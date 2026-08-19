@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 public interface AuthControllerDocs {
 
@@ -74,6 +75,9 @@ public interface AuthControllerDocs {
             REFRESH_TOKEN 쿠키로 전달된 리프레시 토큰을 서버에서 폐기하고,
             ACCESS_TOKEN/REFRESH_TOKEN 쿠키를 모두 제거합니다.
             쿠키가 없거나 이미 무효한 토큰이어도 항상 200으로 응답합니다.
+
+            deviceId 를 함께 전달하면 해당 기기의 FCM 디바이스 토큰도 자동으로 삭제됩니다.
+            deviceId 가 없거나 등록된 토큰이 없는 경우에도 정상 응답합니다.
             """
     )
     @ApiResponses({
@@ -85,6 +89,9 @@ public interface AuthControllerDocs {
     ApiResponse<Void> logout(
         @Parameter(description = "리프레시 토큰 쿠키", hidden = true)
         @CookieValue(value = CookieProvider.REFRESH_TOKEN_COOKIE, required = false) String refreshToken,
+
+        @Parameter(description = "FCM 토큰을 삭제할 디바이스 ID (선택)")
+        @RequestParam(required = false) String deviceId,
 
         HttpServletResponse response
     );

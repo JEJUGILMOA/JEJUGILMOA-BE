@@ -11,6 +11,7 @@ import com.example.jejugilmoa.domain.auth.exception.AuthErrorCode;
 import com.example.jejugilmoa.domain.auth.jwt.JwtProvider;
 import com.example.jejugilmoa.domain.auth.jwt.TokenPair;
 import com.example.jejugilmoa.domain.auth.repository.RefreshTokenRepository;
+import com.example.jejugilmoa.domain.notification.repository.DeviceTokenRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.enums.Role;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
@@ -32,6 +33,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final DeviceTokenRepository deviceTokenRepository;
 
     // 전체를 하나의 트랜잭션으로 묶지 않는다. 동시 로그인 경합으로 createUser()가
     // 유니크 제약을 위반하면 재조회로 복구하는데, 같은 트랜잭션(커넥션) 안에서는
@@ -122,15 +124,20 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(String refreshTokenValue) {
-        if (refreshTokenValue == null || refreshTokenValue.isBlank()) {
-            return;
+    public void logout(String refreshTokenValue, String deviceId) {
+        Long resolvedUserId = null;
+        if (refreshTokenValue != null && !refreshTokenValue.isBlank()) {
+            try {
+                Claims claims = jwtProvider.parseRefreshClaims(refreshTokenValue);
+                resolvedUserId = jwtProvider.getUserId(claims);
+                refreshTokenRepository.findByTokenId(claims.getId()).ifPresent(RefreshToken::revoke);
+            } catch (GeneralException ignored) {
+                // 이미 만료되었거나 위조된 토큰은 어차피 재사용할 수 없으므로 무시하고 로그아웃 처리한다.
+            }
         }
-        try {
-            Claims claims = jwtProvider.parseRefreshClaims(refreshTokenValue);
-            refreshTokenRepository.findByTokenId(claims.getId()).ifPresent(RefreshToken::revoke);
-        } catch (GeneralException ignored) {
-            // 이미 만료되었거나 위조된 토큰은 어차피 재사용할 수 없으므로 무시하고 로그아웃 처리한다.
+        if (resolvedUserId != null && deviceId != null) {
+            deviceTokenRepository.findByUserIdAndDeviceId(resolvedUserId, deviceId)
+                    .ifPresent(deviceTokenRepository::delete);
         }
     }
 }

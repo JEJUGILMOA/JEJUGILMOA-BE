@@ -10,6 +10,8 @@ import com.example.jejugilmoa.domain.auth.exception.AuthErrorCode;
 import com.example.jejugilmoa.domain.auth.jwt.JwtProvider;
 import com.example.jejugilmoa.domain.auth.jwt.TokenPair;
 import com.example.jejugilmoa.domain.auth.repository.RefreshTokenRepository;
+import com.example.jejugilmoa.domain.notification.entity.DeviceToken;
+import com.example.jejugilmoa.domain.notification.repository.DeviceTokenRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.enums.Role;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
@@ -32,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -49,6 +52,9 @@ class AuthServiceTest {
 
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
+    private DeviceTokenRepository deviceTokenRepository;
 
     @InjectMocks
     private AuthService authService;
@@ -230,7 +236,7 @@ class AuthServiceTest {
                 .build();
         given(refreshTokenRepository.findByTokenId("jti-1")).willReturn(Optional.of(savedToken));
 
-        authService.logout("refresh-token");
+        authService.logout("refresh-token", null);
 
         assertThat(savedToken.isRevoked()).isTrue();
     }
@@ -238,8 +244,58 @@ class AuthServiceTest {
     @Test
     @DisplayName("리프레시 토큰이 없으면 로그아웃은 아무 것도 하지 않는다")
     void logoutNoOpWhenRefreshTokenMissing() {
-        authService.logout(null);
+        authService.logout(null, null);
 
         verifyNoInteractions(jwtProvider, refreshTokenRepository);
+    }
+
+    @Test
+    @DisplayName("유효한 리프레시 토큰과 deviceId를 전달하면 일치하는 디바이스 토큰을 조회하고 삭제한다")
+    void logoutWithDeviceIdDeletesMatchingToken() {
+        Claims claims = mock(Claims.class);
+        given(jwtProvider.parseRefreshClaims("refresh-token")).willReturn(claims);
+        given(jwtProvider.getUserId(claims)).willReturn(1L);
+        given(claims.getId()).willReturn("jti-1");
+
+        RefreshToken savedToken = RefreshToken.builder()
+                .userId(1L)
+                .tokenId("jti-1")
+                .expiresAt(Instant.now().plusSeconds(60))
+                .build();
+        given(refreshTokenRepository.findByTokenId("jti-1")).willReturn(Optional.of(savedToken));
+
+        DeviceToken deviceToken = mock(DeviceToken.class);
+        given(deviceTokenRepository.findByUserIdAndDeviceId(1L, "device-abc"))
+                .willReturn(Optional.of(deviceToken));
+
+        authService.logout("refresh-token", "device-abc");
+
+        assertThat(savedToken.isRevoked()).isTrue();
+        verify(deviceTokenRepository).findByUserIdAndDeviceId(1L, "device-abc");
+        verify(deviceTokenRepository).delete(deviceToken);
+    }
+
+    @Test
+    @DisplayName("deviceId에 일치하는 디바이스 토큰이 없으면 삭제를 호출하지 않는다")
+    void logoutWithDeviceIdNoMatchSkipsDelete() {
+        Claims claims = mock(Claims.class);
+        given(jwtProvider.parseRefreshClaims("refresh-token")).willReturn(claims);
+        given(jwtProvider.getUserId(claims)).willReturn(1L);
+        given(claims.getId()).willReturn("jti-1");
+
+        RefreshToken savedToken = RefreshToken.builder()
+                .userId(1L)
+                .tokenId("jti-1")
+                .expiresAt(Instant.now().plusSeconds(60))
+                .build();
+        given(refreshTokenRepository.findByTokenId("jti-1")).willReturn(Optional.of(savedToken));
+
+        given(deviceTokenRepository.findByUserIdAndDeviceId(1L, "device-xyz"))
+                .willReturn(Optional.empty());
+
+        authService.logout("refresh-token", "device-xyz");
+
+        verify(deviceTokenRepository).findByUserIdAndDeviceId(1L, "device-xyz");
+        verify(deviceTokenRepository, never()).delete(any(DeviceToken.class));
     }
 }

@@ -12,11 +12,11 @@ import java.time.Instant;
 @Table(
         name = "device_token",
         indexes = {
-                @Index(name = "idx_device_token_user", columnList = "user_id"),
-                @Index(name = "idx_device_token_token", columnList = "token")
+                @Index(name = "idx_device_token_user", columnList = "user_id")
         },
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_device_token_user_device", columnNames = {"user_id", "device_id"})
+                @UniqueConstraint(name = "uk_device_token_user_device", columnNames = {"user_id", "device_id"}),
+                @UniqueConstraint(name = "uk_device_token_token", columnNames = {"token"})
         }
 )
 @Getter
@@ -48,6 +48,13 @@ public class DeviceToken extends BaseEntity {
 
     public void updateToken(String newToken) {
         this.token = newToken;
+        this.lastUsedAt = Instant.now();
+    }
+
+    public void updateOwner(User newUser, String newDeviceId, FcmPlatform newPlatform) {
+        this.user = newUser;
+        this.deviceId = newDeviceId;
+        this.platform = newPlatform;
         this.lastUsedAt = Instant.now();
     }
 }
