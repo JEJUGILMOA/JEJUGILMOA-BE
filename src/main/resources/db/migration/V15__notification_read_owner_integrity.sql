@@ -27,11 +27,24 @@ BEGIN
     END IF;
 END $$;
 
+-- application.yml의 spring.flyway.mixed=true 설정으로 트랜잭션 밖에서 실행된다.
+-- notification 쓰기를 막는 일반 UNIQUE constraint용 인덱스 생성 대신 concurrent build를 사용한다.
+CREATE UNIQUE INDEX CONCURRENTLY uk_notification_id_user_idx
+    ON notification (id, user_id);
+
 ALTER TABLE notification
-    ADD CONSTRAINT uk_notification_id_user UNIQUE (id, user_id);
+    ADD CONSTRAINT uk_notification_id_user
+        UNIQUE USING INDEX uk_notification_id_user_idx;
 
 ALTER TABLE notification_read
-    DROP CONSTRAINT fk_notification_read_notification,
     ADD CONSTRAINT fk_notification_read_notification_owner
         FOREIGN KEY (notification_id, user_id)
-        REFERENCES notification (id, user_id);
+        REFERENCES notification (id, user_id)
+        NOT VALID;
+
+ALTER TABLE notification_read
+    VALIDATE CONSTRAINT fk_notification_read_notification_owner;
+
+-- 복합 FK가 기존 행까지 검증된 후에만 중복되는 단일 FK를 제거한다.
+ALTER TABLE notification_read
+    DROP CONSTRAINT fk_notification_read_notification;
