@@ -43,8 +43,6 @@ public interface TravelPlanControllerDocs {
                                 "nights": 1,
                                 "days": 2,
                                 "status": "DRAFT",
-                                "region": "JEJU_ALL",
-                                "transportMode": "CAR",
                                 "travelStyle": "RELAXED",
                                 "departureLocationName": "제주국제공항",
                                 "destinationLocationName": "성산일출봉",
@@ -166,12 +164,10 @@ public interface TravelPlanControllerDocs {
                                               "title": "제주 여름 휴가",
                                               "startDate": "2026-08-15",
                                               "endDate": "2026-08-17",
-                                              "region": "JEJU_ALL",
                                               "departurePlaceId": null,
                                               "departureLocationName": "제주국제공항",
                                               "destinationPlaceId": null,
                                               "destinationLocationName": "성산일출봉",
-                                              "transportMode": "WALK",
                                               "categoryIds": [1, 2]
                                             }
                                             """
@@ -184,12 +180,10 @@ public interface TravelPlanControllerDocs {
                                               "title": "서귀포 당일치기",
                                               "startDate": "2026-08-20",
                                               "endDate": "2026-08-20",
-                                              "region": "SEOGWIPO",
                                               "departurePlaceId": 1,
                                               "departureLocationName": null,
                                               "destinationPlaceId": null,
                                               "destinationLocationName": "중문관광단지",
-                                              "transportMode": "CAR",
                                               "categoryIds": [1]
                                             }
                                             """
@@ -212,8 +206,6 @@ public interface TravelPlanControllerDocs {
                                         "title": "제주 여름 휴가",
                                         "startDate": "2026-08-15",
                                         "endDate": "2026-08-17",
-                                        "region": "JEJU_ALL",
-                                        "transportMode": "WALK",
                                         "status": "DRAFT",
                                         "categories": ["자연", "음식"],
                                         "departureLocationName": "제주국제공항",
@@ -307,8 +299,7 @@ public interface TravelPlanControllerDocs {
                     - 출발지·목적지 모두 Place 엔티티를 가진 경우 PostGIS corridor 쿼리(경로 좌우 5km 이내)로 추천합니다.
                     - 텍스트 입력 출발지/목적지만 있는 경우 방문자 수 내림차순 인기 장소로 폴백합니다.
                     - 이미 담은 경유지는 자동으로 제외됩니다.
-                    - `estimatedTravelMinutes`는 출발지로부터의 직선거리 기반 이동 시간 추정치입니다.
-                    """
+"""
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -329,8 +320,7 @@ public interface TravelPlanControllerDocs {
                                     "imageUrl": "https://cdn.example.com/10.jpg",
                                     "address": "제주시 애월읍",
                                     "latitude": 33.46281,
-                                    "longitude": 126.31466,
-                                    "estimatedTravelMinutes": 8
+                                    "longitude": 126.31466
                                   }
                                 ]
                               }
@@ -393,8 +383,7 @@ public interface TravelPlanControllerDocs {
                                     "imageUrl": "https://cdn.example.com/42.jpg",
                                     "address": "서귀포시 성산읍",
                                     "latitude": 33.45691,
-                                    "longitude": 126.93024,
-                                    "estimatedTravelMinutes": 5
+                                    "longitude": 126.93024
                                   }
                                 ]
                               }

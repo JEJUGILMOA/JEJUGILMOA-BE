@@ -32,8 +32,6 @@ public class TravelPlanConverter {
                 .endDate(request.endDate())
                 .sameDay(request.startDate().equals(request.endDate()))
                 .totalAvailableTime(totalAvailableTime)
-                .transportMode(request.transportMode())
-                .region(request.region())
                 .departurePlace(departurePlace)
                 .departureLocationName(request.departureLocationName())
                 .destinationPlace(destinationPlace)
@@ -54,8 +52,6 @@ public class TravelPlanConverter {
                 plan.getTitle(),
                 plan.getStartDate(),
                 plan.getEndDate(),
-                plan.getRegion(),
-                plan.getTransportMode(),
                 plan.getStatus(),
                 categories.stream().map(Category::getName).toList(),
                 departureName,
@@ -148,8 +144,6 @@ public class TravelPlanConverter {
                 nights,
                 nights + 1,
                 plan.getStatus(),
-                plan.getRegion(),
-                plan.getTransportMode(),
                 plan.getTravelStyle(),
                 departureName,
                 destinationName,
