@@ -40,6 +40,7 @@ public class RecommendationController {
                     **카테고리 필터 (`category`)**
                     생략하거나 null이면 전체 카테고리를 대상으로 추천합니다.
                     사용 가능한 값: `FOOD`(음식·맛집), `CAFE`(카페·디저트), `NATURE`(자연), `CULTURE`(역사·문화), `ACTIVITY`(체험·액티비티), `FESTIVAL`(축제·이벤트), `SHOPPING`(쇼핑)
+                    단, `CAFE`는 TourAPI 카테고리 매핑이 없어 DB 결과가 없으면 빈 배열(`hasMore=false`)을 반환합니다.
 
                     **응답 필드**
                     - DB 장소: `placeId` 값 있음, `contentId` null
