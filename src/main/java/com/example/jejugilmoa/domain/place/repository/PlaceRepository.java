@@ -76,6 +76,62 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
     );
 
     /**
+     * 단일 앵커 추천용 반경 쿼리 (방향 기준 없음, 카테고리 필터 없음).
+     * 선호경유지 1개 + 출발지 없는 경우에 부채꼴 대신 사용합니다.
+     */
+    @Query(value = """
+            SELECT p.* FROM place p
+            WHERE p.is_published = true
+              AND p.id NOT IN (:excludedIds)
+              AND ST_DWithin(
+                  p.geom::geography,
+                  ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
+                  :radiusMeters
+              )
+            ORDER BY ST_Distance(
+                p.geom::geography,
+                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
+            )
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Place> findWithinRadius(
+            @Param("lon") double lon,
+            @Param("lat") double lat,
+            @Param("radiusMeters") double radiusMeters,
+            @Param("excludedIds") List<Long> excludedIds,
+            @Param("limit") int limit
+    );
+
+    /**
+     * 단일 앵커 추천용 반경 쿼리 (카테고리 필터 있음).
+     */
+    @Query(value = """
+            SELECT p.* FROM place p
+            JOIN category c ON c.id = p.category_id
+            WHERE p.is_published = true
+              AND c.name = :categoryName
+              AND p.id NOT IN (:excludedIds)
+              AND ST_DWithin(
+                  p.geom::geography,
+                  ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
+                  :radiusMeters
+              )
+            ORDER BY ST_Distance(
+                p.geom::geography,
+                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
+            )
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Place> findWithinRadiusByCategory(
+            @Param("lon") double lon,
+            @Param("lat") double lat,
+            @Param("radiusMeters") double radiusMeters,
+            @Param("categoryName") String categoryName,
+            @Param("excludedIds") List<Long> excludedIds,
+            @Param("limit") int limit
+    );
+
+    /**
      * DRAFT 앵커 추천용 부채꼴 쿼리 (카테고리 필터 없음).
      * findInSector와 쿼리 구조가 동일하나 category_id 조건을 제거해
      * 선호 테마와 무관하게 인접 장소를 추천합니다.

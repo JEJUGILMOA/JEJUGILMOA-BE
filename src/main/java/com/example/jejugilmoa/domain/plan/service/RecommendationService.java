@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.*;
 
 @Slf4j
 @Service
@@ -33,9 +33,17 @@ public class RecommendationService {
     private static final double COS_HALF_ANGLE = 0.5;
     private static final double EARTH_RADIUS_M = 6_371_000.0;
     private static final int RECOMMENDATION_LIMIT = 10;
+    private static final int SINGLE_ANCHOR_RADIUS_METERS = 5_000;
     private static final int FALLBACK_RADIUS_METERS = 5_000;
     private static final int FALLBACK_NUM_OF_ROWS = 30;
     private static final int FALLBACK_RESULT_SIZE = 10;
+    private static final long FALLBACK_TIMEOUT_SECONDS = 12L;
+
+    private static final Executor FALLBACK_EXECUTOR = Executors.newFixedThreadPool(4, r -> {
+        Thread t = new Thread(r, "tourapi-fallback");
+        t.setDaemon(true);
+        return t;
+    });
 
     private final TravelPlanRepository travelPlanRepository;
     private final TravelCourseRepository travelCourseRepository;
@@ -98,7 +106,8 @@ public class RecommendationService {
      * planId 없이 프론트가 좌표를 직접 전달합니다.
      *
      * - preferredWaypoints 없음 → 전역 랜덤
-     * - preferredWaypoints 있음 → 앵커 부채꼴, 결과 없으면 TourAPI 폴백
+     * - preferredWaypoints 1개 + 출발지 없음 → 단일 앵커 반경 쿼리
+     * - preferredWaypoints 여러 개 → 앵커 체인 부채꼴, 결과 없으면 TourAPI 폴백
      */
     public RecommendationResponse recommendStateless(RecommendationRequest request) {
         List<Long> excludedIds = new ArrayList<>(
@@ -121,6 +130,32 @@ public class RecommendationService {
 
         // 앵커 체인: 출발지 → 선호경유지A → B → C ...
         List<CoordDto> chain = buildChain(request.departureCoord(), request.preferredWaypoints());
+
+        // 단일 앵커: 방향 기준점 없으므로 부채꼴 대신 반경 쿼리
+        if (chain.size() == 1) {
+            CoordDto anchor = chain.get(0);
+            List<Place> results = (categoryName != null)
+                    ? placeRepository.findWithinRadiusByCategory(
+                            anchor.longitude(), anchor.latitude(), SINGLE_ANCHOR_RADIUS_METERS,
+                            categoryName, excludedIds, RECOMMENDATION_LIMIT + 1)
+                    : placeRepository.findWithinRadius(
+                            anchor.longitude(), anchor.latitude(), SINGLE_ANCHOR_RADIUS_METERS,
+                            excludedIds, RECOMMENDATION_LIMIT + 1);
+            if (!results.isEmpty()) {
+                boolean hasMore = results.size() > RECOMMENDATION_LIMIT;
+                return new RecommendationResponse(
+                        results.stream().limit(RECOMMENDATION_LIMIT).map(RecommendationConverter::toItem).toList(),
+                        hasMore);
+            }
+            if (category != null && !category.hasTourApiType()) {
+                return new RecommendationResponse(List.of(), false);
+            }
+            return recommendViaFallback(
+                    request.preferredWaypoints(),
+                    request.excludeContentIds() != null ? request.excludeContentIds() : List.of(),
+                    category);
+        }
+
         Set<Long> seen = new LinkedHashSet<>();
         List<Place> dbResults = new ArrayList<>();
 
@@ -162,7 +197,6 @@ public class RecommendationService {
             return new RecommendationResponse(List.of(), false);
         }
 
-        // DB 결과 없으면 TourAPI 폴백
         return recommendViaFallback(
                 request.preferredWaypoints(),
                 request.excludeContentIds() != null ? request.excludeContentIds() : List.of(),
@@ -224,12 +258,21 @@ public class RecommendationService {
                         log.warn("locationBasedList2 호출 실패: lat={}, lng={}", coord.latitude(), coord.longitude(), e);
                         return List.<LocationBasedItem>of();
                     }
-                }))
+                }, FALLBACK_EXECUTOR))
                 .toList();
+
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .orTimeout(FALLBACK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .join();
+        } catch (CompletionException e) {
+            log.warn("TourAPI 폴백 타임아웃 ({}초 초과)", FALLBACK_TIMEOUT_SECONDS, e.getCause());
+        }
 
         Map<String, LocationBasedItem> deduplicated = new LinkedHashMap<>();
         futures.stream()
-                .map(CompletableFuture::join)
+                .filter(f -> f.isDone() && !f.isCompletedExceptionally())
+                .map(f -> f.getNow(List.of()))
                 .flatMap(List::stream)
                 .forEach(item -> deduplicated.putIfAbsent(item.contentid(), item));
 
