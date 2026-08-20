@@ -5,6 +5,7 @@ import com.example.jejugilmoa.domain.place.dto.PlaceDetailDto;
 import com.example.jejugilmoa.domain.place.dto.PlaceSummaryDto;
 import com.example.jejugilmoa.domain.place.dto.PopularPlaceDto;
 import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
+import com.example.jejugilmoa.domain.place.dto.PlaceSyncResponse;
 import com.example.jejugilmoa.domain.place.service.PlaceQueryService;
 import com.example.jejugilmoa.domain.place.service.PlaceSyncService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
@@ -55,8 +56,7 @@ public class PlaceController implements PlaceControllerDocs {
     }
 
     @PostMapping("/sync")
-    public ApiResponse<Void> syncPlaces() {
-        placeSyncService.syncAllCategories();
-        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, null);
+    public ApiResponse<PlaceSyncResponse> syncPlaces() {
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, placeSyncService.syncAllCategories());
     }
 }
