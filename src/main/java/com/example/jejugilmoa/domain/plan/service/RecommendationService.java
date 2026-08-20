@@ -84,7 +84,7 @@ public class RecommendationService {
                         c.getPlace().getLongitude().doubleValue()))
                 .toList();
 
-        CoordDto departureCoord = plan.getDepartureLatitude() != null
+        CoordDto departureCoord = (plan.getDepartureLatitude() != null && plan.getDepartureLongitude() != null)
                 ? new CoordDto(plan.getDepartureLatitude().doubleValue(),
                                plan.getDepartureLongitude().doubleValue())
                 : null;
@@ -111,10 +111,12 @@ public class RecommendationService {
 
         if (request.preferredWaypoints() == null || request.preferredWaypoints().isEmpty()) {
             List<Place> results = (categoryName != null)
-                    ? placeRepository.findRandomByCategory(categoryName, excludedIds, RECOMMENDATION_LIMIT)
-                    : placeRepository.findRandom(excludedIds, RECOMMENDATION_LIMIT);
+                    ? placeRepository.findRandomByCategory(categoryName, excludedIds, RECOMMENDATION_LIMIT + 1)
+                    : placeRepository.findRandom(excludedIds, RECOMMENDATION_LIMIT + 1);
+            boolean hasMore = results.size() > RECOMMENDATION_LIMIT;
             return new RecommendationResponse(
-                    results.stream().map(RecommendationConverter::toItem).toList(), false);
+                    results.stream().limit(RECOMMENDATION_LIMIT).map(RecommendationConverter::toItem).toList(),
+                    hasMore);
         }
 
         // 앵커 체인: 출발지 → 선호경유지A → B → C ...
@@ -144,14 +146,20 @@ public class RecommendationService {
             }
         }
 
-        List<Place> deduped = dbResults.stream()
+        List<Place> allDeduped = dbResults.stream()
                 .filter(p -> seen.add(p.getId()))
-                .limit(RECOMMENDATION_LIMIT)
                 .toList();
+        boolean hasMore = allDeduped.size() > RECOMMENDATION_LIMIT;
+        List<Place> deduped = allDeduped.stream().limit(RECOMMENDATION_LIMIT).toList();
 
         if (!deduped.isEmpty()) {
             return new RecommendationResponse(
-                    deduped.stream().map(RecommendationConverter::toItem).toList(), false);
+                    deduped.stream().map(RecommendationConverter::toItem).toList(), hasMore);
+        }
+
+        // TourAPI 타입 매핑 없는 카테고리(예: CAFE)는 폴백 없이 빈 결과 반환
+        if (category != null && !category.hasTourApiType()) {
+            return new RecommendationResponse(List.of(), false);
         }
 
         // DB 결과 없으면 TourAPI 폴백
