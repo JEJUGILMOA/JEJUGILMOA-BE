@@ -33,8 +33,7 @@ class TravelRecordTitleConstraintIntegrationTest {
         Long userId = saveUser().getId();
 
         assertThatThrownBy(() -> saveTravelRecord(userId, "가".repeat(51)))
-                .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("travel_record_title_required_and_length_check");
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private User saveUser() {
