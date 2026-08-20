@@ -20,8 +20,7 @@ public class TravelPlanConverter {
 
     private TravelPlanConverter() {}
 
-    public static TravelPlan toEntity(User user, Place departurePlace, Place destinationPlace,
-                                      TravelPlanCreateRequest request) {
+    public static TravelPlan toEntity(User user, Place departurePlace, TravelPlanCreateRequest request) {
         long days = ChronoUnit.DAYS.between(request.startDate(), request.endDate());
         int totalAvailableTime = (int) (days + 1) * 8 * 60;
 
@@ -34,8 +33,9 @@ public class TravelPlanConverter {
                 .totalAvailableTime(totalAvailableTime)
                 .departurePlace(departurePlace)
                 .departureLocationName(request.departureLocationName())
-                .destinationPlace(destinationPlace)
-                .destinationLocationName(request.destinationLocationName())
+                .departureLatitude(request.departureLatitude())
+                .departureLongitude(request.departureLongitude())
+                .companion(request.companion())
                 .build();
     }
 
@@ -145,6 +145,7 @@ public class TravelPlanConverter {
                 nights + 1,
                 plan.getStatus(),
                 plan.getTravelStyle(),
+                plan.getCompanion(),
                 departureName,
                 destinationName,
                 categories,

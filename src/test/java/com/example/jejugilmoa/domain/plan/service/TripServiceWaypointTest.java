@@ -51,7 +51,7 @@ class TripServiceWaypointTest {
     void addWaypoint_success_delegatesToWaypointService() {
         User user = User.builder().id(USER_ID).nickname("테스트").build();
         TravelPlan plan = plan(TravelPlanStatus.IN_PROGRESS, user);
-        WaypointAddRequest request = new WaypointAddRequest(42L, LocalDate.of(2026, 8, 15));
+        WaypointAddRequest request = new WaypointAddRequest(42L, LocalDate.of(2026, 8, 15), null);
         List<WaypointResponse> expected = List.of();
 
         given(travelPlanRepository.findByIdForUpdate(TRIP_ID)).willReturn(Optional.of(plan));
@@ -67,7 +67,7 @@ class TripServiceWaypointTest {
     void addWaypoint_failure_notInProgress() {
         User user = User.builder().id(USER_ID).nickname("테스트").build();
         TravelPlan draft = plan(TravelPlanStatus.DRAFT, user);
-        WaypointAddRequest request = new WaypointAddRequest(42L, LocalDate.of(2026, 8, 15));
+        WaypointAddRequest request = new WaypointAddRequest(42L, LocalDate.of(2026, 8, 15), null);
         given(travelPlanRepository.findByIdForUpdate(TRIP_ID)).willReturn(Optional.of(draft));
 
         assertThatThrownBy(() -> tripService.addWaypoint(TRIP_ID, USER_ID, request))
@@ -81,7 +81,7 @@ class TripServiceWaypointTest {
     void addWaypoint_failure_accessDenied() {
         User owner = User.builder().id(999L).nickname("주인").build();
         TravelPlan plan = plan(TravelPlanStatus.IN_PROGRESS, owner);
-        WaypointAddRequest request = new WaypointAddRequest(42L, LocalDate.of(2026, 8, 15));
+        WaypointAddRequest request = new WaypointAddRequest(42L, LocalDate.of(2026, 8, 15), null);
         given(travelPlanRepository.findByIdForUpdate(TRIP_ID)).willReturn(Optional.of(plan));
 
         assertThatThrownBy(() -> tripService.addWaypoint(TRIP_ID, USER_ID, request))

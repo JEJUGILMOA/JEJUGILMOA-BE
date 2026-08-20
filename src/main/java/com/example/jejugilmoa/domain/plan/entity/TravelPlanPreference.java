@@ -1,6 +1,7 @@
 package com.example.jejugilmoa.domain.plan.entity;
 
 import com.example.jejugilmoa.domain.place.entity.Category;
+import com.example.jejugilmoa.domain.plan.enums.TravelTheme;
 import com.example.jejugilmoa.global.entity.BaseEntity;
 import lombok.*;
 
@@ -36,4 +37,8 @@ public class TravelPlanPreference extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;  // 이번 여행에서 선택한 선호 유형 (전역 UserPreference와 별개)
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "theme", length = 30)
+    private TravelTheme theme;  // 다음 PR에서 category 를 대체
 }

@@ -1,6 +1,7 @@
 package com.example.jejugilmoa.domain.plan.entity;
 
 import com.example.jejugilmoa.domain.place.entity.Place;
+import com.example.jejugilmoa.domain.plan.enums.TravelCompanion;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.enums.TravelStyle;
@@ -8,6 +9,7 @@ import com.example.jejugilmoa.global.entity.BaseEntity;
 import lombok.*;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -65,12 +67,22 @@ public class TravelPlan extends BaseEntity {
     @Column(length = 200)
     private String departureLocationName;  // 출발지 텍스트 (지도 미선택 시 사용)
 
+    @Column(precision = 10, scale = 8)
+    private BigDecimal departureLatitude;
+
+    @Column(precision = 11, scale = 8)
+    private BigDecimal departureLongitude;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "destination_place_id")
     private Place destinationPlace;  // 목적지 (nullable)
 
     @Column(length = 200)
     private String destinationLocationName;  // 목적지 텍스트
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private TravelCompanion companion;
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
