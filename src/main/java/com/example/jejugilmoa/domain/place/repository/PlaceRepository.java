@@ -23,86 +23,6 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
     Page<Place> search(@Param("keyword") String keyword, @Param("categoryName") String categoryName, Pageable pageable);
 
     /**
-     * 출발지·경유지·도착지 각각의 반경 이내 장소를 추천합니다. DRAFT 상태 경유지 추천에 사용합니다.
-     *
-     * <p>{@code anchorsWkt}는 WKT MULTIPOINT 문자열로 전달합니다
-     * (예: {@code MULTIPOINT((126.49 33.48),(126.55 33.45))}).
-     * 경도 우선, 위도 후순입니다 (ADR-0002).</p>
-     *
-     * <p>ST_DWithin(geometry, multipoint, radius)는 geometry가 MULTIPOINT 내
-     * 임의 점으로부터 radius 이내인지 검사합니다 — 앵커가 여러 개여도 쿼리 하나로 처리됩니다.
-     * 결과는 인기도(visitor_count) 내림차순으로 반환합니다.</p>
-     *
-     * @param anchorsWkt  WKT MULTIPOINT 문자열 (좌표 있는 앵커만 포함)
-     * @param radiusMeters 각 앵커로부터의 탐색 반경 (미터)
-     */
-    @Query(value = """
-            WITH anchors AS (
-                SELECT ST_GeomFromText(:anchorsWkt, 4326) AS geom
-            )
-            SELECT p.* FROM place p, anchors
-            WHERE p.is_published = true
-              AND p.category_id IN (:categoryIds)
-              AND p.id NOT IN (:excludedIds)
-              AND ST_DWithin(p.geom::geography, anchors.geom::geography, :radiusMeters)
-            ORDER BY p.visitor_count DESC
-            LIMIT :limit
-            """, nativeQuery = true)
-    List<Place> findNearAnchors(
-            @Param("anchorsWkt") String anchorsWkt,
-            @Param("radiusMeters") double radiusMeters,
-            @Param("categoryIds") List<Long> categoryIds,
-            @Param("excludedIds") List<Long> excludedIds,
-            @Param("limit") int limit
-    );
-
-    /**
-     * 앵커 반경 OR 출발지→도착지 코리도 합집합 범위의 장소를 추천합니다. DRAFT 상태에서
-     * 출발지·도착지 좌표가 모두 있을 때 사용합니다.
-     *
-     * <ul>
-     *   <li>앵커 반경: 출발지·경유지·도착지 각각으로부터 {@code widthMeters} 이내</li>
-     *   <li>코리도: 출발지→도착지 직선 선분으로부터 {@code widthMeters} 이내</li>
-     * </ul>
-     *
-     * <p>두 조건을 OR로 결합해 단일 쿼리로 처리합니다. 결과는 인기도(visitor_count)
-     * 내림차순으로 반환합니다.</p>
-     */
-    @Query(value = """
-            WITH anchors AS (
-                SELECT ST_GeomFromText(:anchorsWkt, 4326) AS geom
-            ),
-            corridor AS (
-                SELECT ST_MakeLine(
-                    ST_SetSRID(ST_MakePoint(:deptLng, :deptLat), 4326),
-                    ST_SetSRID(ST_MakePoint(:destLng, :destLat), 4326)
-                ) AS geom
-            )
-            SELECT p.* FROM place p, anchors, corridor
-            WHERE p.is_published = true
-              AND p.category_id IN (:categoryIds)
-              AND p.id NOT IN (:excludedIds)
-              AND (
-                  ST_DWithin(p.geom::geography, anchors.geom::geography, :widthMeters)
-                  OR
-                  ST_DWithin(p.geom::geography, corridor.geom::geography, :widthMeters)
-              )
-            ORDER BY p.visitor_count DESC
-            LIMIT :limit
-            """, nativeQuery = true)
-    List<Place> findNearAnchorsOrCorridor(
-            @Param("anchorsWkt") String anchorsWkt,
-            @Param("deptLng") double deptLng,
-            @Param("deptLat") double deptLat,
-            @Param("destLng") double destLng,
-            @Param("destLat") double destLat,
-            @Param("widthMeters") double widthMeters,
-            @Param("categoryIds") List<Long> categoryIds,
-            @Param("excludedIds") List<Long> excludedIds,
-            @Param("limit") int limit
-    );
-
-    /**
      * 출발지·목적지 좌표가 없을 때의 폴백 추천입니다.
      * 카테고리 필터 후 방문자 수(visitor_count) 내림차순으로 인기 장소를 반환합니다.
      *
@@ -118,6 +38,124 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
             """, nativeQuery = true)
     List<Place> findByCategoriesOrderByPopularity(
             @Param("categoryIds") List<Long> categoryIds,
+            @Param("excludedIds") List<Long> excludedIds,
+            @Param("limit") int limit
+    );
+
+    /**
+     * 전역 랜덤 추천. 선호경유지가 없을 때 사용합니다.
+     */
+    @Query(value = """
+            SELECT * FROM place
+            WHERE is_published = true
+              AND id NOT IN (:excludedIds)
+            ORDER BY RANDOM()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Place> findRandom(
+            @Param("excludedIds") List<Long> excludedIds,
+            @Param("limit") int limit
+    );
+
+    /**
+     * 카테고리 필터 전역 랜덤 추천.
+     */
+    @Query(value = """
+            SELECT p.* FROM place p
+            JOIN category c ON c.id = p.category_id
+            WHERE p.is_published = true
+              AND c.name = :categoryName
+              AND p.id NOT IN (:excludedIds)
+            ORDER BY RANDOM()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Place> findRandomByCategory(
+            @Param("categoryName") String categoryName,
+            @Param("excludedIds") List<Long> excludedIds,
+            @Param("limit") int limit
+    );
+
+    /**
+     * DRAFT 앵커 추천용 부채꼴 쿼리 (카테고리 필터 없음).
+     * findInSector와 쿼리 구조가 동일하나 category_id 조건을 제거해
+     * 선호 테마와 무관하게 인접 장소를 추천합니다.
+     */
+    @Query(value = """
+            SELECT p.* FROM place p
+            WHERE p.is_published = true
+              AND p.id NOT IN (:excludedIds)
+              AND ST_DWithin(
+                  p.geom::geography,
+                  ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography,
+                  :radiusMeters
+              )
+              AND CASE
+                    WHEN (power(ST_X(p.geom) - :bLon, 2) + power(ST_Y(p.geom) - :bLat, 2)) < 1e-18
+                    THEN false
+                    ELSE (
+                        (:cLon - :bLon) * (ST_X(p.geom) - :bLon) +
+                        (:cLat - :bLat) * (ST_Y(p.geom) - :bLat)
+                    ) >= :cosHalfAngle * (
+                        sqrt(power(:cLon - :bLon, 2) + power(:cLat - :bLat, 2)) *
+                        sqrt(power(ST_X(p.geom) - :bLon, 2) + power(ST_Y(p.geom) - :bLat, 2))
+                    )
+                  END
+            ORDER BY ST_Distance(
+                p.geom::geography,
+                ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography
+            )
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Place> findInSectorAll(
+            @Param("bLon") double bLon,
+            @Param("bLat") double bLat,
+            @Param("cLon") double cLon,
+            @Param("cLat") double cLat,
+            @Param("radiusMeters") double radiusMeters,
+            @Param("cosHalfAngle") double cosHalfAngle,
+            @Param("excludedIds") List<Long> excludedIds,
+            @Param("limit") int limit
+    );
+
+    /**
+     * DRAFT 앵커 추천용 부채꼴 쿼리 (카테고리 필터 있음).
+     */
+    @Query(value = """
+            SELECT p.* FROM place p
+            JOIN category c ON c.id = p.category_id
+            WHERE p.is_published = true
+              AND c.name = :categoryName
+              AND p.id NOT IN (:excludedIds)
+              AND ST_DWithin(
+                  p.geom::geography,
+                  ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography,
+                  :radiusMeters
+              )
+              AND CASE
+                    WHEN (power(ST_X(p.geom) - :bLon, 2) + power(ST_Y(p.geom) - :bLat, 2)) < 1e-18
+                    THEN false
+                    ELSE (
+                        (:cLon - :bLon) * (ST_X(p.geom) - :bLon) +
+                        (:cLat - :bLat) * (ST_Y(p.geom) - :bLat)
+                    ) >= :cosHalfAngle * (
+                        sqrt(power(:cLon - :bLon, 2) + power(:cLat - :bLat, 2)) *
+                        sqrt(power(ST_X(p.geom) - :bLon, 2) + power(ST_Y(p.geom) - :bLat, 2))
+                    )
+                  END
+            ORDER BY ST_Distance(
+                p.geom::geography,
+                ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography
+            )
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Place> findInSectorAllByCategory(
+            @Param("bLon") double bLon,
+            @Param("bLat") double bLat,
+            @Param("cLon") double cLon,
+            @Param("cLat") double cLat,
+            @Param("radiusMeters") double radiusMeters,
+            @Param("cosHalfAngle") double cosHalfAngle,
+            @Param("categoryName") String categoryName,
             @Param("excludedIds") List<Long> excludedIds,
             @Param("limit") int limit
     );

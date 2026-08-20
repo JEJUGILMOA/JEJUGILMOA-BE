@@ -20,7 +20,8 @@ public class DataInitializer implements ApplicationRunner {
 
     private static final List<String[]> DEFAULT_CATEGORIES = List.of(
         new String[]{"자연", "자연 관광지 (산, 해변, 오름 등)"},
-        new String[]{"음식", "제주 맛집 및 음식점"}
+        new String[]{"음식", "제주 맛집 및 음식점"},
+        new String[]{"카페", "카페 및 디저트"}
     );
 
     @Override

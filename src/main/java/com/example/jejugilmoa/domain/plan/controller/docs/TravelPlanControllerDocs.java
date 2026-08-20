@@ -328,11 +328,12 @@ public interface TravelPlanControllerDocs {
     @Operation(
             summary = "경유지 추천 (최초)",
             description = """
-                    여행 계획의 출발지-목적지 경로에서 선호 카테고리 기반으로 경유지를 최대 5개 추천합니다.
+                    여행 계획의 선호 경유지(앵커) 기반으로 경유지를 최대 5개 추천합니다.
 
-                    - 출발지·목적지 모두 Place 엔티티를 가진 경우 PostGIS corridor 쿼리(경로 좌우 5km 이내)로 추천합니다.
-                    - 텍스트 입력 출발지/목적지만 있는 경우 방문자 수 내림차순 인기 장소로 폴백합니다.
+                    - 선호 경유지가 없으면 전역 랜덤 추천합니다.
+                    - 선호 경유지가 있으면 앵커 부채꼴 추천; DB 결과 없으면 TourAPI 폴백합니다.
                     - 이미 담은 경유지는 자동으로 제외됩니다.
+                    - 여행 진행중(IN_PROGRESS)이면 B→C 부채꼴 + 카테고리 필터로 추천합니다.
 """
     )
     @ApiResponses({
@@ -344,9 +345,7 @@ public interface TravelPlanControllerDocs {
                               "code": "COMMON200",
                               "message": "성공입니다.",
                               "result": {
-                                "departureLocationName": "제주국제공항",
-                                "destinationLocationName": "성산일출봉",
-                                "recommendations": [
+                                "items": [
                                   {
                                     "placeId": 10,
                                     "name": "애월 카페거리",
@@ -356,7 +355,8 @@ public interface TravelPlanControllerDocs {
                                     "latitude": 33.46281,
                                     "longitude": 126.31466
                                   }
-                                ]
+                                ],
+                                "hasMore": false
                               }
                             }
                             """))
@@ -407,9 +407,7 @@ public interface TravelPlanControllerDocs {
                               "code": "COMMON200",
                               "message": "성공입니다.",
                               "result": {
-                                "departureLocationName": "제주국제공항",
-                                "destinationLocationName": "성산일출봉",
-                                "recommendations": [
+                                "items": [
                                   {
                                     "placeId": 42,
                                     "name": "광치기해변",
@@ -419,7 +417,8 @@ public interface TravelPlanControllerDocs {
                                     "latitude": 33.45691,
                                     "longitude": 126.93024
                                   }
-                                ]
+                                ],
+                                "hasMore": false
                               }
                             }
                             """))
@@ -435,84 +434,6 @@ public interface TravelPlanControllerDocs {
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행 계획 ID") Long planId,
             @Valid @org.springframework.web.bind.annotation.RequestBody RecommendationSkipRequest request
-    );
-
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // 경유지 근처 추천 장소 (TourAPI)
-    // ──────────────────────────────────────────────────────────────────────────
-
-    @Operation(
-        summary = "경유지 근처 추천 장소 조회",
-        description = """
-                    여행 계획에 추가된 경유지 좌표를 기준으로 TourAPI(`locationBasedList2`)를 호출해 근처 관광정보 3개를 추천합니다.
-                    경유지 좌표는 서버에서 자동으로 추출하므로 별도 전달이 불필요합니다.
-
-                    **추천 우선순위**
-                    - 현재 코스에 없는 카테고리 장소를 우선 추천합니다.
-                    - 다른 카테고리가 3개 미만이면 같은 카테고리로 보충합니다.
-                    - 각 경유지 반경 5km 내 결과를 거리 오름차순으로 정렬합니다.
-
-                    **다시 추천**
-                    - 이미 노출된 장소의 `contentId`를 `excludeContentIds`에 누적 전달하면 새로운 3개를 반환합니다.
-                    - `hasMore: false`이면 TourAPI 후보가 소진된 것이므로 프론트에서 Naver API fallback으로 전환하세요.
-                    """
-    )
-    @RequestBody(
-        required = true,
-        content = @Content(
-            mediaType = "application/json",
-            schema = @Schema(implementation = NearbyPlaceRecommendRequest.class),
-            examples = @ExampleObject(value = """
-                    {
-                      "excludeContentIds": []
-                    }
-                    """)
-        )
-    )
-    @ApiResponses({
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200", description = "추천 성공",
-            content = @Content(examples = @ExampleObject(value = """
-                            {
-                              "isSuccess": true,
-                              "code": "COMMON200",
-                              "message": "성공적으로 요청을 처리했습니다.",
-                              "result": {
-                                "recommendations": [
-                                  {
-                                    "contentId": "126508",
-                                    "contentTypeId": 14,
-                                    "title": "제주 민속자연사박물관",
-                                    "address": "제주특별자치도 제주시 일주동로 17",
-                                    "imageUrl": "https://cdn.visitjeju.net/photo/museum.jpg",
-                                    "dist": 320,
-                                    "mapX": 126.5312,
-                                    "mapY": 33.4996
-                                  }
-                                ],
-                                "hasMore": true
-                              }
-                            }
-                            """))
-        ),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "403", description = "접근 권한 없음",
-            content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
-                            """))
-        ),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "404", description = "여행 계획 없음",
-            content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
-                            """))
-        )
-    })
-    ApiResponse<NearbyPlaceRecommendResponse> recommendNearbyPlaces(
-        @AuthenticationPrincipal UserPrincipal principal,
-        @Parameter(description = "여행 계획 ID") Long planId,
-        @Valid @org.springframework.web.bind.annotation.RequestBody NearbyPlaceRecommendRequest request
     );
 
 
