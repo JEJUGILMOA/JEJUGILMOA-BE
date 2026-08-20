@@ -328,7 +328,7 @@ public interface TravelPlanControllerDocs {
     @Operation(
             summary = "경유지 추천 (최초)",
             description = """
-                    여행 계획의 선호 경유지(앵커) 기반으로 경유지를 최대 5개 추천합니다.
+                    여행 계획의 선호 경유지(앵커) 기반으로 경유지를 최대 10개 추천합니다.
 
                     - 선호 경유지가 없으면 전역 랜덤 추천합니다.
                     - 선호 경유지가 있으면 앵커 부채꼴 추천; DB 결과 없으면 TourAPI 폴백합니다.
@@ -348,6 +348,7 @@ public interface TravelPlanControllerDocs {
                                 "items": [
                                   {
                                     "placeId": 10,
+                                    "contentId": null,
                                     "name": "애월 카페거리",
                                     "categoryName": "카페",
                                     "imageUrl": "https://cdn.example.com/10.jpg",
@@ -410,6 +411,7 @@ public interface TravelPlanControllerDocs {
                                 "items": [
                                   {
                                     "placeId": 42,
+                                    "contentId": null,
                                     "name": "광치기해변",
                                     "categoryName": "자연",
                                     "imageUrl": "https://cdn.example.com/42.jpg",
