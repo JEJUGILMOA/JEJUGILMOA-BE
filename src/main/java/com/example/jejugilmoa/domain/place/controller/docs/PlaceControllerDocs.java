@@ -236,4 +236,24 @@ public interface PlaceControllerDocs {
         @Parameter(description = "관광지 ID", example = "1")
         @PathVariable Long id
     );
+
+    @Operation(
+        summary = "TourAPI 장소 동기화 (개발용)",
+        description = """
+            TourAPI에서 제주시·서귀포시 관광지 데이터를 동기화합니다.
+            DB에 장소 데이터가 없을 때 추천 API 테스트를 위해 사용합니다.
+            """
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "동기화 완료",
+            content = @Content(
+                examples = @ExampleObject(value = """
+                    {"isSuccess":true,"code":"COMMON200","message":"성공적으로 요청을 처리했습니다.","result":null}
+                    """)
+            )
+        )
+    })
+    ApiResponse<Void> syncPlaces();
 }
