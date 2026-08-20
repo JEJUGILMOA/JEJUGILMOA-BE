@@ -84,10 +84,12 @@ ALTER TABLE travel_record_place
     ALTER COLUMN stay_minutes DROP NOT NULL,
     ALTER COLUMN rating       DROP NOT NULL;
 
--- 4. uk_record_image_place 제약 추가 (없는 경우만)
+-- 4. uk_record_image_place 제약 추가 (없는 경우만, 대상 테이블로 범위 한정)
 DO $$ BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'uk_record_image_place'
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uk_record_image_place'
+          AND conrelid = 'travel_record_image'::regclass
     ) THEN
         ALTER TABLE travel_record_image
             ADD CONSTRAINT uk_record_image_place UNIQUE (travel_record_place_id);
@@ -97,15 +99,21 @@ END $$;
 -- 5. V14 보정: 제약·인덱스·컬럼 멱등 처리
 -- V14 원본을 복원했으므로, V14가 부분 실패한 드리프트 DB를 위한 안전망
 
--- uk_travel_record_plan 제약이 아직 남아있으면 제거
+-- uk_travel_record_plan 제약이 아직 남아있으면 제거 (대상 테이블로 범위 한정)
 DO $$ BEGIN
     IF EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = 'uk_travel_record_plan'
+          AND conrelid = 'travel_record'::regclass
     ) THEN
         ALTER TABLE travel_record DROP CONSTRAINT uk_travel_record_plan;
     END IF;
 END $$;
+
+-- title: ALTER COLUMN 전 부적합 데이터 정리 (드리프트 DB 대응)
+-- NULL → 빈 문자열 대신 '제목 없음'으로 보정, 50자 초과 → 잘라내기
+UPDATE travel_record SET title = '제목 없음' WHERE title IS NULL;
+UPDATE travel_record SET title = LEFT(title, 50) WHERE char_length(title) > 50;
 
 -- title: varchar(50) 전환 (이미 적용된 경우 no-op)
 DO $$ BEGIN
