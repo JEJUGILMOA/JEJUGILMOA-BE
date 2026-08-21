@@ -280,6 +280,117 @@ public interface TravelPlanControllerDocs {
     );
 
     @Operation(
+            summary = "여행 계획 전체 수정 (덮어쓰기)",
+            description = """
+                    DRAFT 상태의 여행 계획을 전체 교체(full overwrite)합니다.
+
+                    - **계획 중(DRAFT) 상태**에서만 수정할 수 있습니다. 진행중·완료 상태는 `PLAN400_17`.
+                    - 요청 본문은 계획 생성(`POST /api/plans`)과 동일한 형식입니다.
+                    - 날짜별 경유지, 카테고리, 예산을 한 번에 교체합니다.
+                    - `budget: null` 전달 시 예산 정보를 모두 삭제합니다.
+                    - `days`를 생략하거나 빈 배열로 전달하면 기존 경유지가 모두 제거됩니다.
+                    """
+    )
+    @RequestBody(
+            required = true,
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = TravelPlanCreateRequest.class),
+                    examples = @ExampleObject(value = """
+                            {
+                              "title": "제주 가을 여행 (수정)",
+                              "startDate": "2027-08-15",
+                              "endDate": "2027-08-17",
+                              "departurePlaceId": null,
+                              "departureLocationName": "제주국제공항",
+                              "departureLatitude": 33.5070,
+                              "departureLongitude": 126.4927,
+                              "companion": "COUPLE",
+                              "categories": ["NATURE", "CAFE"],
+                              "days": [
+                                {
+                                  "visitDate": "2027-08-15",
+                                  "waypoints": [
+                                    { "placeId": 42, "isPreferred": true }
+                                  ]
+                                }
+                              ],
+                              "budget": {
+                                "budgetTransportation": 50000,
+                                "budgetAccommodation": 150000,
+                                "budgetFood": 80000,
+                                "budgetEtc": null
+                              }
+                            }
+                            """)
+            )
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "수정 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": {
+                                "planId": 26,
+                                "title": "제주 가을 여행 (수정)",
+                                "startDate": "2027-08-15",
+                                "endDate": "2027-08-17",
+                                "nights": 2,
+                                "days": 3,
+                                "status": "DRAFT",
+                                "travelStyle": "RELAXED",
+                                "companion": "COUPLE",
+                                "departureLocationName": "제주국제공항",
+                                "categories": ["자연", "카페"],
+                                "itinerary": [
+                                  {
+                                    "date": "2027-08-15",
+                                    "dayNumber": 1,
+                                    "waypoints": [
+                                      {"waypointId": 15, "visitDate": "2027-08-15", "sequenceOrder": 1, "placeId": 42, "placeName": "협재해수욕장", "isPreferred": true, "isStart": true, "isDestination": true, "visited": false, "visitedAt": null}
+                                    ]
+                                  },
+                                  {"date": "2027-08-16", "dayNumber": 2, "waypoints": []},
+                                  {"date": "2027-08-17", "dayNumber": 3, "waypoints": []}
+                                ],
+                                "budgetTransportation": 50000,
+                                "budgetAccommodation": 150000,
+                                "budgetFood": 80000,
+                                "budgetEtc": null,
+                                "totalBudget": 280000
+                              }
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "날짜 오류 또는 출발지 누락, DRAFT 상태 아님",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN400_17","message":"계획 중 상태의 여행만 수정할 수 있습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "타인의 여행 계획에 접근",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "존재하지 않는 계획 또는 장소",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<TravelPlanDetailResponse> replacePlan(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행 계획 ID") Long planId,
+            @Valid @org.springframework.web.bind.annotation.RequestBody TravelPlanCreateRequest request
+    );
+
+    @Operation(
             summary = "여행 계획 삭제",
             description = """
                     여행 계획을 삭제합니다.
@@ -437,435 +548,4 @@ public interface TravelPlanControllerDocs {
     );
 
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // 경유지 추가 / 제거
-    // ──────────────────────────────────────────────────────────────────────────
-
-    @Operation(
-            summary = "경유지 추가 (담기)",
-            description = """
-                    추천 경유지를 여행 코스의 특정 날짜에 추가합니다.
-
-                    - `visitDate`는 여행 계획의 시작일~종료일 범위 내 날짜여야 합니다. 범위 초과 시 `PLAN400_9`.
-                    - 같은 장소를 중복 추가하면 `PLAN400_6` 오류가 반환됩니다.
-                    - 해당 날짜 내 마지막 순번으로 자동 배정됩니다.
-                    - 응답으로 추가 후 전체 경유지 목록(날짜·순서 오름차순)을 반환합니다.
-                    """
-    )
-    @RequestBody(
-            required = true,
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = WaypointAddRequest.class),
-                    examples = @ExampleObject(value = """
-                            { "placeId": 42, "visitDate": "2027-08-15", "isPreferred": false }
-                            """)
-            )
-    )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "201", description = "경유지 추가 성공",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {
-                              "isSuccess": true,
-                              "code": "COMMON201",
-                              "message": "성공적으로 응답이 생성되었습니다.",
-                              "result": [
-                                {
-                                  "waypointId": 7,
-                                  "visitDate": "2026-08-15",
-                                  "sequenceOrder": 1,
-                                  "placeId": 42,
-                                  "placeName": "애월 카페거리",
-                                  "categoryName": "카페",
-                                  "imageUrl": "https://cdn.example.com/42.jpg",
-                                  "address": "제주시 애월읍"
-                                }
-                              ]
-                            }
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "400", description = "날짜 범위 초과 또는 이미 추가된 장소",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN400_9","message":"여행 날짜 범위에 포함되지 않는 날짜입니다.","result":null}
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404", description = "장소 또는 계획 없음",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLACE404_1","message":"존재하지 않는 장소입니다.","result":null}
-                            """))
-            )
-    })
-    ApiResponse<List<WaypointResponse>> addWaypoint(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @Parameter(description = "여행 계획 ID") Long planId,
-            @Valid @org.springframework.web.bind.annotation.RequestBody WaypointAddRequest request
-    );
-
-    @Operation(
-            summary = "경유지 제거",
-            description = """
-                    담은 경유지를 여행 코스에서 제거합니다.
-
-                    - 제거 후 뒤 순번 경유지들의 `sequenceOrder`가 자동으로 재정렬됩니다.
-                    - 응답으로 제거 후 전체 경유지 목록(순서 오름차순)을 반환합니다.
-                    """
-    )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200", description = "경유지 제거 성공",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {
-                              "isSuccess": true,
-                              "code": "COMMON200",
-                              "message": "성공입니다.",
-                              "result": []
-                            }
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404", description = "경유지 없음 (planId 불일치 포함)",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN404_3","message":"존재하지 않는 경유지입니다.","result":null}
-                            """))
-            )
-    })
-    ApiResponse<List<WaypointResponse>> removeWaypoint(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @Parameter(description = "여행 계획 ID") Long planId,
-            @Parameter(description = "경유지(TravelCourse) ID") Long waypointId
-    );
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // 선호 경유지 설정
-    // ──────────────────────────────────────────────────────────────────────────
-
-    @Operation(
-            summary = "선호 경유지 설정/해제",
-            description = """
-                    경유지를 선호 경유지로 지정하거나 해제합니다.
-
-                    선호 경유지는 추천 로직의 **기준점(앵커)**으로 활용됩니다.
-                    선호 경유지를 기준으로 주변 장소를 우선 추천합니다.
-
-                    - **계획 중(DRAFT)** 상태에서만 변경할 수 있습니다. 진행중·완료 상태는 `PLAN400_17`.
-                    - `waypointId`가 해당 `planId`에 속하지 않으면 `PLAN404_3`.
-                    - 응답으로 설정 반영 후 **전체 경유지 목록**을 반환합니다.
-                    """
-    )
-    @RequestBody(
-            required = true,
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = TogglePreferredRequest.class),
-                    examples = {
-                            @ExampleObject(name = "선호 경유지 지정", value = """
-                                    { "isPreferred": true }
-                                    """),
-                            @ExampleObject(name = "선호 경유지 해제", value = """
-                                    { "isPreferred": false }
-                                    """)
-                    }
-            )
-    )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200", description = "설정 성공 — 전체 경유지 목록 반환",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {
-                              "isSuccess": true,
-                              "code": "COMMON200",
-                              "message": "성공적으로 요청을 처리했습니다.",
-                              "result": [
-                                {
-                                  "waypointId": 7,
-                                  "visitDate": "2027-08-15",
-                                  "sequenceOrder": 1,
-                                  "placeId": 42,
-                                  "placeName": "협재해수욕장",
-                                  "categoryName": "자연",
-                                  "imageUrl": null,
-                                  "address": "제주시 한림읍",
-                                  "visited": false,
-                                  "visitedAt": null,
-                                  "isStart": true,
-                                  "isDestination": false,
-                                  "isPreferred": true
-                                }
-                              ]
-                            }
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "400", description = "DRAFT 상태가 아닌 계획",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN400_17","message":"계획 중 상태의 여행만 수정할 수 있습니다.","result":null}
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "403", description = "타인의 여행 계획에 접근",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404", description = "계획 또는 경유지 없음",
-                    content = @Content(examples = {
-                            @ExampleObject(name = "계획 미존재", value = """
-                                    {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
-                                    """),
-                            @ExampleObject(name = "경유지 미존재 또는 다른 계획 소속", value = """
-                                    {"isSuccess":false,"code":"PLAN404_3","message":"존재하지 않는 경유지입니다.","result":null}
-                                    """)
-                    })
-            )
-    })
-    ApiResponse<List<WaypointResponse>> togglePreferred(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @Parameter(description = "여행 계획 ID") Long planId,
-            @Parameter(description = "경유지(TravelCourse) ID") Long waypointId,
-            @org.springframework.web.bind.annotation.RequestBody TogglePreferredRequest request
-    );
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // 경유지 순서 변경
-    // ──────────────────────────────────────────────────────────────────────────
-
-    @Operation(
-            summary = "경유지 순서 변경 (Day 단위)",
-            description = """
-                    특정 날짜의 경유지 목록 순서를 변경합니다.
-
-                    - `visitDate`와 `waypointIds`를 함께 전달합니다.
-                    - `waypointIds`는 해당 날짜에 속한 모든 경유지 ID를 원하는 순서로 포함해야 합니다.
-                    - 전달한 ID 집합이 해당 날짜의 경유지 집합과 다르면 `PLAN400_7` 오류가 반환됩니다.
-                    - 응답으로 재정렬된 전체 경유지 목록(날짜·순서 오름차순)을 반환합니다.
-                    """
-    )
-    @RequestBody(
-            required = true,
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = WaypointReorderRequest.class),
-                    examples = @ExampleObject(value = """
-                            { "visitDate": "2027-08-15", "waypointIds": [3, 1, 2] }
-                            """)
-            )
-    )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200", description = "순서 변경 성공",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {
-                              "isSuccess": true,
-                              "code": "COMMON200",
-                              "message": "성공적으로 요청을 처리했습니다.",
-                              "result": [
-                                {"waypointId": 3, "visitDate": "2026-08-15", "sequenceOrder": 1, "placeId": 5, "placeName": "협재해수욕장", "categoryName": "자연", "imageUrl": null, "address": "제주시 한림읍"},
-                                {"waypointId": 1, "visitDate": "2026-08-15", "sequenceOrder": 2, "placeId": 1, "placeName": "제주국제공항", "categoryName": "교통", "imageUrl": null, "address": "제주시 용담2동"},
-                                {"waypointId": 2, "visitDate": "2026-08-16", "sequenceOrder": 1, "placeId": 3, "placeName": "애월 카페거리", "categoryName": "카페", "imageUrl": null, "address": "제주시 애월읍"}
-                              ]
-                            }
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "400", description = "경유지 ID 목록이 해당 날짜의 경유지와 불일치",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN400_7","message":"경유지 순서 목록이 올바르지 않습니다.","result":null}
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "403", description = "접근 권한 없음",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
-                            """))
-            )
-    })
-    ApiResponse<List<WaypointResponse>> reorderWaypoints(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @Parameter(description = "여행 계획 ID") Long planId,
-            @Valid @org.springframework.web.bind.annotation.RequestBody WaypointReorderRequest request
-    );
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // 계획 수정
-    // ──────────────────────────────────────────────────────────────────────────
-
-    @Operation(
-            summary = "여행 계획 수정",
-            description = """
-                    여행 계획의 구성 정보를 수정합니다.
-
-                    - **계획 중(DRAFT) 상태**의 여행 계획만 수정할 수 있습니다. 진행중·완료 상태는 `PLAN400_17`.
-                    - **여행 기간(startDate/endDate)은 수정 불가**합니다.
-                    - `null`로 전달한 필드는 수정되지 않습니다(기존 값 유지).
-                    - 출발지: `departurePlaceId` 또는 `departureLocationName` 중 하나라도 전달하면 출발지 정보가 갱신됩니다.
-                    - `categories`를 전달하면 기존 선호 테마를 전부 교체합니다. 유효한 값: `FOOD NATURE ACTIVITY CAFE CULTURE SHOPPING FESTIVAL`.
-                    """
-    )
-    @RequestBody(
-            required = true,
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = TravelPlanUpdateRequest.class),
-                    examples = @ExampleObject(value = """
-                            {
-                              "title": "제주 가을 여행",
-                              "departurePlaceId": null,
-                              "departureLocationName": "새별오름",
-                              "categories": ["NATURE", "CAFE"]
-                            }
-                            """)
-            )
-    )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200", description = "수정 성공",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {
-                              "isSuccess": true,
-                              "code": "COMMON200",
-                              "message": "성공적으로 요청을 처리했습니다.",
-                              "result": {
-                                "planId": 26,
-                                "title": "제주 가을 여행",
-                                "startDate": "2027-08-15",
-                                "endDate": "2027-08-17",
-                                "nights": 2,
-                                "days": 3,
-                                "status": "DRAFT",
-                                "travelStyle": "RELAXED",
-                                "departureLocationName": "새별오름",
-                                "categories": ["자연", "카페"],
-                                "itinerary": [
-                                  {"date": "2027-08-15", "dayNumber": 1, "waypoints": []},
-                                  {"date": "2027-08-16", "dayNumber": 2, "waypoints": []},
-                                  {"date": "2027-08-17", "dayNumber": 3, "waypoints": []}
-                                ],
-                                "budgetTransportation": null,
-                                "budgetAccommodation": null,
-                                "budgetFood": null,
-                                "budgetEtc": null,
-                                "totalBudget": null
-                              }
-                            }
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "400", description = "DRAFT 상태가 아닌 계획 수정 시도",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN400_17","message":"계획 중 상태의 여행만 수정할 수 있습니다.","result":null}
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "403", description = "타인의 여행 계획에 접근",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404", description = "존재하지 않는 계획",
-                    content = @Content(examples = {
-                            @ExampleObject(name = "계획 미존재", value = """
-                                    {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
-                                    """)
-                    })
-            )
-    })
-    ApiResponse<TravelPlanDetailResponse> updatePlan(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @Parameter(description = "여행 계획 ID") Long planId,
-            @Valid @org.springframework.web.bind.annotation.RequestBody TravelPlanUpdateRequest request
-    );
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // 예산
-    // ──────────────────────────────────────────────────────────────────────────
-
-    @Operation(
-            summary = "예산 입력/수정",
-            description = """
-                    여행 계획의 예산 항목(교통비·숙박비·식비·기타)을 입력하거나 수정합니다.
-                    - 4개 항목 중 원하는 항목만 선택적으로 입력할 수 있습니다.
-                    - 특정 항목을 `null`로 전달하면 해당 항목 예산이 삭제됩니다.
-                    - 4개 항목 모두 `null`인 경우 `totalBudget`은 `null`로 반환됩니다.
-                    """
-    )
-    @RequestBody(
-            required = true,
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = BudgetUpdateRequest.class),
-                    examples = @ExampleObject(value = """
-                            {
-                              "budgetTransportation": 50000,
-                              "budgetAccommodation": 150000,
-                              "budgetFood": 80000,
-                              "budgetEtc": 30000
-                            }
-                            """)
-            )
-    )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200", description = "예산 업데이트 성공",
-                    content = @Content(examples = {
-                            @ExampleObject(
-                                    name = "일부 항목 입력 시",
-                                    value = """
-                                            {
-                                              "isSuccess": true,
-                                              "code": "COMMON200",
-                                              "message": "성공적으로 요청을 처리했습니다.",
-                                              "result": {
-                                                "planId": 1,
-                                                "budgetTransportation": 50000,
-                                                "budgetAccommodation": 150000,
-                                                "budgetFood": 80000,
-                                                "budgetEtc": null,
-                                                "totalBudget": 280000
-                                              }
-                                            }
-                                            """
-                            ),
-                            @ExampleObject(
-                                    name = "전체 예산 삭제 시",
-                                    value = """
-                                            {
-                                              "isSuccess": true,
-                                              "code": "COMMON200",
-                                              "message": "성공적으로 요청을 처리했습니다.",
-                                              "result": {
-                                                "planId": 1,
-                                                "budgetTransportation": null,
-                                                "budgetAccommodation": null,
-                                                "budgetFood": null,
-                                                "budgetEtc": null,
-                                                "totalBudget": null
-                                              }
-                                            }
-                                            """
-                            )
-                    })
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "403", description = "타인의 여행 계획에 접근",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
-                            """))
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404", description = "존재하지 않는 여행 계획",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
-                            """))
-            )
-    })
-    ApiResponse<BudgetUpdateResponse> updateBudget(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @Parameter(description = "여행 계획 ID") Long planId,
-            @Valid @org.springframework.web.bind.annotation.RequestBody BudgetUpdateRequest request
-    );
 }

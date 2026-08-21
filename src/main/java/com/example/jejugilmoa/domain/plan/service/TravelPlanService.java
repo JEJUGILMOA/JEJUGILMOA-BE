@@ -6,20 +6,16 @@ import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.plan.converter.TravelPlanConverter;
 import com.example.jejugilmoa.domain.plan.converter.WaypointConverter;
 import com.example.jejugilmoa.domain.plan.dto.BudgetCreateRequest;
-import com.example.jejugilmoa.domain.plan.dto.BudgetUpdateRequest;
-import com.example.jejugilmoa.domain.plan.dto.BudgetUpdateResponse;
 import com.example.jejugilmoa.domain.plan.dto.DayPlanRequest;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanCreateRequest;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanDetailResponse;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanListResponse;
-import com.example.jejugilmoa.domain.plan.dto.TravelPlanUpdateRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointCreateRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlanPreference;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
-import com.example.jejugilmoa.domain.plan.enums.TravelTheme;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanPreferenceRepository;
@@ -180,6 +176,106 @@ public class TravelPlanService {
     }
 
     @Transactional
+    public TravelPlanDetailResponse replace(Long planId, Long userId, TravelPlanCreateRequest request) {
+        TravelPlan plan = travelPlanRepository.findByIdForUpdate(planId)
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
+        if (!plan.getUser().getId().equals(userId)) {
+            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
+        }
+        if (plan.getStatus() != TravelPlanStatus.DRAFT) {
+            throw new GeneralException(PlanErrorCode.PLAN_NOT_EDITABLE);
+        }
+
+        if (request.startDate().isBefore(LocalDate.now()))
+            throw new GeneralException(PlanErrorCode.INVALID_START_DATE);
+        if (request.endDate().isBefore(request.startDate()))
+            throw new GeneralException(PlanErrorCode.INVALID_DATE_RANGE);
+        if (ChronoUnit.DAYS.between(request.startDate(), request.endDate()) > MAX_TRIP_DAYS)
+            throw new GeneralException(PlanErrorCode.TRIP_DURATION_EXCEEDED);
+
+        if (request.departurePlaceId() == null
+                && (request.departureLocationName() == null || request.departureLocationName().isBlank()))
+            throw new GeneralException(PlanErrorCode.DEPARTURE_REQUIRED);
+
+        Place departurePlace = request.departurePlaceId() != null
+                ? placeRepository.findByIdAndPublishedTrue(request.departurePlaceId())
+                        .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND))
+                : null;
+
+        long days = ChronoUnit.DAYS.between(request.startDate(), request.endDate());
+        int totalAvailableTime = (int) (days + 1) * 8 * 60;
+        plan.updatePlanMeta(
+                request.title(),
+                request.startDate(),
+                request.endDate(),
+                departurePlace,
+                request.departureLocationName(),
+                request.departureLatitude(),
+                request.departureLongitude(),
+                request.companion(),
+                totalAvailableTime,
+                request.startDate().equals(request.endDate())
+        );
+
+        // 선호 카테고리 교체: DELETE 확정 후 INSERT해야 UK 위반을 피할 수 있다
+        plan.getPreferredCategories().clear();
+        plan.getTravelCourses().clear();
+        travelPlanRepository.flush();
+
+        if (request.categories() != null && !request.categories().isEmpty()) {
+            if (new HashSet<>(request.categories()).size() != request.categories().size())
+                throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
+            request.categories().stream()
+                    .map(theme -> TravelPlanPreference.builder().travelPlan(plan).theme(theme).build())
+                    .forEach(plan.getPreferredCategories()::add);
+        }
+
+        List<DayPlanRequest> dayList = request.days() != null ? request.days() : List.of();
+        Set<LocalDate> seenDates = new HashSet<>();
+        for (DayPlanRequest day : dayList) {
+            if (!seenDates.add(day.visitDate()))
+                throw new GeneralException(PlanErrorCode.DUPLICATE_VISIT_DATE);
+            if (day.visitDate().isBefore(plan.getStartDate()) || day.visitDate().isAfter(plan.getEndDate()))
+                throw new GeneralException(PlanErrorCode.INVALID_VISIT_DATE);
+
+            List<WaypointCreateRequest> waypoints = day.waypoints() != null ? day.waypoints() : List.of();
+            Set<Long> seenPlaceIds = new HashSet<>();
+            for (int i = 0; i < waypoints.size(); i++) {
+                WaypointCreateRequest wReq = waypoints.get(i);
+                if (!seenPlaceIds.add(wReq.placeId()))
+                    throw new GeneralException(PlanErrorCode.PLACE_ALREADY_ADDED);
+                Place place = placeRepository.findByIdAndPublishedTrue(wReq.placeId())
+                        .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND));
+                travelCourseRepository.save(TravelCourse.builder()
+                        .travelPlan(plan)
+                        .place(place)
+                        .visitDate(day.visitDate())
+                        .sequenceOrder(i + 1)
+                        .preferred(wReq.isPreferred())
+                        .start(i == 0)
+                        .destination(i == waypoints.size() - 1)
+                        .build());
+            }
+        }
+
+        BudgetCreateRequest b = request.budget();
+        plan.updateBudget(
+                b != null ? b.budgetTransportation() : null,
+                b != null ? b.budgetAccommodation() : null,
+                b != null ? b.budgetFood() : null,
+                b != null ? b.budgetEtc() : null
+        );
+
+        List<WaypointResponse> waypoints = travelCourseRepository
+                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(plan.getId())
+                .stream()
+                .map(WaypointConverter::toResponse)
+                .toList();
+
+        return TravelPlanConverter.toDetail(plan, waypoints);
+    }
+
+    @Transactional
     public void deletePlan(Long planId, Long userId) {
         TravelPlan plan = travelPlanRepository.findById(planId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
@@ -190,74 +286,4 @@ public class TravelPlanService {
         travelPlanRepository.delete(plan);
     }
 
-    @Transactional
-    public TravelPlanDetailResponse updatePlan(Long planId, Long userId, TravelPlanUpdateRequest request) {
-        TravelPlan plan = travelPlanRepository.findByIdForUpdate(planId)
-                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
-        if (!plan.getUser().getId().equals(userId)) {
-            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
-        }
-        if (plan.getStatus() != TravelPlanStatus.DRAFT) {
-            throw new GeneralException(PlanErrorCode.PLAN_NOT_EDITABLE);
-        }
-
-        String newTitle = (request.title() != null && !request.title().isBlank())
-                ? request.title() : plan.getTitle();
-
-        boolean hasNewDeparture = request.departurePlaceId() != null
-                || (request.departureLocationName() != null && !request.departureLocationName().isBlank());
-        Place departurePlace = plan.getDeparturePlace();
-        String departureName = plan.getDepartureLocationName();
-        if (hasNewDeparture) {
-            departurePlace = request.departurePlaceId() != null
-                    ? placeRepository.findByIdAndPublishedTrue(request.departurePlaceId())
-                            .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND))
-                    : null;
-            departureName = request.departureLocationName();
-        }
-
-        plan.updatePlanInfo(newTitle, departurePlace, departureName);
-
-        if (request.categories() != null && !request.categories().isEmpty()) {
-            if (new HashSet<>(request.categories()).size() != request.categories().size())
-                throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
-            // JPA 플러시 순서는 INSERT → DELETE이므로, 기존 테마를 먼저 DELETE 확정 후 INSERT해야 유니크 제약 위반을 피할 수 있다
-            plan.getPreferredCategories().clear();
-            travelPlanRepository.flush();
-            List<TravelPlanPreference> newPrefs = request.categories().stream()
-                    .map(theme -> TravelPlanPreference.builder()
-                            .travelPlan(plan)
-                            .theme(theme)
-                            .build())
-                    .toList();
-            plan.getPreferredCategories().addAll(newPrefs);
-        }
-
-        List<WaypointResponse> waypoints = travelCourseRepository
-                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId)
-                .stream()
-                .map(WaypointConverter::toResponse)
-                .toList();
-
-        return TravelPlanConverter.toDetail(plan, waypoints);
-    }
-
-    @Transactional
-    public BudgetUpdateResponse updateBudget(Long planId, Long userId, BudgetUpdateRequest request) {
-        TravelPlan plan = travelPlanRepository.findByIdForUpdate(planId)
-                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
-        if (!plan.getUser().getId().equals(userId)) {
-            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
-        }
-        if (plan.getStatus() != TravelPlanStatus.DRAFT) {
-            throw new GeneralException(PlanErrorCode.PLAN_NOT_EDITABLE);
-        }
-        plan.updateBudget(
-                request.budgetTransportation(),
-                request.budgetAccommodation(),
-                request.budgetFood(),
-                request.budgetEtc()
-        );
-        return TravelPlanConverter.toBudgetResponse(plan);
-    }
 }

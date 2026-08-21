@@ -6,7 +6,6 @@ import com.example.jejugilmoa.domain.plan.dto.*;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.service.RecommendationService;
 import com.example.jejugilmoa.domain.plan.service.TravelPlanService;
-import com.example.jejugilmoa.domain.plan.service.WaypointService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import com.example.jejugilmoa.global.apiPayload.code.GeneralSuccessCode;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,7 +26,6 @@ public class TravelPlanController implements TravelPlanControllerDocs {
 
     private final TravelPlanService travelPlanService;
     private final RecommendationService recommendationService;
-    private final WaypointService waypointService;
 
     @GetMapping("/{planId}")
     public ApiResponse<TravelPlanDetailResponse> getPlanDetail(
@@ -66,15 +64,14 @@ public class TravelPlanController implements TravelPlanControllerDocs {
                 travelPlanService.create(principal.userId(), request));
     }
 
-    @PatchMapping("/{planId}/waypoints/{waypointId}/preferred")
-    public ApiResponse<List<WaypointResponse>> togglePreferred(
+    @PutMapping("/{planId}")
+    public ApiResponse<TravelPlanDetailResponse> replacePlan(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long planId,
-            @PathVariable Long waypointId,
-            @Valid @RequestBody TogglePreferredRequest request) {
+            @Valid @RequestBody TravelPlanCreateRequest request) {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.REQUEST_OK,
-                waypointService.togglePreferred(planId, principal.userId(), waypointId, request.isPreferred()));
+                travelPlanService.replace(planId, principal.userId(), request));
     }
 
     @GetMapping("/{planId}/recommendations")
@@ -94,58 +91,5 @@ public class TravelPlanController implements TravelPlanControllerDocs {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.REQUEST_OK,
                 recommendationService.recommend(planId, principal.userId(), request.excludedPlaceIds()));
-    }
-
-    @PostMapping("/{planId}/waypoints")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<List<WaypointResponse>> addWaypoint(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long planId,
-            @Valid @RequestBody WaypointAddRequest request) {
-        travelPlanService.assertPlanEditable(planId, principal.userId());
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.CREATED,
-                waypointService.addWaypoint(planId, principal.userId(), request));
-    }
-
-    @DeleteMapping("/{planId}/waypoints/{waypointId}")
-    public ApiResponse<List<WaypointResponse>> removeWaypoint(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long planId,
-            @PathVariable Long waypointId) {
-        travelPlanService.assertPlanEditable(planId, principal.userId());
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.REQUEST_OK,
-                waypointService.removeWaypoint(planId, principal.userId(), waypointId));
-    }
-
-    @PatchMapping("/{planId}/waypoints/reorder")
-    public ApiResponse<List<WaypointResponse>> reorderWaypoints(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long planId,
-            @Valid @RequestBody WaypointReorderRequest request) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.REQUEST_OK,
-                waypointService.reorderWaypoints(planId, principal.userId(), request));
-    }
-
-    @PatchMapping("/{planId}")
-    public ApiResponse<TravelPlanDetailResponse> updatePlan(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long planId,
-            @Valid @RequestBody TravelPlanUpdateRequest request) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.REQUEST_OK,
-                travelPlanService.updatePlan(planId, principal.userId(), request));
-    }
-
-    @PatchMapping("/{planId}/budget")
-    public ApiResponse<BudgetUpdateResponse> updateBudget(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long planId,
-            @Valid @RequestBody BudgetUpdateRequest request) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.REQUEST_OK,
-                travelPlanService.updateBudget(planId, principal.userId(), request));
     }
 }

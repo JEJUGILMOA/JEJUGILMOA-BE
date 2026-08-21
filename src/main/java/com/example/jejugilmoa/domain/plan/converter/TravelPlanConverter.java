@@ -38,29 +38,6 @@ public class TravelPlanConverter {
                 .build();
     }
 
-    public static BudgetUpdateResponse toBudgetResponse(TravelPlan plan) {
-        boolean anySet = plan.getBudgetTransportation() != null
-                || plan.getBudgetAccommodation() != null
-                || plan.getBudgetFood() != null
-                || plan.getBudgetEtc() != null;
-        Integer total = anySet
-                ? Stream.of(plan.getBudgetTransportation(), plan.getBudgetAccommodation(),
-                            plan.getBudgetFood(), plan.getBudgetEtc())
-                        .filter(Objects::nonNull)
-                        .mapToInt(Integer::intValue)
-                        .sum()
-                : null;
-
-        return new BudgetUpdateResponse(
-                plan.getId(),
-                plan.getBudgetTransportation(),
-                plan.getBudgetAccommodation(),
-                plan.getBudgetFood(),
-                plan.getBudgetEtc(),
-                total
-        );
-    }
-
     public static TravelPlanListResponse toSummary(TravelPlan plan, int waypointCount) {
         int nights = (int) ChronoUnit.DAYS.between(plan.getStartDate(), plan.getEndDate());
         int dDay   = (int) ChronoUnit.DAYS.between(LocalDate.now(), plan.getStartDate());
