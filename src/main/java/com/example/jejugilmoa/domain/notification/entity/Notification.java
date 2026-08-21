@@ -6,6 +6,8 @@ import com.example.jejugilmoa.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(
         name = "notification",
@@ -40,4 +42,11 @@ public class Notification extends BaseEntity {
     // 딥링크 등 클라이언트 처리용 JSON 페이로드
     @Column(columnDefinition = "TEXT")
     private String data;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;  // 소프트 삭제
+
+    public void delete() {
+        this.deletedAt = LocalDateTime.now();
+    }
 }

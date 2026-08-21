@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-제주길모아 (Jejugilmoa) — Spring Boot backend for a Jeju travel-planning service. Users compose travel plans (`TravelPlan`) from ordered course stops (`TravelCourse`) through places (`Place`), record finished trips (`TravelRecord`), react/share, earn badges, and report content. The full JPA domain model exists; `auth` (JWT/OAuth login) and `user` (profile, preferences, settings) have complete controller/service/repository stacks, and `place` has a service/repository layer plus a TourAPI sync pipeline (`PlaceSyncService`, `PlacePersistService`, `PlaceDataSyncScheduler`) but no public REST controller yet. `plan`, `record`, `badge`, `report`, `recommendation` currently have entities only — no repositories/services/controllers.
+제주길모아 (Jejugilmoa) — Spring Boot backend for a Jeju travel-planning service. Users compose travel plans (`TravelPlan`) from ordered course stops (`TravelCourse`) through places (`Place`), record finished trips (`TravelRecord`), react/share, earn badges, and report content. The full JPA domain model exists; `auth` (JWT/OAuth login), `user` (profile, preferences, settings), and `notification` (list/read/delete/unread-count, plus internal FCM push send) have complete controller/service/repository stacks, and `place` has a service/repository layer plus a TourAPI sync pipeline (`PlaceSyncService`, `PlacePersistService`, `PlaceDataSyncScheduler`) but no public REST controller yet. `plan`, `record`, `badge`, `report`, `recommendation` currently have entities only — no repositories/services/controllers.
 
 ## Commands
 
