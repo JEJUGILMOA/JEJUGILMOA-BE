@@ -139,7 +139,6 @@ public class TravelPlanService {
         // 날짜별 경유지를 하나의 트랜잭션에서 원자적으로 저장
         List<DayPlanRequest> days = request.days() != null ? request.days() : List.of();
         Set<LocalDate> seenDates = new HashSet<>();
-        Set<Long> seenPlaceIds = new HashSet<>();
         for (DayPlanRequest day : days) {
             if (!seenDates.add(day.visitDate()))
                 throw new GeneralException(PlanErrorCode.DUPLICATE_VISIT_DATE);
@@ -147,6 +146,7 @@ public class TravelPlanService {
                 throw new GeneralException(PlanErrorCode.INVALID_VISIT_DATE);
 
             List<WaypointCreateRequest> waypoints = day.waypoints() != null ? day.waypoints() : List.of();
+            Set<Long> seenPlaceIds = new HashSet<>();
             for (int i = 0; i < waypoints.size(); i++) {
                 WaypointCreateRequest wReq = waypoints.get(i);
                 if (!seenPlaceIds.add(wReq.placeId()))
