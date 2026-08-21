@@ -1,6 +1,5 @@
 package com.example.jejugilmoa.domain.plan.converter;
 
-import com.example.jejugilmoa.domain.place.entity.Category;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.plan.dto.*;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
@@ -37,26 +36,6 @@ public class TravelPlanConverter {
                 .departureLongitude(request.departureLongitude())
                 .companion(request.companion())
                 .build();
-    }
-
-    public static TravelPlanCreateResponse toCreateResponse(TravelPlan plan, List<Category> categories) {
-        String departureName = plan.getDeparturePlace() != null
-                ? plan.getDeparturePlace().getName()
-                : plan.getDepartureLocationName();
-        String destinationName = plan.getDestinationPlace() != null
-                ? plan.getDestinationPlace().getName()
-                : plan.getDestinationLocationName();
-
-        return new TravelPlanCreateResponse(
-                plan.getId(),
-                plan.getTitle(),
-                plan.getStartDate(),
-                plan.getEndDate(),
-                plan.getStatus(),
-                categories.stream().map(Category::getName).toList(),
-                departureName,
-                destinationName
-        );
     }
 
     public static BudgetUpdateResponse toBudgetResponse(TravelPlan plan) {
@@ -114,7 +93,8 @@ public class TravelPlanConverter {
                 .toList();
 
         List<String> categories = plan.getPreferredCategories().stream()
-                .map(pref -> pref.getCategory().getName())
+                .map(pref -> pref.getTheme().getCategoryName())
+                .filter(java.util.Objects::nonNull)
                 .toList();
 
         boolean anyBudgetSet = plan.getBudgetTransportation() != null
@@ -132,9 +112,6 @@ public class TravelPlanConverter {
         String departureName = plan.getDeparturePlace() != null
                 ? plan.getDeparturePlace().getName()
                 : plan.getDepartureLocationName();
-        String destinationName = plan.getDestinationPlace() != null
-                ? plan.getDestinationPlace().getName()
-                : plan.getDestinationLocationName();
 
         return new TravelPlanDetailResponse(
                 plan.getId(),
@@ -147,7 +124,6 @@ public class TravelPlanConverter {
                 plan.getTravelStyle(),
                 plan.getCompanion(),
                 departureName,
-                destinationName,
                 categories,
                 itinerary,
                 plan.getBudgetTransportation(),

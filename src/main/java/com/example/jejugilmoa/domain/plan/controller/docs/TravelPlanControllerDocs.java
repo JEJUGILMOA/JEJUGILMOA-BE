@@ -45,7 +45,6 @@ public interface TravelPlanControllerDocs {
                                 "status": "DRAFT",
                                 "travelStyle": "RELAXED",
                                 "departureLocationName": "새별오름",
-                                "destinationLocationName": "중문관광단지",
                                 "categories": ["자연", "카페"],
                                 "itinerary": [
                                   {
@@ -178,7 +177,7 @@ public interface TravelPlanControllerDocs {
                               "departureLatitude": 33.5070,
                               "departureLongitude": 126.4927,
                               "companion": "COUPLE",
-                              "categoryIds": [1, 2],
+                              "categories": ["NATURE", "CAFE"],
                               "days": [
                                 {
                                   "visitDate": "2027-08-15",
@@ -223,7 +222,6 @@ public interface TravelPlanControllerDocs {
                                         "travelStyle": "RELAXED",
                                         "companion": "COUPLE",
                                         "departureLocationName": "제주국제공항",
-                                        "destinationLocationName": null,
                                         "categories": ["자연", "카페"],
                                         "itinerary": [
                                           {
@@ -718,9 +716,7 @@ public interface TravelPlanControllerDocs {
                               "title": "제주 가을 여행",
                               "departurePlaceId": null,
                               "departureLocationName": "새별오름",
-                              "destinationPlaceId": null,
-                              "destinationLocationName": "중문관광단지",
-                              "categoryIds": [1, 2]
+                              "categories": ["NATURE", "CAFE"]
                             }
                             """)
             )
@@ -743,7 +739,6 @@ public interface TravelPlanControllerDocs {
                                 "status": "DRAFT",
                                 "travelStyle": "RELAXED",
                                 "departureLocationName": "새별오름",
-                                "destinationLocationName": "중문관광단지",
                                 "categories": ["자연", "카페"],
                                 "itinerary": [
                                   {"date": "2027-08-15", "dayNumber": 1, "waypoints": []},

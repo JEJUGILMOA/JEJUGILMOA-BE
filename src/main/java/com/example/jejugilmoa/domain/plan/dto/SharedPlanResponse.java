@@ -11,7 +11,6 @@ public record SharedPlanResponse(
         @Schema(description = "여행 시작일", example = "2026-08-15") LocalDate startDate,
         @Schema(description = "여행 종료일", example = "2026-08-17") LocalDate endDate,
         @Schema(description = "출발지", example = "제주국제공항") String departure,
-        @Schema(description = "목적지", example = "성산일출봉") String destination,
         @Schema(description = "방문 날짜와 순서로 정렬된 경유지") List<SharedWaypointResponse> waypoints,
         @Schema(description = "교통비 예산") Integer budgetTransportation,
         @Schema(description = "숙박 예산") Integer budgetAccommodation,
