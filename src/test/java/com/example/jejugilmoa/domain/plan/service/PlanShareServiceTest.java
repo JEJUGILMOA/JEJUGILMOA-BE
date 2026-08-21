@@ -145,7 +145,6 @@ class PlanShareServiceTest {
         given(plan.getStartDate()).willReturn(LocalDate.of(2026, 8, 10));
         given(plan.getEndDate()).willReturn(LocalDate.of(2026, 8, 11));
         given(plan.getDepartureLocationName()).willReturn("출발지");
-        given(plan.getDestinationLocationName()).willReturn("목적지");
         given(plan.getBudgetFood()).willReturn(30_000);
 
         TravelCourse dayOne = course(LocalDate.of(2026, 8, 10), 2, "두 번째");
