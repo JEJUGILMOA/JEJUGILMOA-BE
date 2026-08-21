@@ -10,6 +10,7 @@ public class RecommendationConverter {
     public static PlaceRecommendationItem toItem(Place place) {
         return new PlaceRecommendationItem(
                 place.getId(),
+                null,
                 place.getName(),
                 place.getCategory().getName(),
                 place.getImageUrl(),

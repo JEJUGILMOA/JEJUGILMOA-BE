@@ -2,6 +2,7 @@ package com.example.jejugilmoa.domain.place.controller.docs;
 
 import com.example.jejugilmoa.domain.place.dto.PlaceDetailDto;
 import com.example.jejugilmoa.domain.place.dto.PlaceSummaryDto;
+import com.example.jejugilmoa.domain.place.dto.PlaceSyncResponse;
 import com.example.jejugilmoa.domain.place.dto.PopularPlaceDto;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import com.example.jejugilmoa.global.apiPayload.dto.PageResponse;
@@ -236,4 +237,72 @@ public interface PlaceControllerDocs {
         @Parameter(description = "관광지 ID", example = "1")
         @PathVariable Long id
     );
+
+    @Operation(
+        summary = "TourAPI 장소 동기화 (개발용)",
+        description = """
+            TourAPI에서 제주시·서귀포시 관광지 데이터를 동기화합니다.
+            DB에 장소 데이터가 없을 때 추천 API 테스트를 위해 사용합니다.
+
+            - 시군구별 성공/실패 결과를 반환합니다.
+            - 모든 시군구가 실패하면 `PLACE503_1` 오류를 반환합니다.
+            - 일부 실패 시에도 성공한 결과와 함께 200을 반환합니다.
+            """
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "동기화 완료 (부분 실패 포함)",
+            content = @Content(
+                examples = {
+                    @ExampleObject(
+                        name = "전체 성공",
+                        value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": {
+                                "succeededCount": 2,
+                                "failedCount": 0,
+                                "results": [
+                                  {"signguCd": "11", "succeeded": true, "errorMessage": null},
+                                  {"signguCd": "13", "succeeded": true, "errorMessage": null}
+                                ]
+                              }
+                            }
+                            """
+                    ),
+                    @ExampleObject(
+                        name = "부분 실패",
+                        value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": {
+                                "succeededCount": 1,
+                                "failedCount": 1,
+                                "results": [
+                                  {"signguCd": "11", "succeeded": true, "errorMessage": null},
+                                  {"signguCd": "13", "succeeded": false, "errorMessage": "TourAPI 호출 오류"}
+                                ]
+                              }
+                            }
+                            """
+                    )
+                }
+            )
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "503",
+            description = "전체 시군구 동기화 실패",
+            content = @Content(
+                examples = @ExampleObject(value = """
+                    {"isSuccess":false,"code":"PLACE503_1","message":"모든 시군구 동기화에 실패했습니다.","result":null}
+                    """)
+            )
+        )
+    })
+    ApiResponse<PlaceSyncResponse> syncPlaces();
 }

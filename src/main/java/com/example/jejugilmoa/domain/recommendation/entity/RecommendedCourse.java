@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(
         name = "recommended_course",
@@ -43,4 +46,9 @@ public class RecommendedCourse extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private Integer shareCount = 0;
+
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sequenceOrder ASC")
+    @Builder.Default
+    private List<RecommendedCoursePath> paths = new ArrayList<>();
 }
