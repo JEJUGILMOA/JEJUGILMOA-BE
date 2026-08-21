@@ -30,7 +30,11 @@ public class PlaceDataSyncScheduler {
     public void onStartup() {
         if (runOnStartup) {
             log.info("앱 기동 시 장소 데이터 동기화 실행");
-            syncAll();
+            try {
+                syncAll();
+            } catch (Exception e) {
+                log.warn("기동 시 장소 데이터 동기화 실패 — 서버는 계속 가동됩니다.", e);
+            }
         }
     }
 }
