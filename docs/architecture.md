@@ -93,6 +93,16 @@ erDiagram
 
     USER ||--o{ REFRESH_TOKEN : "issued to (user_id)"
 
+    USER ||--o{ NOTIFICATION : receives
+    USER ||--o{ NOTIFICATION_READ : "read by (user_id)"
+    USER ||--o{ DEVICE_TOKEN : registers
+    NOTIFICATION ||--o{ NOTIFICATION_READ : "marked read as"
+    NOTIFICATION {
+        string type "PLAN_START/RECORD_WRITING/BADGE_ACQUIRED/NEXT_PLACE/PLACE_ARRIVAL/MARKETING"
+        string data "딥링크 등 클라이언트 페이로드(JSON)"
+        timestamp deleted_at "소프트 삭제(스와이프 삭제)"
+    }
+
     LOCATION_USAGE_LOG {
         bigint subject_id "User PK value; no FK"
         string acquisition_path
@@ -111,7 +121,7 @@ erDiagram
 |---|---|---|
 | 응답 봉투 | `ApiResponse` + `BaseCode` enum 체계 | [0001](adr/0001-api-response-envelope.md) |
 | 공간 데이터 | `Place`에 lat/lng(BigDecimal)와 PostGIS `geom` **이중 저장** — 항상 같이 갱신 | [0002](adr/0002-postgis-dual-storage.md) |
-| 소프트 삭제 | `deletedAt` timestamp (User, TravelRecord) — 조회 시 필터 필수 | [0003](adr/0003-soft-delete.md) |
+| 소프트 삭제 | `deletedAt` timestamp (User, TravelRecord, Notification) — 조회 시 필터 필수 | [0003](adr/0003-soft-delete.md) |
 | 여행 기록 보존 | 계획과 기록의 lifecycle을 분리하고, 계획 삭제 시 `ON DELETE SET NULL`로 기록 snapshot 보존 | [0010](adr/0010-retain-travel-record-after-plan-deletion.md) |
 | 데이터베이스 스키마 | Flyway를 통해 관리하며, 마이그레이션 파일은 `src/main/resources/db/migration` 경로에 버전 순서대로 추가한다. | — |
 | 인증 | 외부 OAuth 로그인 + 앱 자체 JWT(액세스/리프레시, HttpOnly 쿠키). 리프레시 토큰은 DB 저장, 재발급 시 회전 + 재사용 탐지. **인가는 여전히 미구현 — 전 요청 permitAll** | [0006](adr/0006-jwt-cookie-auth.md) |

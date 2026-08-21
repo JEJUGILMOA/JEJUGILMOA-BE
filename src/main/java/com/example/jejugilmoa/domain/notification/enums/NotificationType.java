@@ -6,5 +6,13 @@ public enum NotificationType {
     BADGE_ACQUIRED,
     NEXT_PLACE,
     PLACE_ARRIVAL,
-    MARKETING
+    MARKETING;
+
+    public NotificationCategory category() {
+        return switch (this) {
+            case PLAN_START, NEXT_PLACE, PLACE_ARRIVAL -> NotificationCategory.PLAN;
+            case BADGE_ACQUIRED -> NotificationCategory.BADGE;
+            case RECORD_WRITING, MARKETING -> NotificationCategory.SYSTEM;
+        };
+    }
 }
