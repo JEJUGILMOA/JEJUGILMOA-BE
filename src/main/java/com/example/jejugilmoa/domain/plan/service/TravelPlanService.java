@@ -127,10 +127,13 @@ public class TravelPlanService {
         travelPlanRepository.save(plan);
 
         if (request.categories() != null && !request.categories().isEmpty()) {
+            if (new HashSet<>(request.categories()).size() != request.categories().size())
+                throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
             List<TravelPlanPreference> preferences = request.categories().stream()
                     .map(theme -> TravelPlanPreference.builder().travelPlan(plan).theme(theme).build())
                     .toList();
             travelPlanPreferenceRepository.saveAll(preferences);
+            plan.getPreferredCategories().addAll(preferences);
         }
 
         // 날짜별 경유지를 하나의 트랜잭션에서 원자적으로 저장
@@ -216,6 +219,8 @@ public class TravelPlanService {
         plan.updatePlanInfo(newTitle, departurePlace, departureName);
 
         if (request.categories() != null && !request.categories().isEmpty()) {
+            if (new HashSet<>(request.categories()).size() != request.categories().size())
+                throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
             // JPA 플러시 순서는 INSERT → DELETE이므로, 기존 테마를 먼저 DELETE 확정 후 INSERT해야 유니크 제약 위반을 피할 수 있다
             plan.getPreferredCategories().clear();
             travelPlanRepository.flush();
