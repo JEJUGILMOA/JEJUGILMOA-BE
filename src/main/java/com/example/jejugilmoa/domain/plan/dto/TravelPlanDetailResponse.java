@@ -40,10 +40,7 @@ public record TravelPlanDetailResponse(
         @Schema(description = "출발지 이름", example = "제주국제공항")
         String departureLocationName,
 
-        @Schema(description = "목적지 이름", example = "성산일출봉")
-        String destinationLocationName,
-
-        @Schema(description = "선호 카테고리 목록", example = "[\"자연\", \"카페\"]")
+        @Schema(description = "선호 테마 목록", example = "[\"자연\", \"카페\"]")
         List<String> categories,
 
         @Schema(description = "날짜별 일정 목록 (계획 기간의 모든 날짜 포함, 경유지 없는 날도 포함)")

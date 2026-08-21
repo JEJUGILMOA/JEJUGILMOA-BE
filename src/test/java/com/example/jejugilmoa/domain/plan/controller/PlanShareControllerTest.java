@@ -62,7 +62,7 @@ class PlanShareControllerTest {
     void anonymousUserCanReadSharedPlan() throws Exception {
         given(planShareService.getSharedPlan("token")).willReturn(new SharedPlanResponse(
                 1L, "공유 계획", LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 11),
-                "출발지", "목적지", List.of(), null, null, 30_000, null, 30_000));
+                "출발지", List.of(), null, null, 30_000, null, 30_000));
 
         mockMvc.perform(get("/api/shared/plans/token"))
                 .andExpect(status().isOk())

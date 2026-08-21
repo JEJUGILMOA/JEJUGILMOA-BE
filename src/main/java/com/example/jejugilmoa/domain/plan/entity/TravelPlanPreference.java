@@ -1,6 +1,5 @@
 package com.example.jejugilmoa.domain.plan.entity;
 
-import com.example.jejugilmoa.domain.place.entity.Category;
 import com.example.jejugilmoa.domain.plan.enums.TravelTheme;
 import com.example.jejugilmoa.global.entity.BaseEntity;
 import lombok.*;
@@ -19,8 +18,8 @@ import jakarta.persistence.*;
         },
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_plan_preference_category",
-                        columnNames = {"plan_id", "category_id"}
+                        name = "uk_plan_preference_theme",
+                        columnNames = {"plan_id", "theme"}
                 )
         }
 )
@@ -34,11 +33,7 @@ public class TravelPlanPreference extends BaseEntity {
     @JoinColumn(name = "plan_id", nullable = false)
     private TravelPlan travelPlan;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;  // 이번 여행에서 선택한 선호 유형 (전역 UserPreference와 별개)
-
     @Enumerated(EnumType.STRING)
-    @Column(name = "theme", length = 30)
-    private TravelTheme theme;  // 다음 PR에서 category 를 대체
+    @Column(name = "theme", nullable = false, length = 30)
+    private TravelTheme theme;
 }

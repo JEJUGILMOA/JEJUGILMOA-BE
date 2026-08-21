@@ -1,9 +1,7 @@
 package com.example.jejugilmoa.domain.plan.service;
 
-import com.example.jejugilmoa.domain.place.entity.Category;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
-import com.example.jejugilmoa.domain.place.repository.CategoryRepository;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.plan.converter.TravelPlanConverter;
 import com.example.jejugilmoa.domain.plan.converter.WaypointConverter;
@@ -21,6 +19,7 @@ import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlanPreference;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
+import com.example.jejugilmoa.domain.plan.enums.TravelTheme;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanPreferenceRepository;
@@ -52,7 +51,6 @@ public class TravelPlanService {
     private final TravelCourseRepository travelCourseRepository;
     private final UserRepository userRepository;
     private final PlaceRepository placeRepository;
-    private final CategoryRepository categoryRepository;
 
     @Transactional(readOnly = true)
     public void assertPlanEditable(Long planId, Long userId) {
@@ -128,14 +126,15 @@ public class TravelPlanService {
         TravelPlan plan = TravelPlanConverter.toEntity(user, departurePlace, request);
         travelPlanRepository.save(plan);
 
-        List<Category> categories = categoryRepository.findAllById(request.categoryIds());
-        if (categories.size() != request.categoryIds().size())
-            throw new GeneralException(PlanErrorCode.CATEGORY_NOT_FOUND);
-
-        List<TravelPlanPreference> preferences = categories.stream()
-                .map(cat -> TravelPlanPreference.builder().travelPlan(plan).category(cat).build())
-                .toList();
-        travelPlanPreferenceRepository.saveAll(preferences);
+        if (request.categories() != null && !request.categories().isEmpty()) {
+            if (new HashSet<>(request.categories()).size() != request.categories().size())
+                throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
+            List<TravelPlanPreference> preferences = request.categories().stream()
+                    .map(theme -> TravelPlanPreference.builder().travelPlan(plan).theme(theme).build())
+                    .toList();
+            travelPlanPreferenceRepository.saveAll(preferences);
+            plan.getPreferredCategories().addAll(preferences);
+        }
 
         // 날짜별 경유지를 하나의 트랜잭션에서 원자적으로 저장
         List<DayPlanRequest> days = request.days() != null ? request.days() : List.of();
@@ -147,8 +146,11 @@ public class TravelPlanService {
                 throw new GeneralException(PlanErrorCode.INVALID_VISIT_DATE);
 
             List<WaypointCreateRequest> waypoints = day.waypoints() != null ? day.waypoints() : List.of();
+            Set<Long> seenPlaceIds = new HashSet<>();
             for (int i = 0; i < waypoints.size(); i++) {
                 WaypointCreateRequest wReq = waypoints.get(i);
+                if (!seenPlaceIds.add(wReq.placeId()))
+                    throw new GeneralException(PlanErrorCode.PLACE_ALREADY_ADDED);
                 Place place = placeRepository.findByIdAndPublishedTrue(wReq.placeId())
                         .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND));
                 travelCourseRepository.save(TravelCourse.builder()
@@ -214,32 +216,18 @@ public class TravelPlanService {
             departureName = request.departureLocationName();
         }
 
-        boolean hasNewDestination = request.destinationPlaceId() != null
-                || (request.destinationLocationName() != null && !request.destinationLocationName().isBlank());
-        Place destinationPlace = plan.getDestinationPlace();
-        String destinationName = plan.getDestinationLocationName();
-        if (hasNewDestination) {
-            destinationPlace = request.destinationPlaceId() != null
-                    ? placeRepository.findByIdAndPublishedTrue(request.destinationPlaceId())
-                            .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND))
-                    : null;
-            destinationName = request.destinationLocationName();
-        }
+        plan.updatePlanInfo(newTitle, departurePlace, departureName);
 
-        plan.updatePlanInfo(newTitle, departurePlace, departureName, destinationPlace, destinationName);
-
-        if (request.categoryIds() != null && !request.categoryIds().isEmpty()) {
-            List<Category> categories = categoryRepository.findAllById(request.categoryIds());
-            if (categories.size() != request.categoryIds().size()) {
-                throw new GeneralException(PlanErrorCode.CATEGORY_NOT_FOUND);
-            }
-            // JPA 플러시 순서는 INSERT → DELETE이므로, 기존 카테고리를 먼저 DELETE 확정 후 INSERT해야 유니크 제약 위반을 피할 수 있다
+        if (request.categories() != null && !request.categories().isEmpty()) {
+            if (new HashSet<>(request.categories()).size() != request.categories().size())
+                throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
+            // JPA 플러시 순서는 INSERT → DELETE이므로, 기존 테마를 먼저 DELETE 확정 후 INSERT해야 유니크 제약 위반을 피할 수 있다
             plan.getPreferredCategories().clear();
             travelPlanRepository.flush();
-            List<TravelPlanPreference> newPrefs = categories.stream()
-                    .map(cat -> TravelPlanPreference.builder()
+            List<TravelPlanPreference> newPrefs = request.categories().stream()
+                    .map(theme -> TravelPlanPreference.builder()
                             .travelPlan(plan)
-                            .category(cat)
+                            .theme(theme)
                             .build())
                     .toList();
             plan.getPreferredCategories().addAll(newPrefs);

@@ -73,13 +73,6 @@ public class TravelPlan extends BaseEntity {
     @Column(precision = 11, scale = 8)
     private BigDecimal departureLongitude;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "destination_place_id")
-    private Place destinationPlace;  // 목적지 (nullable)
-
-    @Column(length = 200)
-    private String destinationLocationName;  // 목적지 텍스트
-
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private TravelCompanion companion;
@@ -141,13 +134,10 @@ public class TravelPlan extends BaseEntity {
         this.budgetEtc = etc;
     }
 
-    public void updatePlanInfo(String title, Place departure, String departureName,
-                               Place destination, String destinationName) {
+    public void updatePlanInfo(String title, Place departure, String departureName) {
         this.title = title;
         this.departurePlace = departure;
         this.departureLocationName = departureName;
-        this.destinationPlace = destination;
-        this.destinationLocationName = destinationName;
     }
 
 }

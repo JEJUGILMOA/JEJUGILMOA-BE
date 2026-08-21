@@ -35,7 +35,8 @@ public enum PlanErrorCode implements BaseCode {
     CURRENT_TRIP_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAN404_6", "진행중인 여행이 없습니다."),
     TRIP_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "PLAN409_1", "이미 진행중인 여행이 있습니다."),
     PLAN_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "PLAN400_17", "계획 중 상태의 여행만 수정할 수 있습니다."),
-    DUPLICATE_VISIT_DATE(HttpStatus.BAD_REQUEST, "PLAN400_18", "같은 날짜가 중복으로 입력되었습니다.");
+    DUPLICATE_VISIT_DATE(HttpStatus.BAD_REQUEST, "PLAN400_18", "같은 날짜가 중복으로 입력되었습니다."),
+    DUPLICATE_THEME(HttpStatus.BAD_REQUEST, "PLAN400_19", "중복된 여행 테마가 포함되어 있습니다.");
 
 
     private final HttpStatus status;

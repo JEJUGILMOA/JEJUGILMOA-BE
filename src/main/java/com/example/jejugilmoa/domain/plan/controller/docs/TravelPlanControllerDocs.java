@@ -45,7 +45,6 @@ public interface TravelPlanControllerDocs {
                                 "status": "DRAFT",
                                 "travelStyle": "RELAXED",
                                 "departureLocationName": "새별오름",
-                                "destinationLocationName": "중문관광단지",
                                 "categories": ["자연", "카페"],
                                 "itinerary": [
                                   {
@@ -159,7 +158,7 @@ public interface TravelPlanControllerDocs {
             - `visitDate`는 `startDate`~`endDate` 범위 내여야 합니다.
 
             **기타**
-            - `categoryIds`는 1개 이상이어야 합니다. 유효한 ID는 DB `category` 테이블에서 확인하세요.
+            - `categories`는 전달 시 1개 이상이어야 합니다. 유효한 값: `FOOD NATURE ACTIVITY CAFE CULTURE SHOPPING FESTIVAL`.
             - `startDate`는 오늘 포함 이후여야 합니다.
             - `endDate`는 `startDate`와 같거나 이후여야 합니다.
             """)
@@ -178,7 +177,7 @@ public interface TravelPlanControllerDocs {
                               "departureLatitude": 33.5070,
                               "departureLongitude": 126.4927,
                               "companion": "COUPLE",
-                              "categoryIds": [1, 2],
+                              "categories": ["NATURE", "CAFE"],
                               "days": [
                                 {
                                   "visitDate": "2027-08-15",
@@ -223,7 +222,6 @@ public interface TravelPlanControllerDocs {
                                         "travelStyle": "RELAXED",
                                         "companion": "COUPLE",
                                         "departureLocationName": "제주국제공항",
-                                        "destinationLocationName": null,
                                         "categories": ["자연", "카페"],
                                         "itinerary": [
                                           {
@@ -263,13 +261,13 @@ public interface TravelPlanControllerDocs {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
-                    description = "존재하지 않는 카테고리 또는 장소",
+                    description = "존재하지 않는 장소",
                     content = @Content(
                             examples = @ExampleObject(value = """
                                     {
                                       "isSuccess": false,
-                                      "code": "PLAN404_2",
-                                      "message": "존재하지 않는 카테고리입니다.",
+                                      "code": "PLACE404_1",
+                                      "message": "존재하지 않는 관광지입니다.",
                                       "result": null
                                     }
                                     """)
@@ -704,8 +702,7 @@ public interface TravelPlanControllerDocs {
                     - **여행 기간(startDate/endDate)은 수정 불가**합니다.
                     - `null`로 전달한 필드는 수정되지 않습니다(기존 값 유지).
                     - 출발지: `departurePlaceId` 또는 `departureLocationName` 중 하나라도 전달하면 출발지 정보가 갱신됩니다.
-                    - 목적지: 동일한 규칙이 적용됩니다.
-                    - `categoryIds`를 전달하면 기존 선호 카테고리를 전부 교체합니다.
+                    - `categories`를 전달하면 기존 선호 테마를 전부 교체합니다. 유효한 값: `FOOD NATURE ACTIVITY CAFE CULTURE SHOPPING FESTIVAL`.
                     """
     )
     @RequestBody(
@@ -718,9 +715,7 @@ public interface TravelPlanControllerDocs {
                               "title": "제주 가을 여행",
                               "departurePlaceId": null,
                               "departureLocationName": "새별오름",
-                              "destinationPlaceId": null,
-                              "destinationLocationName": "중문관광단지",
-                              "categoryIds": [1, 2]
+                              "categories": ["NATURE", "CAFE"]
                             }
                             """)
             )
@@ -743,7 +738,6 @@ public interface TravelPlanControllerDocs {
                                 "status": "DRAFT",
                                 "travelStyle": "RELAXED",
                                 "departureLocationName": "새별오름",
-                                "destinationLocationName": "중문관광단지",
                                 "categories": ["자연", "카페"],
                                 "itinerary": [
                                   {"date": "2027-08-15", "dayNumber": 1, "waypoints": []},
@@ -772,16 +766,10 @@ public interface TravelPlanControllerDocs {
                             """))
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404", description = "존재하지 않는 계획 또는 장소/카테고리",
+                    responseCode = "404", description = "존재하지 않는 계획",
                     content = @Content(examples = {
                             @ExampleObject(name = "계획 미존재", value = """
                                     {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
-                                    """),
-                            @ExampleObject(name = "장소 미존재", value = """
-                                    {"isSuccess":false,"code":"PLACE404_1","message":"존재하지 않는 관광지입니다.","result":null}
-                                    """),
-                            @ExampleObject(name = "카테고리 미존재", value = """
-                                    {"isSuccess":false,"code":"PLAN404_2","message":"존재하지 않는 카테고리입니다.","result":null}
                                     """)
                     })
             )

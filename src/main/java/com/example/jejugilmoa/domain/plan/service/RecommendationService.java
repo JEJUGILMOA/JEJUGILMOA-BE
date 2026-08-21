@@ -74,11 +74,12 @@ public class RecommendationService {
         if (excludedIds.isEmpty()) excludedIds.add(-1L);
 
         if (plan.getStatus() == TravelPlanStatus.IN_PROGRESS) {
-            List<Long> categoryIds = plan.getPreferredCategories().stream()
-                    .map(pref -> pref.getCategory().getId())
+            List<String> categoryNames = plan.getPreferredCategories().stream()
+                    .map(pref -> pref.getTheme().getCategoryName())
+                    .filter(java.util.Objects::nonNull)
                     .toList();
-            if (categoryIds.isEmpty()) categoryIds = List.of(-1L);
-            TripRecommendContext ctx = buildTripRecommendContext(plan, categoryIds, excludedIds);
+            if (categoryNames.isEmpty()) categoryNames = List.of("__none__");
+            TripRecommendContext ctx = buildTripRecommendContext(plan, categoryNames, excludedIds);
             return new RecommendationResponse(
                     ctx.candidates().stream().map(RecommendationConverter::toItem).toList(), false);
         }
@@ -206,14 +207,14 @@ public class RecommendationService {
     // ── 내부 유틸 ─────────────────────────────────────────────────────────────
 
     private TripRecommendContext buildTripRecommendContext(
-            TravelPlan plan, List<Long> categoryIds, List<Long> excludedIds) {
+            TravelPlan plan, List<String> categoryNames, List<Long> excludedIds) {
 
         Optional<TravelCourse> nextOpt = travelCourseRepository
                 .findFirstByTravelPlanIdAndVisitedFalseWithPlaceOrderByVisitDateAscSequenceOrderAsc(plan.getId());
 
         if (nextOpt.isEmpty()) {
             return new TripRecommendContext(
-                    placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT));
+                    placeRepository.findByCategoriesOrderByPopularity(categoryNames, excludedIds, RECOMMENDATION_LIMIT));
         }
 
         Place c = nextOpt.get().getPlace();
@@ -224,7 +225,7 @@ public class RecommendationService {
 
         if (!hasCoords(b) || !hasCoords(c)) {
             return new TripRecommendContext(
-                    placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT));
+                    placeRepository.findByCategoriesOrderByPopularity(categoryNames, excludedIds, RECOMMENDATION_LIMIT));
         }
 
         double bLon = b.getLongitude().doubleValue();
@@ -234,10 +235,10 @@ public class RecommendationService {
         double radius = haversineMeters(bLat, bLon, cLat, cLon);
 
         List<Place> results = placeRepository.findInSector(
-                bLon, bLat, cLon, cLat, radius, COS_HALF_ANGLE, categoryIds, excludedIds, RECOMMENDATION_LIMIT);
+                bLon, bLat, cLon, cLat, radius, COS_HALF_ANGLE, categoryNames, excludedIds, RECOMMENDATION_LIMIT);
 
         if (results.isEmpty()) {
-            results = placeRepository.findByCategoriesOrderByPopularity(categoryIds, excludedIds, RECOMMENDATION_LIMIT);
+            results = placeRepository.findByCategoriesOrderByPopularity(categoryNames, excludedIds, RECOMMENDATION_LIMIT);
         }
         return new TripRecommendContext(results);
     }

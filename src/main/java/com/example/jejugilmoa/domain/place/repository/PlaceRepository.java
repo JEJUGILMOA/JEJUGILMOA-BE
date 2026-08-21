@@ -30,14 +30,15 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
      */
     @Query(value = """
             SELECT p.* FROM place p
+            JOIN category c ON c.id = p.category_id
             WHERE p.is_published = true
-              AND p.category_id IN (:categoryIds)
+              AND c.name IN (:categoryNames)
               AND p.id NOT IN (:excludedIds)
             ORDER BY p.visitor_count DESC
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findByCategoriesOrderByPopularity(
-            @Param("categoryIds") List<Long> categoryIds,
+            @Param("categoryNames") List<String> categoryNames,
             @Param("excludedIds") List<Long> excludedIds,
             @Param("limit") int limit
     );
@@ -233,8 +234,9 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
      */
     @Query(value = """
             SELECT p.* FROM place p
+            JOIN category c ON c.id = p.category_id
             WHERE p.is_published = true
-              AND p.category_id IN (:categoryIds)
+              AND c.name IN (:categoryNames)
               AND p.id NOT IN (:excludedIds)
               AND ST_DWithin(
                   p.geom::geography,
@@ -265,7 +267,7 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
             @Param("cLat") double cLat,
             @Param("radiusMeters") double radiusMeters,
             @Param("cosHalfAngle") double cosHalfAngle,
-            @Param("categoryIds") List<Long> categoryIds,
+            @Param("categoryNames") List<String> categoryNames,
             @Param("excludedIds") List<Long> excludedIds,
             @Param("limit") int limit
     );
