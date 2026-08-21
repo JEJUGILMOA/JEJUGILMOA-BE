@@ -186,12 +186,8 @@ public class TravelPlanService {
             throw new GeneralException(PlanErrorCode.PLAN_NOT_EDITABLE);
         }
 
-        if (request.startDate().isBefore(LocalDate.now()))
-            throw new GeneralException(PlanErrorCode.INVALID_START_DATE);
-        if (request.endDate().isBefore(request.startDate()))
-            throw new GeneralException(PlanErrorCode.INVALID_DATE_RANGE);
-        if (ChronoUnit.DAYS.between(request.startDate(), request.endDate()) > MAX_TRIP_DAYS)
-            throw new GeneralException(PlanErrorCode.TRIP_DURATION_EXCEEDED);
+        if (!request.startDate().equals(plan.getStartDate()) || !request.endDate().equals(plan.getEndDate()))
+            throw new GeneralException(PlanErrorCode.PLAN_DATE_NOT_MODIFIABLE);
 
         if (request.departurePlaceId() == null
                 && (request.departureLocationName() == null || request.departureLocationName().isBlank()))

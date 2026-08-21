@@ -289,6 +289,7 @@ public interface TravelPlanControllerDocs {
                     - 날짜별 경유지, 카테고리, 예산을 한 번에 교체합니다.
                     - `budget: null` 전달 시 예산 정보를 모두 삭제합니다.
                     - `days`를 생략하거나 빈 배열로 전달하면 기존 경유지가 모두 제거됩니다.
+                    - **`startDate` / `endDate`는 수정 불가**합니다. 기존 계획의 날짜와 다른 값을 전달하면 `PLAN400_20`.
                     """
     )
     @RequestBody(
@@ -366,10 +367,15 @@ public interface TravelPlanControllerDocs {
                             """))
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "400", description = "날짜 오류 또는 출발지 누락, DRAFT 상태 아님",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN400_17","message":"계획 중 상태의 여행만 수정할 수 있습니다.","result":null}
-                            """))
+                    responseCode = "400", description = "날짜 변경 시도, 출발지 누락, DRAFT 상태 아님",
+                    content = @Content(examples = {
+                            @ExampleObject(name = "날짜 변경 시도", value = """
+                                    {"isSuccess":false,"code":"PLAN400_20","message":"여행 날짜는 수정할 수 없습니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "DRAFT 상태 아님", value = """
+                                    {"isSuccess":false,"code":"PLAN400_17","message":"계획 중 상태의 여행만 수정할 수 있습니다.","result":null}
+                                    """)
+                    })
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403", description = "타인의 여행 계획에 접근",
@@ -379,9 +385,14 @@ public interface TravelPlanControllerDocs {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404", description = "존재하지 않는 계획 또는 장소",
-                    content = @Content(examples = @ExampleObject(value = """
-                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
-                            """))
+                    content = @Content(examples = {
+                            @ExampleObject(name = "계획 미존재", value = """
+                                    {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "장소 미존재 (departurePlaceId 또는 days[].placeId)", value = """
+                                    {"isSuccess":false,"code":"PLACE404_1","message":"존재하지 않는 관광지입니다.","result":null}
+                                    """)
+                    })
             )
     })
     ApiResponse<TravelPlanDetailResponse> replacePlan(
