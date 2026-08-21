@@ -9,6 +9,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.hibernate.validator.constraints.UniqueElements;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -50,8 +51,9 @@ public record TravelPlanCreateRequest(
         @Schema(description = "동반자 유형", example = "COUPLE")
         TravelCompanion companion,
 
-        @Schema(description = "선호 테마 목록 (생략 가능, 전달 시 1개 이상)", example = "[\"NATURE\", \"CAFE\"]")
+        @Schema(description = "선호 테마 목록 (생략 가능, 전달 시 1개 이상, 중복 불가)", example = "[\"NATURE\", \"CAFE\"]")
         @Size(min = 1)
+        @UniqueElements
         List<@NotNull TravelTheme> categories,
 
         @Schema(description = "날짜별 경유지 목록 (계획 생성 시 초기 경유지, 빈 배열 허용)")
