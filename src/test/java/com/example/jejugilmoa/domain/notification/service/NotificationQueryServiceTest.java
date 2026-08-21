@@ -47,7 +47,7 @@ class NotificationQueryServiceTest {
         Notification notification = Notification.builder()
                 .id(10L).user(user).type(NotificationType.BADGE_ACQUIRED).title("배지 획득").build();
         Page<Notification> page = new PageImpl<>(List.of(notification));
-        given(notificationRepository.findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(eq(1L), any()))
+        given(notificationRepository.findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L), any()))
                 .willReturn(page);
         given(notificationReadRepository.findReadNotificationIds(eq(List.of(10L)), eq(1L)))
                 .willReturn(List.of(10L));

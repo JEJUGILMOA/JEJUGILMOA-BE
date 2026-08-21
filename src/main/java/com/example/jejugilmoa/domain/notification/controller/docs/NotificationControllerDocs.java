@@ -80,7 +80,7 @@ public interface NotificationControllerDocs {
 
     @Operation(
         summary = "미확인 알림 개수 조회",
-        description = "MY-01 상단 알림 뱃지에 표시할 미확인 알림 개수입니다. 개별/전체 읽음 처리 시점에만 감소합니다."
+        description = "MY-01 상단 알림 뱃지에 표시할 미확인 알림 개수입니다. 개별·전체 읽음 처리 또는 삭제 시 감소합니다."
     )
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(

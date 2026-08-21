@@ -30,7 +30,7 @@ public class NotificationQueryService {
 
     public PageResponse<NotificationResponse> list(Long userId, Pageable pageable) {
         Page<Notification> notifications = notificationRepository
-                .findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId, pageable);
+                .findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(userId, pageable);
 
         List<Long> notificationIds = notifications.getContent().stream()
                 .map(Notification::getId)
