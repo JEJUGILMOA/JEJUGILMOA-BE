@@ -6,8 +6,11 @@ import java.math.BigDecimal;
 
 public record PlaceRecommendationItem(
 
-        @Schema(description = "장소 ID", example = "42")
+        @Schema(description = "장소 ID (DB 장소일 때만 존재)", example = "42")
         Long placeId,
+
+        @Schema(description = "TourAPI contentId (폴백 결과일 때만 존재)", example = "126508")
+        String contentId,
 
         @Schema(description = "장소명", example = "애월 카페거리")
         String name,

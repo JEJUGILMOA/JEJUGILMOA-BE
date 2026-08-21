@@ -5,6 +5,7 @@ import com.example.jejugilmoa.domain.place.dto.PlaceSummaryDto;
 import com.example.jejugilmoa.domain.place.dto.PopularPlaceDto;
 import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
 import com.example.jejugilmoa.domain.place.service.PlaceQueryService;
+import com.example.jejugilmoa.domain.place.service.PlaceSyncService;
 import com.example.jejugilmoa.global.apiPayload.dto.PageResponse;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ class PlaceControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean PlaceQueryService placeQueryService;
+    @MockitoBean PlaceSyncService placeSyncService;
 
     @Test
     void getPopular_returns200WithTop3() throws Exception {

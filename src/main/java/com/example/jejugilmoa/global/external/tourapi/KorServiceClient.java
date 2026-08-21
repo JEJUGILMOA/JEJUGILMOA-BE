@@ -36,9 +36,11 @@ public class KorServiceClient {
     /**
      * 위치기반 관광정보 조회 (locationBasedList2)
      * mapX=경도, mapY=위도 순서 (ADR-0002 동일 규칙)
+     * contentTypeId null이면 전체 유형 조회.
      */
-    public List<LocationBasedItem> locationBasedList2(double lat, double lng, int radiusMeters, int numOfRows) {
-        String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/locationBasedList2")
+    public List<LocationBasedItem> locationBasedList2(
+            double lat, double lng, int radiusMeters, int numOfRows, Integer contentTypeId) {
+        var builder = UriComponentsBuilder.fromUriString(BASE_URL + "/locationBasedList2")
                 .queryParam("serviceKey", serviceKey)
                 .queryParam("MobileOS", MOBILE_OS)
                 .queryParam("MobileApp", MOBILE_APP)
@@ -47,8 +49,11 @@ public class KorServiceClient {
                 .queryParam("mapY", lat)
                 .queryParam("radius", radiusMeters)
                 .queryParam("numOfRows", numOfRows)
-                .queryParam("pageNo", 1)
-                .build().toUriString();
+                .queryParam("pageNo", 1);
+        if (contentTypeId != null) {
+            builder.queryParam("contentTypeId", contentTypeId);
+        }
+        String uri = builder.build().toUriString();
 
         TourApiResponse<LocationBasedItem> response;
         try {

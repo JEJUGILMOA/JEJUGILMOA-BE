@@ -5,7 +5,9 @@ import com.example.jejugilmoa.domain.place.dto.PlaceDetailDto;
 import com.example.jejugilmoa.domain.place.dto.PlaceSummaryDto;
 import com.example.jejugilmoa.domain.place.dto.PopularPlaceDto;
 import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
+import com.example.jejugilmoa.domain.place.dto.PlaceSyncResponse;
 import com.example.jejugilmoa.domain.place.service.PlaceQueryService;
+import com.example.jejugilmoa.domain.place.service.PlaceSyncService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import com.example.jejugilmoa.global.apiPayload.code.GeneralSuccessCode;
 import com.example.jejugilmoa.global.apiPayload.dto.PageResponse;
@@ -24,6 +26,7 @@ import java.util.List;
 public class PlaceController implements PlaceControllerDocs {
 
     private final PlaceQueryService placeQueryService;
+    private final PlaceSyncService placeSyncService;
 
     private static final int MAX_SIZE = 100;
     private static final int MAX_LIMIT = 100;
@@ -50,5 +53,10 @@ public class PlaceController implements PlaceControllerDocs {
     @GetMapping("/{id}")
     public ApiResponse<PlaceDetailDto> getDetail(@PathVariable Long id) {
         return ApiResponse.onSuccess(GeneralSuccessCode.FOUND, placeQueryService.getDetail(id));
+    }
+
+    @PostMapping("/sync")
+    public ApiResponse<PlaceSyncResponse> syncPlaces() {
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, placeSyncService.syncAllCategories());
     }
 }

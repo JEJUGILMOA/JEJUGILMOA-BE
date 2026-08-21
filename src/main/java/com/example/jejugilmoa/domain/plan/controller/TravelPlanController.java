@@ -129,16 +129,6 @@ public class TravelPlanController implements TravelPlanControllerDocs {
                 waypointService.reorderWaypoints(planId, principal.userId(), request));
     }
 
-    @PostMapping("/{planId}/recommend/places")
-    public ApiResponse<NearbyPlaceRecommendResponse> recommendNearbyPlaces(
-        @AuthenticationPrincipal UserPrincipal principal,
-        @PathVariable Long planId,
-        @Valid @RequestBody NearbyPlaceRecommendRequest request) {
-        return ApiResponse.onSuccess(
-            GeneralSuccessCode.REQUEST_OK,
-            recommendationService.recommendNearby(planId, principal.userId(), request));
-    }
-
     @PatchMapping("/{planId}")
     public ApiResponse<TravelPlanDetailResponse> updatePlan(
             @AuthenticationPrincipal UserPrincipal principal,

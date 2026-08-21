@@ -41,7 +41,8 @@ public class PlacePersistService {
     // rlteCtgryLclsNm → 내부 카테고리명 매핑
     private static final Map<String, String> CATEGORY_MAPPING = Map.of(
         "관광지", "자연",
-        "음식",   "음식"
+        "음식",   "음식",
+        "카페",   "카페"
     );
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
