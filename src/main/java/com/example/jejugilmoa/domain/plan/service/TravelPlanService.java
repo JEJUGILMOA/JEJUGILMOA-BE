@@ -107,14 +107,13 @@ public class TravelPlanService {
         if (ChronoUnit.DAYS.between(request.startDate(), request.endDate()) > MAX_TRIP_DAYS)
             throw new GeneralException(PlanErrorCode.TRIP_DURATION_EXCEEDED);
 
-        if (request.departurePlaceId() == null
-                && (request.departureLocationName() == null || request.departureLocationName().isBlank()))
-            throw new GeneralException(PlanErrorCode.DEPARTURE_REQUIRED);
+        validateDeparture(request);
 
-        Place departurePlace = request.departurePlaceId() != null
-                ? placeRepository.findByIdAndPublishedTrue(request.departurePlaceId())
-                        .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND))
-                : null;
+        if (request.categories() != null
+                && new HashSet<>(request.categories()).size() != request.categories().size())
+            throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
+
+        Place departurePlace = resolveDeparturePlace(request);
 
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new GeneralException(UserErrorCode.USER_NOT_FOUND));
@@ -123,8 +122,6 @@ public class TravelPlanService {
         travelPlanRepository.save(plan);
 
         if (request.categories() != null && !request.categories().isEmpty()) {
-            if (new HashSet<>(request.categories()).size() != request.categories().size())
-                throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
             List<TravelPlanPreference> preferences = request.categories().stream()
                     .map(theme -> TravelPlanPreference.builder().travelPlan(plan).theme(theme).build())
                     .toList();
@@ -132,34 +129,7 @@ public class TravelPlanService {
             plan.getPreferredCategories().addAll(preferences);
         }
 
-        // 날짜별 경유지를 하나의 트랜잭션에서 원자적으로 저장
-        List<DayPlanRequest> days = request.days() != null ? request.days() : List.of();
-        Set<LocalDate> seenDates = new HashSet<>();
-        for (DayPlanRequest day : days) {
-            if (!seenDates.add(day.visitDate()))
-                throw new GeneralException(PlanErrorCode.DUPLICATE_VISIT_DATE);
-            if (day.visitDate().isBefore(plan.getStartDate()) || day.visitDate().isAfter(plan.getEndDate()))
-                throw new GeneralException(PlanErrorCode.INVALID_VISIT_DATE);
-
-            List<WaypointCreateRequest> waypoints = day.waypoints() != null ? day.waypoints() : List.of();
-            Set<Long> seenPlaceIds = new HashSet<>();
-            for (int i = 0; i < waypoints.size(); i++) {
-                WaypointCreateRequest wReq = waypoints.get(i);
-                if (!seenPlaceIds.add(wReq.placeId()))
-                    throw new GeneralException(PlanErrorCode.PLACE_ALREADY_ADDED);
-                Place place = placeRepository.findByIdAndPublishedTrue(wReq.placeId())
-                        .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND));
-                travelCourseRepository.save(TravelCourse.builder()
-                        .travelPlan(plan)
-                        .place(place)
-                        .visitDate(day.visitDate())
-                        .sequenceOrder(i + 1)
-                        .preferred(wReq.isPreferred())
-                        .start(i == 0)
-                        .destination(i == waypoints.size() - 1)
-                        .build());
-            }
-        }
+        persistCourses(plan, request.days() != null ? request.days() : List.of());
 
         if (request.budget() != null) {
             BudgetCreateRequest b = request.budget();
@@ -189,14 +159,13 @@ public class TravelPlanService {
         if (!request.startDate().equals(plan.getStartDate()) || !request.endDate().equals(plan.getEndDate()))
             throw new GeneralException(PlanErrorCode.PLAN_DATE_NOT_MODIFIABLE);
 
-        if (request.departurePlaceId() == null
-                && (request.departureLocationName() == null || request.departureLocationName().isBlank()))
-            throw new GeneralException(PlanErrorCode.DEPARTURE_REQUIRED);
+        validateDeparture(request);
 
-        Place departurePlace = request.departurePlaceId() != null
-                ? placeRepository.findByIdAndPublishedTrue(request.departurePlaceId())
-                        .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND))
-                : null;
+        if (request.categories() != null
+                && new HashSet<>(request.categories()).size() != request.categories().size())
+            throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
+
+        Place departurePlace = resolveDeparturePlace(request);
 
         long days = ChronoUnit.DAYS.between(request.startDate(), request.endDate());
         int totalAvailableTime = (int) (days + 1) * 8 * 60;
@@ -213,46 +182,18 @@ public class TravelPlanService {
                 request.startDate().equals(request.endDate())
         );
 
-        // 선호 카테고리 교체: DELETE 확정 후 INSERT해야 UK 위반을 피할 수 있다
+        // DELETE 확정 후 INSERT해야 UK 위반을 피할 수 있다
         plan.getPreferredCategories().clear();
         plan.getTravelCourses().clear();
         travelPlanRepository.flush();
 
         if (request.categories() != null && !request.categories().isEmpty()) {
-            if (new HashSet<>(request.categories()).size() != request.categories().size())
-                throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
             request.categories().stream()
                     .map(theme -> TravelPlanPreference.builder().travelPlan(plan).theme(theme).build())
                     .forEach(plan.getPreferredCategories()::add);
         }
 
-        List<DayPlanRequest> dayList = request.days() != null ? request.days() : List.of();
-        Set<LocalDate> seenDates = new HashSet<>();
-        for (DayPlanRequest day : dayList) {
-            if (!seenDates.add(day.visitDate()))
-                throw new GeneralException(PlanErrorCode.DUPLICATE_VISIT_DATE);
-            if (day.visitDate().isBefore(plan.getStartDate()) || day.visitDate().isAfter(plan.getEndDate()))
-                throw new GeneralException(PlanErrorCode.INVALID_VISIT_DATE);
-
-            List<WaypointCreateRequest> waypoints = day.waypoints() != null ? day.waypoints() : List.of();
-            Set<Long> seenPlaceIds = new HashSet<>();
-            for (int i = 0; i < waypoints.size(); i++) {
-                WaypointCreateRequest wReq = waypoints.get(i);
-                if (!seenPlaceIds.add(wReq.placeId()))
-                    throw new GeneralException(PlanErrorCode.PLACE_ALREADY_ADDED);
-                Place place = placeRepository.findByIdAndPublishedTrue(wReq.placeId())
-                        .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND));
-                travelCourseRepository.save(TravelCourse.builder()
-                        .travelPlan(plan)
-                        .place(place)
-                        .visitDate(day.visitDate())
-                        .sequenceOrder(i + 1)
-                        .preferred(wReq.isPreferred())
-                        .start(i == 0)
-                        .destination(i == waypoints.size() - 1)
-                        .build());
-            }
-        }
+        persistCourses(plan, request.days() != null ? request.days() : List.of());
 
         BudgetCreateRequest b = request.budget();
         plan.updateBudget(
@@ -280,6 +221,50 @@ public class TravelPlanService {
         }
 
         travelPlanRepository.delete(plan);
+    }
+
+    private void validateDeparture(TravelPlanCreateRequest request) {
+        if (request.departurePlaceId() == null
+                && (request.departureLocationName() == null || request.departureLocationName().isBlank()))
+            throw new GeneralException(PlanErrorCode.DEPARTURE_REQUIRED);
+    }
+
+    private Place resolveDeparturePlace(TravelPlanCreateRequest request) {
+        return request.departurePlaceId() != null
+                ? placeRepository.findByIdAndPublishedTrue(request.departurePlaceId())
+                        .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND))
+                : null;
+    }
+
+    private void persistCourses(TravelPlan plan, List<DayPlanRequest> days) {
+        Set<LocalDate> seenDates = new HashSet<>();
+        for (DayPlanRequest day : days) {
+            if (!seenDates.add(day.visitDate()))
+                throw new GeneralException(PlanErrorCode.DUPLICATE_VISIT_DATE);
+            if (day.visitDate().isBefore(plan.getStartDate()) || day.visitDate().isAfter(plan.getEndDate()))
+                throw new GeneralException(PlanErrorCode.INVALID_VISIT_DATE);
+
+            List<WaypointCreateRequest> waypoints = day.waypoints() != null ? day.waypoints() : List.of();
+            Set<Long> seenPlaceIds = new HashSet<>();
+            for (int i = 0; i < waypoints.size(); i++) {
+                WaypointCreateRequest wReq = waypoints.get(i);
+                if (!seenPlaceIds.add(wReq.placeId()))
+                    throw new GeneralException(PlanErrorCode.PLACE_ALREADY_ADDED);
+                Place place = placeRepository.findByIdAndPublishedTrue(wReq.placeId())
+                        .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND));
+                TravelCourse course = TravelCourse.builder()
+                        .travelPlan(plan)
+                        .place(place)
+                        .visitDate(day.visitDate())
+                        .sequenceOrder(i + 1)
+                        .preferred(wReq.isPreferred())
+                        .start(i == 0)
+                        .destination(i == waypoints.size() - 1)
+                        .build();
+                travelCourseRepository.save(course);
+                plan.getTravelCourses().add(course);
+            }
+        }
     }
 
 }
