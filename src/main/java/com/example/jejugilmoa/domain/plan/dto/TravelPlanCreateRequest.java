@@ -60,7 +60,7 @@ public record TravelPlanCreateRequest(
         @Valid
         List<DayPlanRequest> days,
 
-        @Schema(description = "예산 (생략 가능)")
+        @Schema(description = "예산 (생략 또는 null 시 예산 없음으로 덮어씀)")
         BudgetCreateRequest budget
 
 ) {}
