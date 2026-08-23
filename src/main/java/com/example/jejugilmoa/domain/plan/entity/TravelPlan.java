@@ -134,10 +134,19 @@ public class TravelPlan extends BaseEntity {
         this.budgetEtc = etc;
     }
 
-    public void updatePlanInfo(String title, Place departure, String departureName) {
+    public void updatePlanMeta(String title, LocalDate startDate, LocalDate endDate,
+            Place departure, String departureName, BigDecimal lat, BigDecimal lng,
+            TravelCompanion companion, int totalAvailableTime, boolean sameDay) {
         this.title = title;
+        this.startDate = startDate;
+        this.endDate = endDate;
         this.departurePlace = departure;
         this.departureLocationName = departureName;
+        this.departureLatitude = lat;
+        this.departureLongitude = lng;
+        this.companion = companion;
+        this.totalAvailableTime = totalAvailableTime;
+        this.sameDay = sameDay;
     }
 
 }
