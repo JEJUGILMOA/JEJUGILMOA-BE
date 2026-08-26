@@ -58,8 +58,21 @@ public class AuthService {
                 userInfo.provider().getKey(),
                 userInfo.externalId()
             )
-            .map(user -> AuthConverter.toResponse(user, false))
+            .map(user -> {
+                backfillEmailIfAbsent(user, userInfo);
+                return AuthConverter.toResponse(user, false);
+            })
             .orElseGet(() -> createUser(userInfo));
+    }
+
+    // 이메일 동의항목이 나중에 추가된 기존 유저는 email이 비어 있으므로 로그인 시 채워준다.
+    // 닉네임/프로필 이미지는 유저가 서비스 내에서 수정할 수 있으므로 덮어쓰지 않는다.
+    // 이 메서드는 트랜잭션 밖에서 호출되므로 더티 체킹이 동작하지 않는다 — 명시적으로 save한다.
+    private void backfillEmailIfAbsent(User user, OAuthUserInfo userInfo) {
+        if (user.getEmail() == null && userInfo.email() != null) {
+            user.updateEmail(userInfo.email());
+            userRepository.save(user);
+        }
     }
 
     private OAuthLoginResponse createUser(OAuthUserInfo userInfo) {

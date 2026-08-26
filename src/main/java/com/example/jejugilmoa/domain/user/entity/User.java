@@ -85,6 +85,10 @@ public class User extends BaseEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;  // 소프트 삭제
 
+    public void updateEmail(String email) {
+        this.email = email;
+    }
+
     public void updateProfile(String nickname, String profileImageUrl, String bio) {
         if (nickname != null) this.nickname = nickname;
         if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
