@@ -44,7 +44,8 @@ class PlaceControllerTest {
 
     @Test
     void browse_returns200WithPage() throws Exception {
-        var summary = new PlaceSummaryDto(1L, "한라산", "제주시", "img.jpg", "자연");
+        var summary = new PlaceSummaryDto(1L, "한라산", "제주시", "img.jpg", "자연",
+                new BigDecimal("33.3617"), new BigDecimal("126.5292"));
         given(placeQueryService.browse(isNull(), eq("자연"), any()))
             .willReturn(new PageResponse<>(List.of(summary), 0, 20, 1L, 1, true));
 
@@ -52,6 +53,8 @@ class PlaceControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.isSuccess").value(true))
             .andExpect(jsonPath("$.result.content[0].name").value("한라산"))
+            .andExpect(jsonPath("$.result.content[0].latitude").value(33.3617))
+            .andExpect(jsonPath("$.result.content[0].longitude").value(126.5292))
             .andExpect(jsonPath("$.result.totalElements").value(1));
     }
 
