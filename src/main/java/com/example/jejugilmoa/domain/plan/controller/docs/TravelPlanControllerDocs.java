@@ -44,8 +44,11 @@ public interface TravelPlanControllerDocs {
                                 "days": 3,
                                 "status": "DRAFT",
                                 "travelStyle": "RELAXED",
+                                "companion": "COUPLE",
                                 "departureLocationName": "새별오름",
-                                "categories": ["자연", "카페"],
+                                "departureLatitude": 33.36050,
+                                "departureLongitude": 126.40860,
+                                "categories": ["NATURE", "CAFE"],
                                 "itinerary": [
                                   {
                                     "date": "2027-08-15",
@@ -222,7 +225,9 @@ public interface TravelPlanControllerDocs {
                                         "travelStyle": "RELAXED",
                                         "companion": "COUPLE",
                                         "departureLocationName": "제주국제공항",
-                                        "categories": ["자연", "카페"],
+                                        "departureLatitude": 33.50720,
+                                        "departureLongitude": 126.49290,
+                                        "categories": ["NATURE", "CAFE"],
                                         "itinerary": [
                                           {
                                             "date": "2027-08-15",
@@ -345,7 +350,9 @@ public interface TravelPlanControllerDocs {
                                 "travelStyle": "RELAXED",
                                 "companion": "COUPLE",
                                 "departureLocationName": "제주국제공항",
-                                "categories": ["자연", "카페"],
+                                "departureLatitude": 33.50720,
+                                "departureLongitude": 126.49290,
+                                "categories": ["NATURE", "CAFE"],
                                 "itinerary": [
                                   {
                                     "date": "2027-08-15",
