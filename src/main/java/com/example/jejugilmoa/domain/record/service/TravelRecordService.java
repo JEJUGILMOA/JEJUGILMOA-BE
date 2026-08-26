@@ -10,6 +10,10 @@ import com.example.jejugilmoa.domain.record.converter.TravelRecordConverter;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateResponse;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordPlaceMemoRequest;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordPlaceUpdateRequest;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateRequest;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateResponse;
+import com.example.jejugilmoa.domain.record.entity.TravelRecord;
 import com.example.jejugilmoa.domain.record.entity.TravelRecordImage;
 import com.example.jejugilmoa.domain.record.entity.TravelRecordPlace;
 import com.example.jejugilmoa.domain.record.exception.RecordErrorCode;
@@ -32,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
@@ -113,6 +118,171 @@ public class TravelRecordService {
         travelRecordImageRepository.saveAll(images);
 
         return TravelRecordConverter.toCreateResponse(record, request.tripId());
+    }
+
+    @Transactional
+    public TravelRecordUpdateResponse update(Long userId, Long recordId, TravelRecordUpdateRequest request) {
+        TravelRecord record = getOwnedRecord(userId, recordId);
+        List<TravelRecordPlace> recordPlaces = travelRecordPlaceRepository
+                .findAllByRecordIdInSnapshotOrder(recordId);
+        Map<Long, TravelRecordPlace> placesById = recordPlaces.stream()
+                .collect(Collectors.toMap(TravelRecordPlace::getId, Function.identity()));
+        Map<Long, TravelRecordPlaceUpdateRequest> placeUpdates = indexPlaceUpdates(request.places(), placesById);
+        List<TravelRecordImage> currentImages = travelRecordImageRepository
+                .findAllByRecordIdOrderBySequence(recordId);
+
+        record.updateContent(request.title(), request.description(), request.visibility());
+        placeUpdates.forEach((placeId, update) -> {
+            if (update.memo() != null) {
+                placesById.get(placeId).updateMemo(update.memo());
+            }
+        });
+        boolean changesImages = request.imageObjectKeys() != null
+                || placeUpdates.values().stream().anyMatch(update -> update.image() != null);
+        if (changesImages) {
+            updateImages(record, recordPlaces, placeUpdates, currentImages, request.imageObjectKeys(), userId);
+        }
+        travelRecordRepository.flush();
+        return TravelRecordConverter.toUpdateResponse(record);
+    }
+
+    @Transactional
+    public void delete(Long userId, Long recordId) {
+        TravelRecord record = getOwnedRecord(userId, recordId);
+        record.delete();
+    }
+
+    private TravelRecord getOwnedRecord(Long userId, Long recordId) {
+        TravelRecord record = travelRecordRepository.findById(recordId)
+                .orElseThrow(() -> new GeneralException(RecordErrorCode.RECORD_NOT_FOUND));
+        if (record.getDeletedAt() != null) {
+            throw new GeneralException(RecordErrorCode.RECORD_ALREADY_DELETED);
+        }
+        if (!record.getUser().getId().equals(userId)) {
+            throw new GeneralException(RecordErrorCode.RECORD_ACCESS_DENIED);
+        }
+        return record;
+    }
+
+    private Map<Long, TravelRecordPlaceUpdateRequest> indexPlaceUpdates(
+            List<TravelRecordPlaceUpdateRequest> requested, Map<Long, TravelRecordPlace> placesById) {
+        Map<Long, TravelRecordPlaceUpdateRequest> updates = new HashMap<>();
+        for (TravelRecordPlaceUpdateRequest update : nullSafe(requested)) {
+            if (!placesById.containsKey(update.recordPlaceId())
+                    || updates.putIfAbsent(update.recordPlaceId(), update) != null) {
+                throw new GeneralException(RecordErrorCode.RECORD_PLACE_TARGET_MISMATCH);
+            }
+            if (update.image() != null) {
+                boolean invalidReplace = update.image().action()
+                        == com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REPLACE
+                        && (update.image().objectKey() == null || update.image().objectKey().isBlank());
+                boolean invalidRemove = update.image().action()
+                        == com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REMOVE
+                        && update.image().objectKey() != null;
+                if (invalidReplace || invalidRemove) {
+                    throw new GeneralException(RecordErrorCode.RECORD_INVALID_OBJECT_KEY);
+                }
+            }
+        }
+        return updates;
+    }
+
+    private void updateImages(
+            TravelRecord record,
+            List<TravelRecordPlace> recordPlaces,
+            Map<Long, TravelRecordPlaceUpdateRequest> placeUpdates,
+            List<TravelRecordImage> currentImages,
+            List<String> requestedRecordKeys,
+            Long userId) {
+        List<TravelRecordImage> currentRecordImages = currentImages.stream()
+                .filter(image -> image.getTravelRecordPlace() == null).toList();
+        Map<String, TravelRecordImage> currentRecordByKey = currentRecordImages.stream()
+                .collect(Collectors.toMap(TravelRecordImage::getObjectKey, Function.identity()));
+        Map<Long, TravelRecordImage> currentPlaceById = currentImages.stream()
+                .filter(image -> image.getTravelRecordPlace() != null)
+                .collect(Collectors.toMap(image -> image.getTravelRecordPlace().getId(), Function.identity()));
+
+        List<String> finalRecordKeys = requestedRecordKeys == null
+                ? currentRecordImages.stream().map(TravelRecordImage::getObjectKey).toList()
+                : requestedRecordKeys;
+        Map<Long, String> finalPlaceKeys = new HashMap<>();
+        currentPlaceById.forEach((placeId, image) -> finalPlaceKeys.put(placeId, image.getObjectKey()));
+        placeUpdates.forEach((placeId, update) -> {
+            if (update.image() == null) {
+                return;
+            }
+            if (update.image().action()
+                    == com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REMOVE) {
+                finalPlaceKeys.remove(placeId);
+            } else {
+                finalPlaceKeys.put(placeId, update.image().objectKey());
+            }
+        });
+
+        List<String> finalKeys = java.util.stream.Stream.concat(
+                finalRecordKeys.stream(), finalPlaceKeys.values().stream()).toList();
+        if (new HashSet<>(finalKeys).size() != finalKeys.size()) {
+            throw new GeneralException(RecordErrorCode.RECORD_INVALID_OBJECT_KEY);
+        }
+        Set<String> currentKeys = currentImages.stream().map(TravelRecordImage::getObjectKey)
+                .collect(Collectors.toSet());
+        validateObjectKeys(finalKeys.stream().filter(key -> !currentKeys.contains(key)).toList(), userId);
+
+        Set<TravelRecordImage> retained = new HashSet<>();
+        List<TravelRecordImage> finalRecordImages = new ArrayList<>();
+        for (String key : finalRecordKeys) {
+            TravelRecordImage image = currentRecordByKey.get(key);
+            if (image == null) {
+                image = TravelRecordConverter.toImage(record, key, 0);
+            } else {
+                retained.add(image);
+            }
+            finalRecordImages.add(image);
+        }
+
+        Map<Long, TravelRecordImage> finalPlaceImages = new HashMap<>();
+        finalPlaceKeys.forEach((placeId, key) -> {
+            TravelRecordImage image = currentPlaceById.get(placeId);
+            if (image == null) {
+                image = TravelRecordConverter.toImage(record, placesById(recordPlaces).get(placeId), key, 0);
+            } else {
+                retained.add(image);
+                if (!image.getObjectKey().equals(key)) {
+                    image.replaceObjectKey(key);
+                }
+            }
+            finalPlaceImages.put(placeId, image);
+        });
+
+        List<TravelRecordImage> removed = currentImages.stream()
+                .filter(image -> !retained.contains(image)).toList();
+        travelRecordImageRepository.deleteAll(removed);
+        travelRecordImageRepository.flush();
+
+        int temporarySequence = -1;
+        for (TravelRecordImage image : retained) {
+            image.changeSequenceOrder(temporarySequence--);
+        }
+        travelRecordImageRepository.flush();
+
+        List<TravelRecordImage> finalImages = new ArrayList<>();
+        int sequence = 1;
+        for (TravelRecordImage image : finalRecordImages) {
+            image.changeSequenceOrder(sequence++);
+            finalImages.add(image);
+        }
+        for (TravelRecordPlace place : recordPlaces) {
+            TravelRecordImage image = finalPlaceImages.get(place.getId());
+            if (image != null) {
+                image.changeSequenceOrder(sequence++);
+                finalImages.add(image);
+            }
+        }
+        travelRecordImageRepository.saveAll(finalImages);
+    }
+
+    private Map<Long, TravelRecordPlace> placesById(List<TravelRecordPlace> places) {
+        return places.stream().collect(Collectors.toMap(TravelRecordPlace::getId, Function.identity()));
     }
 
     private Map<Long, TravelRecordPlaceMemoRequest> validateAndIndexPlaceInputs(

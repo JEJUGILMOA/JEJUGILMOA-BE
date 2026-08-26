@@ -76,4 +76,20 @@ public class TravelRecord extends BaseEntity {
     )
     @Builder.Default
     private List<TravelRecordImage> images = new ArrayList<>();
+
+    public void updateContent(String title, String description, Visibility visibility) {
+        if (title != null) {
+            this.title = title;
+        }
+        if (description != null) {
+            this.description = description;
+        }
+        if (visibility != null) {
+            this.visibility = visibility;
+        }
+    }
+
+    public void delete() {
+        this.deletedAt = LocalDateTime.now();
+    }
 }

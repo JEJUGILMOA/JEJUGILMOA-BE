@@ -49,4 +49,12 @@ public class TravelRecordImage extends BaseEntity {
 
     @Column(nullable = false)
     private int sequenceOrder;
+
+    public void replaceObjectKey(String objectKey) {
+        this.objectKey = objectKey;
+    }
+
+    public void changeSequenceOrder(int sequenceOrder) {
+        this.sequenceOrder = sequenceOrder;
+    }
 }

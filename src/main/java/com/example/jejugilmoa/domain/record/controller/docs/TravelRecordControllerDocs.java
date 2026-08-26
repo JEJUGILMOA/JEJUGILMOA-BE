@@ -4,6 +4,8 @@ import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateResponse;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordDetailResponse;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateRequest;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateResponse;
 import com.example.jejugilmoa.domain.record.enums.RecordView;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import com.example.jejugilmoa.global.apiPayload.dto.PageResponse;
@@ -109,4 +111,23 @@ public interface TravelRecordControllerDocs {
     ApiResponse<TravelRecordCreateResponse> create(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @org.springframework.web.bind.annotation.RequestBody TravelRecordCreateRequest request);
+
+    @Operation(
+            summary = "여행 기록 수정",
+            description = """
+                    본인의 활성 여행 기록에서 제목, 소개, 공개 범위, 장소 메모와 사진만 수정합니다.
+                    places의 recordPlaceId는 현재 기록의 snapshot 장소 ID입니다.
+                    장소 image를 생략하면 유지하고, action은 REPLACE 또는 REMOVE를 사용합니다.
+                    imageObjectKeys는 null이면 유지, 빈 배열이면 전체 기록 사진을 제거합니다.
+                    """
+    )
+    ApiResponse<TravelRecordUpdateResponse> update(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long recordId,
+            @Valid @org.springframework.web.bind.annotation.RequestBody TravelRecordUpdateRequest request);
+
+    @Operation(summary = "여행 기록 삭제", description = "본인의 활성 여행 기록을 soft delete합니다.")
+    ApiResponse<Void> delete(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long recordId);
 }
