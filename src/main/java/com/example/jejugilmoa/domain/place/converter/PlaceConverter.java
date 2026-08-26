@@ -18,7 +18,9 @@ public class PlaceConverter {
             p.getName(),
             p.getAddress(),
             p.getImageUrl(),
-            p.getCategory() != null ? p.getCategory().getName() : null
+            p.getCategory() != null ? p.getCategory().getName() : null,
+            p.getLatitude(),
+            p.getLongitude()
         );
     }
 
