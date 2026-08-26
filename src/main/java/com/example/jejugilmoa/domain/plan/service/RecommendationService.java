@@ -4,14 +4,7 @@ import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.plan.converter.RecommendationConverter;
 import com.example.jejugilmoa.domain.plan.dto.*;
-import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
-import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
-import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.enums.TravelTheme;
-import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
-import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
-import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
-import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import com.example.jejugilmoa.global.external.tourapi.KorServiceClient;
 import com.example.jejugilmoa.global.external.tourapi.TourApiException;
 import com.example.jejugilmoa.global.external.tourapi.dto.LocationBasedItem;
@@ -45,62 +38,8 @@ public class RecommendationService {
         return t;
     });
 
-    private final TravelPlanRepository travelPlanRepository;
-    private final TravelCourseRepository travelCourseRepository;
     private final PlaceRepository placeRepository;
     private final KorServiceClient korServiceClient;
-
-    // 여행 중 부채꼴 추천 결과를 담는 값 객체
-    private record TripRecommendContext(List<Place> candidates) {}
-
-    /**
-     * planId 기반 추천 (GET/POST /api/plans/{planId}/recommendations 공통 진입점).
-     *
-     * - DRAFT: 선호경유지 앵커 기반 → recommendStateless 위임
-     * - IN_PROGRESS: B→C 부채꼴 + 카테고리 필터
-     */
-    public RecommendationResponse recommend(Long planId, Long userId, List<Long> additionalExcludedIds) {
-        TravelPlan plan = travelPlanRepository.findByIdWithPreferences(planId)
-                .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
-        verifyOwner(plan, userId);
-
-        List<TravelCourse> existingCourses = travelCourseRepository
-                .findAllByTravelPlanIdWithPlaceOrderByVisitDateAscSequenceOrderAsc(planId);
-
-        List<Long> excludedIds = new ArrayList<>();
-        existingCourses.forEach(c -> excludedIds.add(c.getPlace().getId()));
-        excludedIds.addAll(additionalExcludedIds);
-        if (plan.getDeparturePlace() != null) excludedIds.add(plan.getDeparturePlace().getId());
-        if (excludedIds.isEmpty()) excludedIds.add(-1L);
-
-        if (plan.getStatus() == TravelPlanStatus.IN_PROGRESS) {
-            List<String> categoryNames = plan.getPreferredCategories().stream()
-                    .map(pref -> pref.getTheme().getCategoryName())
-                    .filter(java.util.Objects::nonNull)
-                    .toList();
-            if (categoryNames.isEmpty()) categoryNames = List.of("__none__");
-            TripRecommendContext ctx = buildTripRecommendContext(plan, categoryNames, excludedIds);
-            return new RecommendationResponse(
-                    ctx.candidates().stream().map(RecommendationConverter::toItem).toList(), false);
-        }
-
-        // DRAFT: 앵커 기반 stateless 추천으로 위임
-        List<CoordDto> preferredCoords = travelCourseRepository
-                .findAllByTravelPlanIdAndPreferredTrue(planId).stream()
-                .filter(c -> hasCoords(c.getPlace()))
-                .map(c -> new CoordDto(
-                        c.getPlace().getLatitude().doubleValue(),
-                        c.getPlace().getLongitude().doubleValue()))
-                .toList();
-
-        CoordDto departureCoord = (plan.getDepartureLatitude() != null && plan.getDepartureLongitude() != null)
-                ? new CoordDto(plan.getDepartureLatitude().doubleValue(),
-                               plan.getDepartureLongitude().doubleValue())
-                : null;
-
-        return recommendStateless(new RecommendationRequest(
-                departureCoord, preferredCoords, excludedIds, List.of(), null));
-    }
 
     /**
      * Stateless 추천 (POST /api/recommendations).
@@ -206,43 +145,6 @@ public class RecommendationService {
 
     // ── 내부 유틸 ─────────────────────────────────────────────────────────────
 
-    private TripRecommendContext buildTripRecommendContext(
-            TravelPlan plan, List<String> categoryNames, List<Long> excludedIds) {
-
-        Optional<TravelCourse> nextOpt = travelCourseRepository
-                .findFirstByTravelPlanIdAndVisitedFalseWithPlaceOrderByVisitDateAscSequenceOrderAsc(plan.getId());
-
-        if (nextOpt.isEmpty()) {
-            return new TripRecommendContext(
-                    placeRepository.findByCategoriesOrderByPopularity(categoryNames, excludedIds, RECOMMENDATION_LIMIT));
-        }
-
-        Place c = nextOpt.get().getPlace();
-        Optional<TravelCourse> lastOpt = travelCourseRepository
-                .findFirstByTravelPlanIdAndVisitedTrueWithPlaceOrderByVisitDateDescSequenceOrderDesc(plan.getId());
-
-        Place b = lastOpt.map(TravelCourse::getPlace).orElse(plan.getDeparturePlace());
-
-        if (!hasCoords(b) || !hasCoords(c)) {
-            return new TripRecommendContext(
-                    placeRepository.findByCategoriesOrderByPopularity(categoryNames, excludedIds, RECOMMENDATION_LIMIT));
-        }
-
-        double bLon = b.getLongitude().doubleValue();
-        double bLat = b.getLatitude().doubleValue();
-        double cLon = c.getLongitude().doubleValue();
-        double cLat = c.getLatitude().doubleValue();
-        double radius = haversineMeters(bLat, bLon, cLat, cLon);
-
-        List<Place> results = placeRepository.findInSector(
-                bLon, bLat, cLon, cLat, radius, COS_HALF_ANGLE, categoryNames, excludedIds, RECOMMENDATION_LIMIT);
-
-        if (results.isEmpty()) {
-            results = placeRepository.findByCategoriesOrderByPopularity(categoryNames, excludedIds, RECOMMENDATION_LIMIT);
-        }
-        return new TripRecommendContext(results);
-    }
-
     private RecommendationResponse recommendViaFallback(
             List<CoordDto> preferredWaypoints, List<String> excludeContentIds, TravelTheme category) {
 
@@ -344,9 +246,4 @@ public class RecommendationService {
         }
     }
 
-    private void verifyOwner(TravelPlan plan, Long userId) {
-        if (!plan.getUser().getId().equals(userId)) {
-            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
-        }
-    }
 }

@@ -4,7 +4,6 @@ import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.plan.controller.docs.TravelPlanControllerDocs;
 import com.example.jejugilmoa.domain.plan.dto.*;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
-import com.example.jejugilmoa.domain.plan.service.RecommendationService;
 import com.example.jejugilmoa.domain.plan.service.TravelPlanService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import com.example.jejugilmoa.global.apiPayload.code.GeneralSuccessCode;
@@ -15,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
 import java.util.List;
 
 @Tag(name = "여행 계획", description = "여행 계획 생성 및 관리")
@@ -25,7 +23,6 @@ import java.util.List;
 public class TravelPlanController implements TravelPlanControllerDocs {
 
     private final TravelPlanService travelPlanService;
-    private final RecommendationService recommendationService;
 
     @GetMapping("/{planId}")
     public ApiResponse<TravelPlanDetailResponse> getPlanDetail(
@@ -74,22 +71,4 @@ public class TravelPlanController implements TravelPlanControllerDocs {
                 travelPlanService.replace(planId, principal.userId(), request));
     }
 
-    @GetMapping("/{planId}/recommendations")
-    public ApiResponse<RecommendationResponse> getRecommendations(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long planId) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.REQUEST_OK,
-                recommendationService.recommend(planId, principal.userId(), Collections.emptyList()));
-    }
-
-    @PostMapping("/{planId}/recommendations")
-    public ApiResponse<RecommendationResponse> reRecommend(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long planId,
-            @Valid @RequestBody RecommendationSkipRequest request) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.REQUEST_OK,
-                recommendationService.recommend(planId, principal.userId(), request.excludedPlaceIds()));
-    }
 }
