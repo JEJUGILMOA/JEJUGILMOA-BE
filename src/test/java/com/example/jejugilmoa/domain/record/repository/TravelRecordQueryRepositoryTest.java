@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.sql.Timestamp;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,6 +24,9 @@ class TravelRecordQueryRepositoryTest {
             Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
     @Autowired TravelRecordRepository travelRecordRepository;
+    @Autowired TravelRecordImageRepository travelRecordImageRepository;
+    @Autowired TravelRecordPlaceRepository travelRecordPlaceRepository;
+    @Autowired TravelRecordReactionRepository travelRecordReactionRepository;
     @Autowired UserRepository userRepository;
     @Autowired JdbcClient jdbcClient;
 
@@ -71,6 +75,54 @@ class TravelRecordQueryRepositoryTest {
         assertThat(travelRecordRepository.findActiveByIdWithUserAndPlan(deletedId)).isEmpty();
     }
 
+    @Test
+    void childQueriesExcludeSoftDeletedRecordsAndUsers() {
+        User owner = userRepository.saveAndFlush(User.builder().nickname("하위 조회 작성자").build());
+        Instant now = Instant.parse("2026-08-19T00:00:00Z");
+        Long activeId = insertRecord(owner.getId(), "PUBLIC", null, now);
+        Long deletedId = insertRecord(owner.getId(), "PUBLIC", now, now.plusSeconds(1));
+        Long placeId = insertPlace(now);
+
+        insertRecordImage(activeId, "records/active.jpg", 0, now);
+        insertRecordImage(deletedId, "records/deleted.jpg", 0, now);
+        insertRecordPlace(activeId, placeId, 0, now);
+        insertRecordPlace(deletedId, placeId, 0, now);
+        insertReaction(activeId, owner.getId(), "LIKE");
+        insertReaction(deletedId, owner.getId(), "DISLIKE");
+
+        assertThat(travelRecordImageRepository.findFirstImagesByRecordIds(List.of(activeId, deletedId)))
+                .extracting(image -> image.getTravelRecord().getId())
+                .containsExactly(activeId);
+        assertThat(travelRecordImageRepository.countByRecordIds(List.of(activeId, deletedId)))
+                .extracting(TravelRecordImageRepository.RecordImageCount::getRecordId)
+                .containsExactly(activeId);
+        assertThat(travelRecordImageRepository.findAllByRecordIdOrderBySequence(deletedId)).isEmpty();
+
+        assertThat(travelRecordPlaceRepository.countVisitedByRecordIds(List.of(activeId, deletedId)))
+                .extracting(TravelRecordPlaceRepository.VisitedPlaceCount::getRecordId)
+                .containsExactly(activeId);
+        assertThat(travelRecordPlaceRepository.findAllByRecordIdsInSnapshotOrder(List.of(activeId, deletedId)))
+                .extracting(place -> place.getTravelRecord().getId())
+                .containsExactly(activeId);
+        assertThat(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(deletedId)).isEmpty();
+
+        assertThat(travelRecordReactionRepository.countByRecordIdsAndType(List.of(activeId, deletedId)))
+                .extracting(TravelRecordReactionRepository.ReactionCount::getRecordId)
+                .containsExactly(activeId);
+        assertThat(travelRecordReactionRepository.findMineByRecordIds(
+                List.of(activeId, deletedId), owner.getId()))
+                .extracting(reaction -> reaction.getTravelRecord().getId())
+                .containsExactly(activeId);
+
+        jdbcClient.sql("UPDATE \"user\" SET deleted_at = :deletedAt WHERE id = :userId")
+                .param("deletedAt", Timestamp.from(now))
+                .param("userId", owner.getId())
+                .update();
+
+        assertThat(travelRecordReactionRepository.findMineByRecordIds(List.of(activeId), owner.getId()))
+                .isEmpty();
+    }
+
     private Long insertRecord(Long userId, String visibility, Instant deletedAt, Instant createdAt) {
         return jdbcClient.sql("""
                         INSERT INTO travel_record
@@ -88,5 +140,73 @@ class TravelRecordQueryRepositoryTest {
                 .param("deletedAt", deletedAt == null ? null : Timestamp.from(deletedAt))
                 .query(Long.class)
                 .single();
+    }
+
+    private Long insertPlace(Instant createdAt) {
+        Long categoryId = jdbcClient.sql("""
+                        INSERT INTO category (created_at, updated_at, name)
+                        VALUES (:createdAt, :createdAt, :name)
+                        RETURNING id
+                        """)
+                .param("createdAt", Timestamp.from(createdAt))
+                .param("name", "조회 테스트 카테고리 " + System.nanoTime())
+                .query(Long.class)
+                .single();
+
+        return jdbcClient.sql("""
+                        INSERT INTO place
+                            (created_at, updated_at, name, address, latitude, longitude,
+                             visitor_count, is_published, category_id)
+                        VALUES
+                            (:createdAt, :createdAt, '조회 테스트 장소', '제주 테스트 주소',
+                             33.00000000, 126.00000000, 0, true, :categoryId)
+                        RETURNING id
+                        """)
+                .param("createdAt", Timestamp.from(createdAt))
+                .param("categoryId", categoryId)
+                .query(Long.class)
+                .single();
+    }
+
+    private void insertRecordImage(Long recordId, String objectKey, int sequenceOrder, Instant createdAt) {
+        jdbcClient.sql("""
+                        INSERT INTO travel_record_image
+                            (created_at, updated_at, travel_record_id, object_key, sequence_order)
+                        VALUES (:createdAt, :createdAt, :recordId, :objectKey, :sequenceOrder)
+                        """)
+                .param("createdAt", Timestamp.from(createdAt))
+                .param("recordId", recordId)
+                .param("objectKey", objectKey)
+                .param("sequenceOrder", sequenceOrder)
+                .update();
+    }
+
+    private void insertRecordPlace(Long recordId, Long placeId, int sequenceOrder, Instant createdAt) {
+        jdbcClient.sql("""
+                        INSERT INTO travel_record_place
+                            (created_at, updated_at, travel_record_id, travel_place_id,
+                             place_name, address, latitude, longitude, visit_date,
+                             sequence_order, visited)
+                        VALUES
+                            (:createdAt, :createdAt, :recordId, :placeId,
+                             '조회 테스트 장소', '제주 테스트 주소', 33.00000000, 126.00000000,
+                             DATE '2026-08-19', :sequenceOrder, true)
+                        """)
+                .param("createdAt", Timestamp.from(createdAt))
+                .param("recordId", recordId)
+                .param("placeId", placeId)
+                .param("sequenceOrder", sequenceOrder)
+                .update();
+    }
+
+    private void insertReaction(Long recordId, Long userId, String reactionType) {
+        jdbcClient.sql("""
+                        INSERT INTO record_reaction (travel_record_id, user_id, reaction_type)
+                        VALUES (:recordId, :userId, :reactionType)
+                        """)
+                .param("recordId", recordId)
+                .param("userId", userId)
+                .param("reactionType", reactionType)
+                .update();
     }
 }

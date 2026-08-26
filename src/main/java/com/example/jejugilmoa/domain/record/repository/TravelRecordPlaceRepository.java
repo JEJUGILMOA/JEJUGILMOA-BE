@@ -47,6 +47,7 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
             SELECT rp.travelRecord.id AS recordId, COUNT(rp) AS count
             FROM TravelRecordPlace rp
             WHERE rp.travelRecord.id IN :recordIds
+              AND rp.travelRecord.deletedAt IS NULL
               AND rp.visited = true
             GROUP BY rp.travelRecord.id
             """)
@@ -55,6 +56,7 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
     @Query("""
             SELECT rp FROM TravelRecordPlace rp
             WHERE rp.travelRecord.id IN :recordIds
+              AND rp.travelRecord.deletedAt IS NULL
             ORDER BY rp.travelRecord.id ASC, rp.visitDate ASC, rp.sequenceOrder ASC
             """)
     List<TravelRecordPlace> findAllByRecordIdsInSnapshotOrder(@Param("recordIds") Collection<Long> recordIds);
@@ -62,6 +64,7 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
     @Query("""
             SELECT rp FROM TravelRecordPlace rp
             WHERE rp.travelRecord.id = :recordId
+              AND rp.travelRecord.deletedAt IS NULL
             ORDER BY rp.visitDate ASC, rp.sequenceOrder ASC
             """)
     List<TravelRecordPlace> findAllByRecordIdInSnapshotOrder(@Param("recordId") Long recordId);

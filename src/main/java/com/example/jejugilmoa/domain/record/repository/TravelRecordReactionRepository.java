@@ -21,6 +21,7 @@ public interface TravelRecordReactionRepository extends JpaRepository<TravelReco
             SELECT r.travelRecord.id AS recordId, r.reactionType AS reactionType, COUNT(r) AS count
             FROM TravelRecordReaction r
             WHERE r.travelRecord.id IN :recordIds
+              AND r.travelRecord.deletedAt IS NULL
             GROUP BY r.travelRecord.id, r.reactionType
             """)
     List<ReactionCount> countByRecordIdsAndType(@Param("recordIds") List<Long> recordIds);
@@ -29,6 +30,8 @@ public interface TravelRecordReactionRepository extends JpaRepository<TravelReco
             SELECT r FROM TravelRecordReaction r
             WHERE r.travelRecord.id IN :recordIds
               AND r.user.id = :userId
+              AND r.travelRecord.deletedAt IS NULL
+              AND r.user.deletedAt IS NULL
             """)
     List<TravelRecordReaction> findMineByRecordIds(
             @Param("recordIds") List<Long> recordIds,

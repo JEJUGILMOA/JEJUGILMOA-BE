@@ -18,6 +18,7 @@ public interface TravelRecordImageRepository extends JpaRepository<TravelRecordI
     @Query("""
             SELECT i FROM TravelRecordImage i
             WHERE i.travelRecord.id IN :recordIds
+              AND i.travelRecord.deletedAt IS NULL
               AND NOT EXISTS (
                   SELECT earlier.id FROM TravelRecordImage earlier
                   WHERE earlier.travelRecord.id = i.travelRecord.id
@@ -31,6 +32,7 @@ public interface TravelRecordImageRepository extends JpaRepository<TravelRecordI
             SELECT i.travelRecord.id AS recordId, COUNT(i) AS count
             FROM TravelRecordImage i
             WHERE i.travelRecord.id IN :recordIds
+              AND i.travelRecord.deletedAt IS NULL
             GROUP BY i.travelRecord.id
             """)
     List<RecordImageCount> countByRecordIds(@Param("recordIds") List<Long> recordIds);
@@ -38,6 +40,7 @@ public interface TravelRecordImageRepository extends JpaRepository<TravelRecordI
     @Query("""
             SELECT i FROM TravelRecordImage i
             WHERE i.travelRecord.id = :recordId
+              AND i.travelRecord.deletedAt IS NULL
             ORDER BY i.sequenceOrder ASC
             """)
     List<TravelRecordImage> findAllByRecordIdOrderBySequence(@Param("recordId") Long recordId);
