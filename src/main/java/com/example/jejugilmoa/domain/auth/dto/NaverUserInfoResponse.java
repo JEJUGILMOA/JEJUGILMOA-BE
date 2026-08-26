@@ -12,7 +12,8 @@ public record NaverUserInfoResponse(
         return new OAuthProfileResponse(
             response == null ? null : response.id(),
             response == null ? null : response.nickname(),
-            response == null ? null : response.profileImageUrl()
+            response == null ? null : response.profileImageUrl(),
+            response == null ? null : response.email()
         );
     }
 
@@ -22,7 +23,9 @@ public record NaverUserInfoResponse(
         String nickname,
 
         @JsonProperty("profile_image")
-        String profileImageUrl
+        String profileImageUrl,
+
+        String email
     ) {
     }
 }

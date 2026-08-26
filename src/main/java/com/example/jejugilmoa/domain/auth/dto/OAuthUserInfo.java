@@ -6,6 +6,7 @@ public record OAuthUserInfo(
     SocialProvider provider,
     String externalId,
     String nickname,
-    String profileImageUrl
+    String profileImageUrl,
+    String email
 ) {
 }

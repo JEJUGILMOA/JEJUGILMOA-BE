@@ -15,6 +15,7 @@ public final class AuthConverter {
             .externalId(userInfo.externalId())
             .nickname(userInfo.nickname())
             .profileImageUrl(userInfo.profileImageUrl())
+            .email(userInfo.email())
             .build();
     }
 

@@ -17,13 +17,15 @@ public record KakaoUserInfoResponse(
         return new OAuthProfileResponse(
             id == null ? null : String.valueOf(id),
             profile == null ? null : profile.nickname(),
-            profile == null ? null : profile.profileImageUrl()
+            profile == null ? null : profile.profileImageUrl(),
+            kakaoAccount == null ? null : kakaoAccount.email()
         );
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record KakaoAccount(
-        KakaoProfile profile
+        KakaoProfile profile,
+        String email
     ) {
     }
 

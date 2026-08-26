@@ -20,6 +20,7 @@ import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -67,7 +68,8 @@ class AuthServiceTest {
                 SocialProvider.KAKAO,
                 "12345",
                 "제주러",
-                "https://example.com/profile.png"
+                "https://example.com/profile.png",
+                "jeju@example.com"
         );
         User savedUser = User.builder()
                 .id(1L)
@@ -75,6 +77,7 @@ class AuthServiceTest {
                 .externalId("12345")
                 .nickname("제주러")
                 .profileImageUrl("https://example.com/profile.png")
+                .email("jeju@example.com")
                 .build();
 
         given(socialOAuthClient.fetchUserInfo(SocialProvider.KAKAO, request)).willReturn(userInfo);
@@ -97,6 +100,7 @@ class AuthServiceTest {
                 SocialProvider.GOOGLE,
                 "google-sub",
                 "구글러",
+                null,
                 null
         );
         User existingUser = User.builder()
@@ -116,6 +120,91 @@ class AuthServiceTest {
         assertThat(response.nickname()).isEqualTo("기존유저");
         assertThat(response.newUser()).isFalse();
         verify(userRepository).findByExternalProviderAndExternalIdAndDeletedAtIsNull("google", "google-sub");
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("신규 유저 생성 시 소셜 프로필의 닉네임/이미지/이메일을 함께 저장한다")
+    void loginPersistsSocialProfileFieldsForNewUser() {
+        OAuthLoginRequest request = new OAuthLoginRequest("auth-code", "http://localhost/callback", null);
+        OAuthUserInfo userInfo = new OAuthUserInfo(
+                SocialProvider.NAVER,
+                "naver-id",
+                "네이버러",
+                "https://example.com/naver.png",
+                "naver@example.com"
+        );
+
+        given(socialOAuthClient.fetchUserInfo(SocialProvider.NAVER, request)).willReturn(userInfo);
+        given(userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNull("naver", "naver-id"))
+                .willReturn(Optional.empty());
+        given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+        authService.login("naver", request);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        User saved = captor.getValue();
+        assertThat(saved.getNickname()).isEqualTo("네이버러");
+        assertThat(saved.getProfileImageUrl()).isEqualTo("https://example.com/naver.png");
+        assertThat(saved.getEmail()).isEqualTo("naver@example.com");
+    }
+
+    @Test
+    @DisplayName("기존 유저의 이메일이 비어 있으면 소셜 프로필의 이메일로 채워 저장한다")
+    void loginBackfillsEmailForExistingUserWithoutEmail() {
+        OAuthLoginRequest request = new OAuthLoginRequest("auth-code", "http://localhost/callback", null);
+        OAuthUserInfo userInfo = new OAuthUserInfo(
+                SocialProvider.KAKAO,
+                "12345",
+                "제주러",
+                null,
+                "late-consent@example.com"
+        );
+        User existingUser = User.builder()
+                .id(3L)
+                .externalProvider("kakao")
+                .externalId("12345")
+                .nickname("기존유저")
+                .build();
+
+        given(socialOAuthClient.fetchUserInfo(SocialProvider.KAKAO, request)).willReturn(userInfo);
+        given(userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNull("kakao", "12345"))
+                .willReturn(Optional.of(existingUser));
+
+        authService.login("kakao", request);
+
+        assertThat(existingUser.getEmail()).isEqualTo("late-consent@example.com");
+        verify(userRepository).save(existingUser);
+    }
+
+    @Test
+    @DisplayName("기존 유저에 이미 이메일이 있으면 소셜 프로필의 이메일로 덮어쓰지 않는다")
+    void loginKeepsExistingEmail() {
+        OAuthLoginRequest request = new OAuthLoginRequest("auth-code", "http://localhost/callback", null);
+        OAuthUserInfo userInfo = new OAuthUserInfo(
+                SocialProvider.KAKAO,
+                "12345",
+                "제주러",
+                null,
+                "new@example.com"
+        );
+        User existingUser = User.builder()
+                .id(3L)
+                .externalProvider("kakao")
+                .externalId("12345")
+                .nickname("기존유저")
+                .email("old@example.com")
+                .build();
+
+        given(socialOAuthClient.fetchUserInfo(SocialProvider.KAKAO, request)).willReturn(userInfo);
+        given(userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNull("kakao", "12345"))
+                .willReturn(Optional.of(existingUser));
+
+        authService.login("kakao", request);
+
+        assertThat(existingUser.getEmail()).isEqualTo("old@example.com");
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test

@@ -30,6 +30,7 @@ public class RestClientSocialOAuthClient implements SocialOAuthClient {
 
     private static final int MAX_NICKNAME_LENGTH = 50;
     private static final int MAX_PROFILE_IMAGE_URL_LENGTH = 500;
+    private static final int MAX_EMAIL_LENGTH = 255;
 
     private final RestClient.Builder restClientBuilder;
     private final OAuthProperties oauthProperties;
@@ -181,7 +182,8 @@ public class RestClientSocialOAuthClient implements SocialOAuthClient {
             provider,
             response.externalId(),
             normalizeNickname(response.nickname(), provider),
-            trimToMax(response.profileImageUrl(), MAX_PROFILE_IMAGE_URL_LENGTH)
+            trimToMax(response.profileImageUrl(), MAX_PROFILE_IMAGE_URL_LENGTH),
+            trimToMax(response.email(), MAX_EMAIL_LENGTH)
         );
     }
 
