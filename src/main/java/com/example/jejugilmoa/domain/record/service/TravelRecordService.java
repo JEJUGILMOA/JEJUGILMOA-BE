@@ -153,14 +153,10 @@ public class TravelRecordService {
     }
 
     private TravelRecord getOwnedRecord(Long userId, Long recordId) {
-        TravelRecord record = travelRecordRepository.findByIdAndUserId(recordId, userId)
-                .orElseThrow(() -> new GeneralException(travelRecordRepository.existsById(recordId)
+        return travelRecordRepository.findActiveOwnedRecord(recordId, userId)
+                .orElseThrow(() -> new GeneralException(travelRecordRepository.existsActiveById(recordId)
                         ? RecordErrorCode.RECORD_ACCESS_DENIED
                         : RecordErrorCode.RECORD_NOT_FOUND));
-        if (record.getDeletedAt() != null) {
-            throw new GeneralException(RecordErrorCode.RECORD_ALREADY_DELETED);
-        }
-        return record;
     }
 
     private Map<Long, TravelRecordPlaceUpdateRequest> indexPlaceUpdates(
