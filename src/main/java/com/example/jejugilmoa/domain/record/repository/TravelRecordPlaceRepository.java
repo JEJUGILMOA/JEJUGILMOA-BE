@@ -12,6 +12,11 @@ import java.util.List;
 
 public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordPlace, Long> {
 
+    interface VisitedPlaceCount {
+        Long getRecordId();
+        Long getCount();
+    }
+
     interface PlaceVisitCount {
         Long getPlaceId();
         Long getCnt();
@@ -37,6 +42,32 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
         Integer getGridCol();
         Long getScore();
     }
+
+    @Query("""
+            SELECT rp.travelRecord.id AS recordId, COUNT(rp) AS count
+            FROM TravelRecordPlace rp
+            WHERE rp.travelRecord.id IN :recordIds
+              AND rp.travelRecord.deletedAt IS NULL
+              AND rp.visited = true
+            GROUP BY rp.travelRecord.id
+            """)
+    List<VisitedPlaceCount> countVisitedByRecordIds(@Param("recordIds") Collection<Long> recordIds);
+
+    @Query("""
+            SELECT rp FROM TravelRecordPlace rp
+            WHERE rp.travelRecord.id IN :recordIds
+              AND rp.travelRecord.deletedAt IS NULL
+            ORDER BY rp.travelRecord.id ASC, rp.visitDate ASC, rp.sequenceOrder ASC
+            """)
+    List<TravelRecordPlace> findAllByRecordIdsInSnapshotOrder(@Param("recordIds") Collection<Long> recordIds);
+
+    @Query("""
+            SELECT rp FROM TravelRecordPlace rp
+            WHERE rp.travelRecord.id = :recordId
+              AND rp.travelRecord.deletedAt IS NULL
+            ORDER BY rp.visitDate ASC, rp.sequenceOrder ASC
+            """)
+    List<TravelRecordPlace> findAllByRecordIdInSnapshotOrder(@Param("recordId") Long recordId);
     @Query("""
                     SELECT COUNT(DISTINCT trp.place.id) FROM TravelRecordPlace trp
                     WHERE trp.travelRecord.user.id = :userId

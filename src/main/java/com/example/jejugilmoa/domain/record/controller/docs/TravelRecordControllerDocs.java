@@ -3,7 +3,10 @@ package com.example.jejugilmoa.domain.record.controller.docs;
 import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateResponse;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordDetailResponse;
+import com.example.jejugilmoa.domain.record.enums.RecordView;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
+import com.example.jejugilmoa.global.apiPayload.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -12,8 +15,29 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 public interface TravelRecordControllerDocs {
+
+    @Operation(
+            summary = "여행 기록 목록 조회",
+            description = "CARD 또는 MAP 형태로 내 기록이나 공개 기록을 페이지 조회합니다."
+    )
+    ApiResponse<PageResponse<?>> getRecords(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "CARD") RecordView view,
+            @RequestParam(defaultValue = "false") boolean mine,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size);
+
+    @Operation(
+            summary = "여행 기록 상세 조회",
+            description = "본인 기록은 공개 범위와 무관하게, 타인 기록은 PUBLIC인 경우에만 조회합니다."
+    )
+    ApiResponse<TravelRecordDetailResponse> getDetail(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long recordId);
 
     @Operation(
             summary = "여행 기록 생성",
