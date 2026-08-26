@@ -13,6 +13,9 @@ import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordPlaceMemoRequest;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordPlaceImageUpdateRequest;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordPlaceUpdateRequest;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateRequest;
 import com.example.jejugilmoa.domain.record.entity.TravelRecord;
 import com.example.jejugilmoa.domain.record.entity.TravelRecordImage;
 import com.example.jejugilmoa.domain.record.entity.TravelRecordPlace;
@@ -46,6 +49,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class TravelRecordServiceTest {
@@ -67,7 +71,8 @@ class TravelRecordServiceTest {
     @BeforeEach
     void setUp() {
         owner = User.builder().id(USER_ID).nickname("기록자").build();
-        given(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).willReturn(Optional.of(owner));
+        org.mockito.Mockito.lenient().when(userRepository.findByIdAndDeletedAtIsNull(USER_ID))
+                .thenReturn(Optional.of(owner));
     }
 
     @Test
@@ -251,6 +256,183 @@ class TravelRecordServiceTest {
                         List.of("records/42/a.jpg")),
                 RecordErrorCode.RECORD_INVALID_OBJECT_KEY);
         verifyNoInteractions(imageObjectVerifier);
+    }
+
+    @Test
+    void update_changesOnlyEditableContentAndSupportsRecordWithoutPlan() {
+        TravelRecord record = record(77L, owner, null);
+        TravelRecordPlace place = recordPlace(501L, record, "기록 당시 장소");
+        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of(place));
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L)).willReturn(List.of());
+
+        travelRecordService.update(USER_ID, 77L, new TravelRecordUpdateRequest(
+                "수정 제목", "", Visibility.PUBLIC,
+                List.of(new TravelRecordPlaceUpdateRequest(501L, "수정 메모", null)), null));
+
+        assertThat(record.getTitle()).isEqualTo("수정 제목");
+        assertThat(record.getDescription()).isEmpty();
+        assertThat(record.getVisibility()).isEqualTo(Visibility.PUBLIC);
+        assertThat(record.getTravelPlan()).isNull();
+        assertThat(place.getMemo()).isEqualTo("수정 메모");
+        assertThat(place.getPlaceName()).isEqualTo("기록 당시 장소");
+        assertThat(place.getAddress()).isEqualTo("snapshot address");
+        assertThat(place.getLatitude()).isEqualByComparingTo("33.1");
+        assertThat(place.getLongitude()).isEqualByComparingTo("126.1");
+        assertThat(place.isVisited()).isTrue();
+        assertThat(place.getSequenceOrder()).isEqualTo(1);
+        verifyNoInteractions(imageObjectVerifier);
+    }
+
+    @Test
+    void update_diffsRecordImagesAndReordersWhileVerifyingOnlyNewKey() {
+        TravelRecord record = record(77L, owner, null);
+        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
+        TravelRecordImage a = image(1L, record, null, "records/42/A.jpg", 1);
+        TravelRecordImage b = image(2L, record, null, "records/42/B.jpg", 2);
+        TravelRecordImage c = image(3L, record, null, "records/42/C.jpg", 3);
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
+                .willReturn(List.of(a, b, c));
+
+        travelRecordService.update(USER_ID, 77L, new TravelRecordUpdateRequest(
+                null, null, null, null,
+                List.of("records/42/B.jpg", "records/42/C.jpg", "records/42/D.jpg")));
+
+        verify(imageObjectVerifier).verify("records/42/D.jpg");
+        verify(imageObjectVerifier, never()).verify("records/42/B.jpg");
+        verify(travelRecordImageRepository).deleteAll(List.of(a));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<TravelRecordImage>> captor = ArgumentCaptor.forClass(List.class);
+        verify(travelRecordImageRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).extracting(TravelRecordImage::getObjectKey)
+                .containsExactly("records/42/B.jpg", "records/42/C.jpg", "records/42/D.jpg");
+        assertThat(captor.getValue()).extracting(TravelRecordImage::getSequenceOrder)
+                .containsExactly(1, 2, 3);
+    }
+
+    @Test
+    void update_addsReplacesAndRemovesPlaceImages() {
+        TravelRecord record = record(77L, owner, null);
+        TravelRecordPlace first = recordPlace(501L, record, "첫 장소");
+        TravelRecordPlace second = recordPlace(502L, record, "둘째 장소");
+        TravelRecordPlace third = recordPlace(503L, record, "셋째 장소");
+        TravelRecordImage firstImage = image(11L, record, first, "records/42/old.jpg", 1);
+        TravelRecordImage secondImage = image(12L, record, second, "records/42/remove.jpg", 2);
+        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L))
+                .willReturn(List.of(first, second, third));
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
+                .willReturn(List.of(firstImage, secondImage));
+
+        travelRecordService.update(USER_ID, 77L, new TravelRecordUpdateRequest(null, null, null,
+                List.of(
+                        new TravelRecordPlaceUpdateRequest(501L, null,
+                                new TravelRecordPlaceImageUpdateRequest(
+                                        com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REPLACE,
+                                        "records/42/new.jpg")),
+                        new TravelRecordPlaceUpdateRequest(502L, null,
+                                new TravelRecordPlaceImageUpdateRequest(
+                                        com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REMOVE, null)),
+                        new TravelRecordPlaceUpdateRequest(503L, null,
+                                new TravelRecordPlaceImageUpdateRequest(
+                                        com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REPLACE,
+                                        "records/42/third.jpg"))), null));
+
+        assertThat(firstImage.getObjectKey()).isEqualTo("records/42/new.jpg");
+        verify(travelRecordImageRepository).deleteAll(List.of(secondImage));
+        verify(imageObjectVerifier).verify("records/42/new.jpg");
+        verify(imageObjectVerifier).verify("records/42/third.jpg");
+    }
+
+    @Test
+    void update_rejectsForeignDeletedAndMismatchedPlace() {
+        TravelRecord foreign = record(77L, User.builder().id(999L).build(), null);
+        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(foreign));
+        assertUpdateCode(77L, new TravelRecordUpdateRequest("제목", null, null, null, null),
+                RecordErrorCode.RECORD_ACCESS_DENIED);
+
+        TravelRecord deleted = record(78L, owner, LocalDateTime.now());
+        given(travelRecordRepository.findById(78L)).willReturn(Optional.of(deleted));
+        assertUpdateCode(78L, new TravelRecordUpdateRequest("제목", null, null, null, null),
+                RecordErrorCode.RECORD_ALREADY_DELETED);
+
+        TravelRecord own = record(79L, owner, null);
+        given(travelRecordRepository.findById(79L)).willReturn(Optional.of(own));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(79L)).willReturn(List.of());
+        assertUpdateCode(79L, new TravelRecordUpdateRequest(null, null, null,
+                        List.of(new TravelRecordPlaceUpdateRequest(999L, "침범", null)), null),
+                RecordErrorCode.RECORD_PLACE_TARGET_MISMATCH);
+    }
+
+    @Test
+    void update_propagatesNewImageVerificationFailure() {
+        TravelRecord record = record(77L, owner, null);
+        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L)).willReturn(List.of());
+        willThrow(new GeneralException(ImageUploadErrorCode.OBJECT_NOT_FOUND))
+                .given(imageObjectVerifier).verify("records/42/missing.jpg");
+
+        assertUpdateCode(77L, new TravelRecordUpdateRequest(null, null, null, null,
+                List.of("records/42/missing.jpg")), ImageUploadErrorCode.OBJECT_NOT_FOUND);
+    }
+
+    @Test
+    void delete_softDeletesOwnedRecordWithoutDeletingRowsOrPlan() {
+        TravelPlan plan = completedPlan(owner);
+        TravelRecord record = TravelRecord.builder().id(77L).travelPlan(plan).user(owner)
+                .title("기록").build();
+        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(record));
+
+        travelRecordService.delete(USER_ID, 77L);
+
+        assertThat(record.getDeletedAt()).isNotNull();
+        assertThat(record.getTravelPlan()).isSameAs(plan);
+        verify(travelRecordRepository, never()).delete(org.mockito.ArgumentMatchers.any());
+        verify(travelRecordPlaceRepository, never()).delete(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void delete_rejectsForeignAndAlreadyDeletedRecord() {
+        given(travelRecordRepository.findById(77L))
+                .willReturn(Optional.of(record(77L, User.builder().id(999L).build(), null)));
+        assertThatThrownBy(() -> travelRecordService.delete(USER_ID, 77L))
+                .isInstanceOf(GeneralException.class)
+                .satisfies(error -> assertThat(((GeneralException) error).getCode())
+                        .isEqualTo(RecordErrorCode.RECORD_ACCESS_DENIED));
+        given(travelRecordRepository.findById(78L))
+                .willReturn(Optional.of(record(78L, owner, LocalDateTime.now())));
+        assertThatThrownBy(() -> travelRecordService.delete(USER_ID, 78L))
+                .isInstanceOf(GeneralException.class)
+                .satisfies(error -> assertThat(((GeneralException) error).getCode())
+                        .isEqualTo(RecordErrorCode.RECORD_ALREADY_DELETED));
+    }
+
+    private TravelRecord record(Long id, User user, LocalDateTime deletedAt) {
+        return TravelRecord.builder().id(id).user(user).title("원본 제목").description("원본 소개")
+                .visibility(Visibility.PRIVATE).actualStartDate(LocalDate.of(2026, 8, 10))
+                .actualEndDate(LocalDate.of(2026, 8, 11)).deletedAt(deletedAt).build();
+    }
+
+    private TravelRecordPlace recordPlace(Long id, TravelRecord record, String name) {
+        return TravelRecordPlace.builder().id(id).travelRecord(record)
+                .place(Place.builder().id(id).name("현재 장소").build()).placeName(name)
+                .address("snapshot address").latitude(new BigDecimal("33.1"))
+                .longitude(new BigDecimal("126.1")).visitDate(LocalDate.of(2026, 8, 10))
+                .sequenceOrder(1).visited(true).visitedAt(LocalDateTime.of(2026, 8, 10, 12, 0)).build();
+    }
+
+    private TravelRecordImage image(Long id, TravelRecord record, TravelRecordPlace place,
+                                    String key, int sequence) {
+        return TravelRecordImage.builder().id(id).travelRecord(record).travelRecordPlace(place)
+                .objectKey(key).sequenceOrder(sequence).build();
+    }
+
+    private void assertUpdateCode(Long recordId, TravelRecordUpdateRequest request, Object expectedCode) {
+        assertThatThrownBy(() -> travelRecordService.update(USER_ID, recordId, request))
+                .isInstanceOf(GeneralException.class)
+                .satisfies(error -> assertThat(((GeneralException) error).getCode()).isEqualTo(expectedCode));
     }
 
     private void stubCreate(TravelPlan plan, List<TravelCourse> courses) {

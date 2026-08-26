@@ -4,6 +4,7 @@ import com.example.jejugilmoa.domain.auth.jwt.JwtProvider;
 import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.plan.enums.Visibility;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateResponse;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateResponse;
 import com.example.jejugilmoa.domain.record.exception.RecordErrorCode;
 import com.example.jejugilmoa.domain.record.service.TravelRecordService;
 import com.example.jejugilmoa.domain.record.service.TravelRecordQueryService;
@@ -32,6 +33,8 @@ import static org.mockito.ArgumentCaptor.forClass;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -220,6 +223,73 @@ class TravelRecordControllerTest {
                         .content("{\"tripId\":10,\"title\":\"기록\",\"imageObjectKeys\":[\"%s\"]}"
                                 .formatted("k".repeat(501))))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void authenticatedOwnerUpdatesRecord() throws Exception {
+        given(travelRecordService.update(eq(42L), eq(77L), any()))
+                .willReturn(new TravelRecordUpdateResponse(
+                        77L, "수정 제목", "", Visibility.PUBLIC,
+                        Instant.parse("2026-08-26T03:00:00Z")));
+
+        mockMvc.perform(patch("/api/records/77")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "title":"수정 제목",
+                                  "description":"",
+                                  "visibility":"PUBLIC",
+                                  "places":[{"recordPlaceId":501,"memo":"새 메모",
+                                    "image":{"action":"REMOVE"}}],
+                                  "imageObjectKeys":[]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("COMMON200"))
+                .andExpect(jsonPath("$.result.recordId").value(77))
+                .andExpect(jsonPath("$.result.description").value(""))
+                .andExpect(jsonPath("$.result.visibility").value("PUBLIC"));
+    }
+
+    @Test
+    void updateRejectsBlankTitleAndInvalidVisibility() throws Exception {
+        mockMvc.perform(patch("/api/records/77")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"title\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.isSuccess").value(false));
+
+        mockMvc.perform(patch("/api/records/77")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"visibility\":\"FRIENDS\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.isSuccess").value(false));
+    }
+
+    @Test
+    void ownerDeletesRecord() throws Exception {
+        mockMvc.perform(delete("/api/records/77")
+                        .with(authentication(authenticationFor(42L))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value("COMMON200"))
+                .andExpect(jsonPath("$.result").doesNotExist());
+
+        verify(travelRecordService).delete(42L, 77L);
+    }
+
+    @Test
+    void deletingAlreadyDeletedRecordReturnsGone() throws Exception {
+        org.mockito.Mockito.doThrow(new GeneralException(RecordErrorCode.RECORD_ALREADY_DELETED))
+                .when(travelRecordService).delete(42L, 77L);
+
+        mockMvc.perform(delete("/api/records/77")
+                        .with(authentication(authenticationFor(42L))))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.code").value("RECORD410_1"));
     }
 
     private void stubSuccessfulCreate() {
