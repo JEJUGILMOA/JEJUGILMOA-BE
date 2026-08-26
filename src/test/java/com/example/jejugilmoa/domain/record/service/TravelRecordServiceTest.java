@@ -262,7 +262,7 @@ class TravelRecordServiceTest {
     void update_changesOnlyEditableContentAndSupportsRecordWithoutPlan() {
         TravelRecord record = record(77L, owner, null);
         TravelRecordPlace place = recordPlace(501L, record, "기록 당시 장소");
-        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(record));
+        given(travelRecordRepository.findByIdAndUserId(77L, USER_ID)).willReturn(Optional.of(record));
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of(place));
         given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L)).willReturn(List.of());
 
@@ -287,7 +287,7 @@ class TravelRecordServiceTest {
     @Test
     void update_diffsRecordImagesAndReordersWhileVerifyingOnlyNewKey() {
         TravelRecord record = record(77L, owner, null);
-        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(record));
+        given(travelRecordRepository.findByIdAndUserId(77L, USER_ID)).willReturn(Optional.of(record));
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
         TravelRecordImage a = image(1L, record, null, "records/42/A.jpg", 1);
         TravelRecordImage b = image(2L, record, null, "records/42/B.jpg", 2);
@@ -319,7 +319,7 @@ class TravelRecordServiceTest {
         TravelRecordPlace third = recordPlace(503L, record, "셋째 장소");
         TravelRecordImage firstImage = image(11L, record, first, "records/42/old.jpg", 1);
         TravelRecordImage secondImage = image(12L, record, second, "records/42/remove.jpg", 2);
-        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(record));
+        given(travelRecordRepository.findByIdAndUserId(77L, USER_ID)).willReturn(Optional.of(record));
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L))
                 .willReturn(List.of(first, second, third));
         given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
@@ -347,18 +347,17 @@ class TravelRecordServiceTest {
 
     @Test
     void update_rejectsForeignDeletedAndMismatchedPlace() {
-        TravelRecord foreign = record(77L, User.builder().id(999L).build(), null);
-        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(foreign));
+        given(travelRecordRepository.existsById(77L)).willReturn(true);
         assertUpdateCode(77L, new TravelRecordUpdateRequest("제목", null, null, null, null),
                 RecordErrorCode.RECORD_ACCESS_DENIED);
 
         TravelRecord deleted = record(78L, owner, LocalDateTime.now());
-        given(travelRecordRepository.findById(78L)).willReturn(Optional.of(deleted));
+        given(travelRecordRepository.findByIdAndUserId(78L, USER_ID)).willReturn(Optional.of(deleted));
         assertUpdateCode(78L, new TravelRecordUpdateRequest("제목", null, null, null, null),
                 RecordErrorCode.RECORD_ALREADY_DELETED);
 
         TravelRecord own = record(79L, owner, null);
-        given(travelRecordRepository.findById(79L)).willReturn(Optional.of(own));
+        given(travelRecordRepository.findByIdAndUserId(79L, USER_ID)).willReturn(Optional.of(own));
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(79L)).willReturn(List.of());
         assertUpdateCode(79L, new TravelRecordUpdateRequest(null, null, null,
                         List.of(new TravelRecordPlaceUpdateRequest(999L, "침범", null)), null),
@@ -366,9 +365,18 @@ class TravelRecordServiceTest {
     }
 
     @Test
+    void update_doesNotExposeThatForeignRecordIsDeleted() {
+        given(travelRecordRepository.findByIdAndUserId(77L, USER_ID)).willReturn(Optional.empty());
+        given(travelRecordRepository.existsById(77L)).willReturn(true);
+
+        assertUpdateCode(77L, new TravelRecordUpdateRequest("제목", null, null, null, null),
+                RecordErrorCode.RECORD_ACCESS_DENIED);
+    }
+
+    @Test
     void update_propagatesNewImageVerificationFailure() {
         TravelRecord record = record(77L, owner, null);
-        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(record));
+        given(travelRecordRepository.findByIdAndUserId(77L, USER_ID)).willReturn(Optional.of(record));
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
         given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L)).willReturn(List.of());
         willThrow(new GeneralException(ImageUploadErrorCode.OBJECT_NOT_FOUND))
@@ -383,7 +391,7 @@ class TravelRecordServiceTest {
         TravelPlan plan = completedPlan(owner);
         TravelRecord record = TravelRecord.builder().id(77L).travelPlan(plan).user(owner)
                 .title("기록").build();
-        given(travelRecordRepository.findById(77L)).willReturn(Optional.of(record));
+        given(travelRecordRepository.findByIdAndUserId(77L, USER_ID)).willReturn(Optional.of(record));
 
         travelRecordService.delete(USER_ID, 77L);
 
@@ -395,13 +403,12 @@ class TravelRecordServiceTest {
 
     @Test
     void delete_rejectsForeignAndAlreadyDeletedRecord() {
-        given(travelRecordRepository.findById(77L))
-                .willReturn(Optional.of(record(77L, User.builder().id(999L).build(), null)));
+        given(travelRecordRepository.existsById(77L)).willReturn(true);
         assertThatThrownBy(() -> travelRecordService.delete(USER_ID, 77L))
                 .isInstanceOf(GeneralException.class)
                 .satisfies(error -> assertThat(((GeneralException) error).getCode())
                         .isEqualTo(RecordErrorCode.RECORD_ACCESS_DENIED));
-        given(travelRecordRepository.findById(78L))
+        given(travelRecordRepository.findByIdAndUserId(78L, USER_ID))
                 .willReturn(Optional.of(record(78L, owner, LocalDateTime.now())));
         assertThatThrownBy(() -> travelRecordService.delete(USER_ID, 78L))
                 .isInstanceOf(GeneralException.class)

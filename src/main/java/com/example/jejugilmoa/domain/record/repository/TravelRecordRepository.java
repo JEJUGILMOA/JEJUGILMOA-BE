@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface TravelRecordRepository extends JpaRepository<TravelRecord, Long> {
+    Optional<TravelRecord> findByIdAndUserId(Long id, Long userId);
+
     long countByUserIdAndDeletedAtIsNull(Long userId);
 
     boolean existsByTravelPlanIdAndDeletedAtIsNull(Long planId);

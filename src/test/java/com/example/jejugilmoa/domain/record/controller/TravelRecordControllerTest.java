@@ -270,6 +270,18 @@ class TravelRecordControllerTest {
     }
 
     @Test
+    void updateRejectsNullPlaceElementWithBadRequest() throws Exception {
+        mockMvc.perform(patch("/api/records/77")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"places\":[null]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.isSuccess").value(false));
+
+        verify(travelRecordService, org.mockito.Mockito.never()).update(any(), any(), any());
+    }
+
+    @Test
     void ownerDeletesRecord() throws Exception {
         mockMvc.perform(delete("/api/records/77")
                         .with(authentication(authenticationFor(42L))))
