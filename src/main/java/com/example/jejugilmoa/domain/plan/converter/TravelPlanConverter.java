@@ -70,8 +70,7 @@ public class TravelPlanConverter {
                 .toList();
 
         List<String> categories = plan.getPreferredCategories().stream()
-                .map(pref -> pref.getTheme().getCategoryName())
-                .filter(java.util.Objects::nonNull)
+                .map(pref -> pref.getTheme().name())
                 .toList();
 
         boolean anyBudgetSet = plan.getBudgetTransportation() != null
@@ -101,6 +100,8 @@ public class TravelPlanConverter {
                 plan.getTravelStyle(),
                 plan.getCompanion(),
                 departureName,
+                plan.getDepartureLatitude(),
+                plan.getDepartureLongitude(),
                 categories,
                 itinerary,
                 plan.getBudgetTransportation(),

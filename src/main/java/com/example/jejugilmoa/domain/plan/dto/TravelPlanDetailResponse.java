@@ -5,6 +5,7 @@ import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.user.enums.TravelStyle;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -40,7 +41,13 @@ public record TravelPlanDetailResponse(
         @Schema(description = "출발지 이름", example = "제주국제공항")
         String departureLocationName,
 
-        @Schema(description = "선호 테마 목록", example = "[\"자연\", \"카페\"]")
+        @Schema(description = "출발지 위도", example = "33.5072")
+        BigDecimal departureLatitude,
+
+        @Schema(description = "출발지 경도", example = "126.4929")
+        BigDecimal departureLongitude,
+
+        @Schema(description = "선호 테마 목록 (TravelTheme enum 문자열)", example = "[\"FOOD\", \"NATURE\"]")
         List<String> categories,
 
         @Schema(description = "날짜별 일정 목록 (계획 기간의 모든 날짜 포함, 경유지 없는 날도 포함)")
