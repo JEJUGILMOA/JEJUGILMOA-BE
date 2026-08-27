@@ -76,6 +76,27 @@ class TravelRecordQueryRepositoryTest {
     }
 
     @Test
+    void ownedMutationLookupAndExistenceExcludeDeletedRecordsAndUsers() {
+        User activeOwner = userRepository.saveAndFlush(User.builder().nickname("수정 활성 작성자").build());
+        User deletedOwner = userRepository.saveAndFlush(User.builder().nickname("수정 탈퇴 작성자").build());
+        Instant now = Instant.parse("2026-08-19T00:00:00Z");
+        Long activeId = insertRecord(activeOwner.getId(), "PRIVATE", null, now);
+        Long deletedRecordId = insertRecord(activeOwner.getId(), "PRIVATE", now, now.plusSeconds(1));
+        Long deletedOwnerRecordId = insertRecord(deletedOwner.getId(), "PRIVATE", null, now.plusSeconds(2));
+        jdbcClient.sql("UPDATE \"user\" SET deleted_at = :deletedAt WHERE id = :userId")
+                .param("deletedAt", Timestamp.from(now))
+                .param("userId", deletedOwner.getId())
+                .update();
+
+        assertThat(travelRecordRepository.findActiveOwnedRecord(activeId, activeOwner.getId())).isPresent();
+        assertThat(travelRecordRepository.existsActiveById(activeId)).isTrue();
+        assertThat(travelRecordRepository.findActiveOwnedRecord(deletedRecordId, activeOwner.getId())).isEmpty();
+        assertThat(travelRecordRepository.existsActiveById(deletedRecordId)).isFalse();
+        assertThat(travelRecordRepository.findActiveOwnedRecord(deletedOwnerRecordId, deletedOwner.getId())).isEmpty();
+        assertThat(travelRecordRepository.existsActiveById(deletedOwnerRecordId)).isFalse();
+    }
+
+    @Test
     void childQueriesExcludeSoftDeletedRecordsAndUsers() {
         User owner = userRepository.saveAndFlush(User.builder().nickname("하위 조회 작성자").build());
         Instant now = Instant.parse("2026-08-19T00:00:00Z");
