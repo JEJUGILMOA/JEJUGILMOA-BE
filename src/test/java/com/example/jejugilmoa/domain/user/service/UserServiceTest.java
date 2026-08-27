@@ -111,7 +111,7 @@ class UserServiceTest {
         try {
             User expiredUser = User.builder().id(2L).nickname("탈퇴예정").build();
             LocalDateTime cutoff = LocalDateTime.of(2026, 7, 3, 4, 0);
-            given(userRepository.findByDeletedAtBeforeAndAnonymizedAtIsNull(cutoff))
+            given(userRepository.findByDeletedAtBeforeAndAnonymizedAtIsNullForUpdate(cutoff))
                     .willReturn(List.of(expiredUser));
 
             int anonymizedCount = userService.anonymizeExpiredWithdrawals(cutoff);
@@ -123,5 +123,41 @@ class UserServiceTest {
         } finally {
             TimeZone.setDefault(originalTimeZone);
         }
+    }
+
+    @Test
+    @DisplayName("탈퇴한 소셜 계정을 행 잠금 조회로 찾아 복구한다")
+    void restoreByExternalAccountRestoresWithdrawnUser() {
+        User withdrawnUser = User.builder().id(3L).nickname("탈퇴자").build();
+        withdrawnUser.withdraw(LocalDateTime.of(2026, 7, 20, 10, 0));
+        given(userRepository.findByExternalProviderAndExternalIdForUpdate("kakao", "12345"))
+                .willReturn(Optional.of(withdrawnUser));
+
+        Optional<User> restored = userService.restoreByExternalAccount("kakao", "12345");
+
+        assertThat(restored).containsSame(withdrawnUser);
+        assertThat(withdrawnUser.getDeletedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("이미 활성 상태인 계정은 복구 없이 그대로 반환한다")
+    void restoreByExternalAccountReturnsActiveUserAsIs() {
+        User activeUser = User.builder().id(4L).nickname("활성유저").build();
+        given(userRepository.findByExternalProviderAndExternalIdForUpdate("kakao", "67890"))
+                .willReturn(Optional.of(activeUser));
+
+        Optional<User> result = userService.restoreByExternalAccount("kakao", "67890");
+
+        assertThat(result).containsSame(activeUser);
+        assertThat(activeUser.getDeletedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("익명화 등으로 계정이 조회되지 않으면 빈 Optional을 반환한다")
+    void restoreByExternalAccountReturnsEmptyWhenNotFound() {
+        given(userRepository.findByExternalProviderAndExternalIdForUpdate("kakao", "gone"))
+                .willReturn(Optional.empty());
+
+        assertThat(userService.restoreByExternalAccount("kakao", "gone")).isEmpty();
     }
 }

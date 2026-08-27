@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -118,12 +119,30 @@ public class UserService {
         user.restore();
     }
 
+    // 복구 경로(restoreByExternalAccount, UserService.restore)와 같은 행 잠금으로 직렬화한다.
+    // 잠금 대기 중 복구가 커밋되면 deletedAt이 NULL이 되어 잠금 후 재평가에서 제외되므로,
+    // 복구된 계정을 익명화가 덮어쓰는 일이 없다.
     @Transactional
     public int anonymizeExpiredWithdrawals(LocalDateTime cutoff) {
-        List<User> expiredUsers = userRepository.findByDeletedAtBeforeAndAnonymizedAtIsNull(cutoff);
+        List<User> expiredUsers = userRepository.findByDeletedAtBeforeAndAnonymizedAtIsNullForUpdate(cutoff);
         LocalDateTime now = LocalDateTime.now(clock);
         expiredUsers.forEach(user -> user.anonymize(now));
         return expiredUsers.size();
+    }
+
+    // 소셜 로그인에서 같은 provider/externalId로 남아있는 계정(탈퇴 포함)을 잠그고 복구한다.
+    // 익명화 스케줄러와 같은 행 잠금으로 직렬화되므로, 잠금 대기 중 익명화가 커밋되면
+    // provider/externalId가 비워져 조회에서 제외되고 호출부는 신규 가입으로 이어진다.
+    @Transactional
+    public Optional<User> restoreByExternalAccount(String externalProvider, String externalId) {
+        return userRepository.findByExternalProviderAndExternalIdForUpdate(externalProvider, externalId)
+            .map(user -> {
+                // 동시 로그인이 먼저 복구를 끝냈다면 이미 활성 상태이므로 그대로 반환한다.
+                if (user.getDeletedAt() != null) {
+                    user.restore();
+                }
+                return user;
+            });
     }
 
     private UserPreference getOrCreatePreference(Long userId) {

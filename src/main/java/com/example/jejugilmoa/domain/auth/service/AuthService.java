@@ -15,6 +15,7 @@ import com.example.jejugilmoa.domain.notification.repository.DeviceTokenReposito
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.enums.Role;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
+import com.example.jejugilmoa.domain.user.service.UserService;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class AuthService {
 
     private final SocialOAuthClient socialOAuthClient;
     private final UserRepository userRepository;
+    private final UserService userService;
     private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final DeviceTokenRepository deviceTokenRepository;
@@ -68,14 +70,13 @@ public class AuthService {
     // 같은 provider/externalId로 탈퇴한(그러나 아직 익명화되지 않은, 즉 탈퇴 30일 이내) 계정이
     // 남아있으면 새 계정을 만드는 대신 복구한다. 30일이 지나 익명화된 계정은 provider/externalId가
     // 비워지므로 이 조회에 걸리지 않고 자연스럽게 새 계정 생성으로 이어진다.
+    // 복구는 UserService의 트랜잭션 안에서 행 잠금과 함께 수행되어 익명화 스케줄러와 직렬화된다.
     private OAuthLoginResponse restoreOrCreateUser(OAuthUserInfo userInfo) {
-        return userRepository.findByExternalProviderAndExternalId(
+        return userService.restoreByExternalAccount(
                 userInfo.provider().getKey(),
                 userInfo.externalId()
             )
             .map(user -> {
-                user.restore();
-                userRepository.save(user);
                 backfillEmailIfAbsent(user, userInfo);
                 return AuthConverter.toResponse(user, false);
             })

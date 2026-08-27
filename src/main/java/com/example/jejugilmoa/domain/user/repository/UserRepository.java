@@ -14,7 +14,11 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByExternalProviderAndExternalIdAndDeletedAtIsNull(String externalProvider, String externalId);
 
-    Optional<User> findByExternalProviderAndExternalId(String externalProvider, String externalId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.externalProvider = :externalProvider AND u.externalId = :externalId")
+    Optional<User> findByExternalProviderAndExternalIdForUpdate(
+            @Param("externalProvider") String externalProvider,
+            @Param("externalId") String externalId);
 
     Optional<User> findByIdAndDeletedAtIsNull(Long id);
 
@@ -29,5 +33,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT COUNT(ub) FROM UserBadge ub WHERE ub.user.id = :userId")
     long countBadgesByUserId(@Param("userId") Long userId);
 
-    List<User> findByDeletedAtBeforeAndAnonymizedAtIsNull(LocalDateTime cutoff);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.deletedAt < :cutoff AND u.anonymizedAt IS NULL")
+    List<User> findByDeletedAtBeforeAndAnonymizedAtIsNullForUpdate(@Param("cutoff") LocalDateTime cutoff);
 }
