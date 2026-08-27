@@ -13,6 +13,7 @@ import com.example.jejugilmoa.domain.record.dto.TravelRecordMapPlaceResponse;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordMapResponse;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordPlaceResponse;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordPlanLinkResponse;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateResponse;
 import com.example.jejugilmoa.domain.record.entity.TravelRecord;
 import com.example.jejugilmoa.domain.record.entity.TravelRecordImage;
 import com.example.jejugilmoa.domain.record.entity.TravelRecordPlace;
@@ -75,6 +76,12 @@ public final class TravelRecordConverter {
     public static TravelRecordCreateResponse toCreateResponse(TravelRecord record, Long tripId) {
         return new TravelRecordCreateResponse(
                 record.getId(), tripId, record.getTitle(), record.getVisibility(), record.getCreatedAt());
+    }
+
+    public static TravelRecordUpdateResponse toUpdateResponse(TravelRecord record) {
+        return new TravelRecordUpdateResponse(
+                record.getId(), record.getTitle(), record.getDescription(), record.getVisibility(),
+                record.getUpdatedAt());
     }
 
     public static TravelRecordAuthorResponse toAuthorResponse(User user) {

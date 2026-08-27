@@ -5,6 +5,8 @@ import com.example.jejugilmoa.domain.record.controller.docs.TravelRecordControll
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateResponse;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordDetailResponse;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateRequest;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateResponse;
 import com.example.jejugilmoa.domain.record.enums.RecordView;
 import com.example.jejugilmoa.domain.record.exception.RecordErrorCode;
 import com.example.jejugilmoa.domain.record.service.TravelRecordService;
@@ -21,6 +23,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -72,6 +76,24 @@ public class TravelRecordController implements TravelRecordControllerDocs {
             @Valid @RequestBody TravelRecordCreateRequest request) {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.CREATED, travelRecordService.create(principal.userId(), request));
+    }
+
+    @PatchMapping("/{recordId}")
+    public ApiResponse<TravelRecordUpdateResponse> update(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long recordId,
+            @Valid @RequestBody TravelRecordUpdateRequest request) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                travelRecordService.update(principal.userId(), recordId, request));
+    }
+
+    @DeleteMapping("/{recordId}")
+    public ApiResponse<Void> delete(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long recordId) {
+        travelRecordService.delete(principal.userId(), recordId);
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, null);
     }
 
     private void validatePage(int page, int size) {

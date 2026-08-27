@@ -74,4 +74,7 @@ public class TravelRecordPlace extends BaseEntity {
     @Column
     private Integer rating;            // 이 장소에 대한 개인 평점
 
+    public void updateMemo(String memo) {
+        this.memo = memo;
+    }
 }
