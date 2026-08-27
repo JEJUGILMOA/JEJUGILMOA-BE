@@ -98,8 +98,8 @@ public class User extends BaseEntity {
         if (bio != null) this.bio = bio;
     }
 
-    public void withdraw() {
-        this.deletedAt = LocalDateTime.now();
+    public void withdraw(LocalDateTime now) {
+        this.deletedAt = now;
     }
 
     public void restore() {
@@ -109,13 +109,15 @@ public class User extends BaseEntity {
     // 탈퇴 후 30일이 지난 계정을 유령계정으로 전환한다. 다른 도메인의 FK가 user_id를
     // 참조하므로 행 자체는 남기고 개인정보만 제거한다. provider/externalId를 비우면
     // 같은 소셜 계정으로 재가입 시 새 계정으로 취급된다.
-    public void anonymize() {
+    // deletedAt/anonymizedAt은 timestamp without time zone 컬럼이므로 호출부에서 UTC 기준
+    // Clock으로 계산한 시각을 넘겨야 JVM 기본 시간대와 무관하게 30일 경계가 일치한다.
+    public void anonymize(LocalDateTime now) {
         this.externalProvider = null;
         this.externalId = null;
         this.nickname = "탈퇴한 사용자";
         this.profileImageUrl = null;
         this.email = null;
         this.bio = null;
-        this.anonymizedAt = LocalDateTime.now();
+        this.anonymizedAt = now;
     }
 }

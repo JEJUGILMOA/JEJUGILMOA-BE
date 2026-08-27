@@ -14,9 +14,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.InjectMocks;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -44,6 +51,9 @@ class UserServiceTest {
 
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
+
+    @Spy
+    private Clock clock = Clock.fixed(Instant.parse("2026-08-02T12:34:56.789Z"), ZoneOffset.UTC);
 
     @InjectMocks
     private UserService userService;
@@ -73,5 +83,45 @@ class UserServiceTest {
                 .hasFieldOrPropertyWithValue("code", UserErrorCode.USER_NOT_FOUND);
 
         verify(refreshTokenRepository, never()).revokeAllByUserId(1L);
+    }
+
+    @Test
+    @DisplayName("JVM 기본 시간대가 UTC가 아니어도 탈퇴 시각은 Clock 기준 UTC로 기록된다")
+    void withdrawUsesUtcClockRegardlessOfDefaultTimeZone() {
+        TimeZone originalTimeZone = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"));
+        try {
+            User user = User.builder().id(1L).nickname("제주러").build();
+            given(userRepository.findByIdAndDeletedAtIsNullForUpdate(1L)).willReturn(Optional.of(user));
+
+            userService.withdraw(1L);
+
+            assertThat(user.getDeletedAt())
+                    .isEqualTo(LocalDateTime.of(2026, 8, 2, 12, 34, 56, 789_000_000));
+        } finally {
+            TimeZone.setDefault(originalTimeZone);
+        }
+    }
+
+    @Test
+    @DisplayName("탈퇴 30일 경과 회원은 JVM 기본 시간대와 무관하게 Clock 기준 UTC 시각으로 익명화된다")
+    void anonymizeExpiredWithdrawalsUsesUtcClockRegardlessOfDefaultTimeZone() {
+        TimeZone originalTimeZone = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"));
+        try {
+            User expiredUser = User.builder().id(2L).nickname("탈퇴예정").build();
+            LocalDateTime cutoff = LocalDateTime.of(2026, 7, 3, 4, 0);
+            given(userRepository.findByDeletedAtBeforeAndAnonymizedAtIsNull(cutoff))
+                    .willReturn(List.of(expiredUser));
+
+            int anonymizedCount = userService.anonymizeExpiredWithdrawals(cutoff);
+
+            assertThat(anonymizedCount).isEqualTo(1);
+            assertThat(expiredUser.getAnonymizedAt())
+                    .isEqualTo(LocalDateTime.of(2026, 8, 2, 12, 34, 56, 789_000_000));
+            assertThat(expiredUser.getNickname()).isEqualTo("탈퇴한 사용자");
+        } finally {
+            TimeZone.setDefault(originalTimeZone);
+        }
     }
 }

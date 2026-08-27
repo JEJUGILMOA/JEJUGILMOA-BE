@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -36,6 +37,7 @@ public class UserService {
     private final UserPreferenceRepository userPreferenceRepository;
     private final NotificationSettingRepository notificationSettingRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final Clock clock;
 
     public UserProfileResponse getMyProfile(Long userId) {
         User user = getUser(userId);
@@ -100,7 +102,7 @@ public class UserService {
     @Transactional
     public void withdraw(Long userId) {
         User user = getUserForUpdate(userId);
-        user.withdraw();
+        user.withdraw(LocalDateTime.now(clock));
         refreshTokenRepository.revokeAllByUserId(userId);
     }
 
@@ -119,7 +121,8 @@ public class UserService {
     @Transactional
     public int anonymizeExpiredWithdrawals(LocalDateTime cutoff) {
         List<User> expiredUsers = userRepository.findByDeletedAtBeforeAndAnonymizedAtIsNull(cutoff);
-        expiredUsers.forEach(User::anonymize);
+        LocalDateTime now = LocalDateTime.now(clock);
+        expiredUsers.forEach(user -> user.anonymize(now));
         return expiredUsers.size();
     }
 
