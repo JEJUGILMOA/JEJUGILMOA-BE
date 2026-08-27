@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -91,5 +92,25 @@ public class UserController implements UserControllerDocs {
         @Valid @RequestBody UserSettingsUpdateRequest request
     ) {
         return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, userService.updateSettings(principal.userId(), request));
+    }
+
+    @Override
+    @Operation(summary = "회원 탈퇴", description = "회원 탈퇴를 처리합니다.")
+    @DeleteMapping
+    public ApiResponse<Void> withdraw(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        userService.withdraw(principal.userId());
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, null);
+    }
+
+    @Override
+    @Operation(summary = "회원 탈퇴 복구", description = "탈퇴한 계정을 복구합니다.")
+    @PostMapping("/restore")
+    public ApiResponse<Void> restore(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        userService.restore(principal.userId());
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, null);
     }
 }

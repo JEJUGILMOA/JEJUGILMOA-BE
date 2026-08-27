@@ -26,14 +26,20 @@ public class DevAuthService {
         userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNull(DEV_PROVIDER, request.email())
                 .ifPresent(u -> { throw new GeneralException(AuthErrorCode.DEV_EMAIL_ALREADY_EXISTS); });
 
-        User user = userRepository.save(User.builder()
-                .externalProvider(DEV_PROVIDER)
-                .externalId(request.email())
-                .email(request.email())
-                .nickname(request.nickname())
-                .build());
-
-        return new DevAuthResponse(user.getId(), user.getEmail(), user.getNickname(), user.getRole(), true, null);
+        return userRepository.findByExternalProviderAndExternalId(DEV_PROVIDER, request.email())
+                .map(user -> {
+                    user.restore();
+                    return new DevAuthResponse(user.getId(), user.getEmail(), user.getNickname(), user.getRole(), false, null);
+                })
+                .orElseGet(() -> {
+                    User user = userRepository.save(User.builder()
+                            .externalProvider(DEV_PROVIDER)
+                            .externalId(request.email())
+                            .email(request.email())
+                            .nickname(request.nickname())
+                            .build());
+                    return new DevAuthResponse(user.getId(), user.getEmail(), user.getNickname(), user.getRole(), true, null);
+                });
     }
 
     @Transactional(readOnly = true)

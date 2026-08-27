@@ -62,6 +62,23 @@ public class AuthService {
                 backfillEmailIfAbsent(user, userInfo);
                 return AuthConverter.toResponse(user, false);
             })
+            .orElseGet(() -> restoreOrCreateUser(userInfo));
+    }
+
+    // 같은 provider/externalId로 탈퇴한(그러나 아직 익명화되지 않은, 즉 탈퇴 30일 이내) 계정이
+    // 남아있으면 새 계정을 만드는 대신 복구한다. 30일이 지나 익명화된 계정은 provider/externalId가
+    // 비워지므로 이 조회에 걸리지 않고 자연스럽게 새 계정 생성으로 이어진다.
+    private OAuthLoginResponse restoreOrCreateUser(OAuthUserInfo userInfo) {
+        return userRepository.findByExternalProviderAndExternalId(
+                userInfo.provider().getKey(),
+                userInfo.externalId()
+            )
+            .map(user -> {
+                user.restore();
+                userRepository.save(user);
+                backfillEmailIfAbsent(user, userInfo);
+                return AuthConverter.toResponse(user, false);
+            })
             .orElseGet(() -> createUser(userInfo));
     }
 

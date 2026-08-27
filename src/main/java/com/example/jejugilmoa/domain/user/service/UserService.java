@@ -1,5 +1,6 @@
 package com.example.jejugilmoa.domain.user.service;
 
+import com.example.jejugilmoa.domain.auth.repository.RefreshTokenRepository;
 import com.example.jejugilmoa.domain.plan.repository.FavoriteRepository;
 import com.example.jejugilmoa.domain.record.repository.TravelRecordRepository;
 import com.example.jejugilmoa.domain.user.converter.UserConverter;
@@ -21,6 +22,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -31,6 +35,7 @@ public class UserService {
     private final FavoriteRepository favoriteRepository;
     private final UserPreferenceRepository userPreferenceRepository;
     private final NotificationSettingRepository notificationSettingRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     public UserProfileResponse getMyProfile(Long userId) {
         User user = getUser(userId);
@@ -90,6 +95,32 @@ public class UserService {
         );
 
         return UserConverter.toSettingsResponse(setting);
+    }
+
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = getUserForUpdate(userId);
+        user.withdraw();
+        refreshTokenRepository.revokeAllByUserId(userId);
+    }
+
+    @Transactional
+    public void restore(Long userId) {
+        User user = userRepository.findByIdAndDeletedAtIsNotNullForUpdate(userId)
+            .orElseThrow(() -> new GeneralException(UserErrorCode.USER_NOT_WITHDRAWN));
+
+        if (user.getAnonymizedAt() != null) {
+            throw new GeneralException(UserErrorCode.USER_PERMANENTLY_WITHDRAWN);
+        }
+
+        user.restore();
+    }
+
+    @Transactional
+    public int anonymizeExpiredWithdrawals(LocalDateTime cutoff) {
+        List<User> expiredUsers = userRepository.findByDeletedAtBeforeAndAnonymizedAtIsNull(cutoff);
+        expiredUsers.forEach(User::anonymize);
+        return expiredUsers.size();
     }
 
     private UserPreference getOrCreatePreference(Long userId) {
