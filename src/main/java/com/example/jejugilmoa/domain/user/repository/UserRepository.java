@@ -15,8 +15,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByExternalProviderAndExternalIdAndDeletedAtIsNull(String externalProvider, String externalId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT u FROM User u WHERE u.externalProvider = :externalProvider AND u.externalId = :externalId")
-    Optional<User> findByExternalProviderAndExternalIdForUpdate(
+    @Query("SELECT u FROM User u WHERE u.externalProvider = :externalProvider AND u.externalId = :externalId AND u.deletedAt IS NOT NULL")
+    Optional<User> findByExternalProviderAndExternalIdAndDeletedAtIsNotNullForUpdate(
             @Param("externalProvider") String externalProvider,
             @Param("externalId") String externalId);
 

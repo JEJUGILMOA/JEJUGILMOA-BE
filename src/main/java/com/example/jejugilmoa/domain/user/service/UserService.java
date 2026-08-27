@@ -130,17 +130,15 @@ public class UserService {
         return expiredUsers.size();
     }
 
-    // 소셜 로그인에서 같은 provider/externalId로 남아있는 계정(탈퇴 포함)을 잠그고 복구한다.
-    // 익명화 스케줄러와 같은 행 잠금으로 직렬화되므로, 잠금 대기 중 익명화가 커밋되면
-    // provider/externalId가 비워져 조회에서 제외되고 호출부는 신규 가입으로 이어진다.
+    // 소셜 로그인에서 같은 provider/externalId로 남아있는 탈퇴 계정을 잠그고 복구한다.
+    // 익명화 스케줄러와 같은 행 잠금으로 직렬화되며, 잠금 대기 중 익명화가 커밋되면
+    // provider/externalId가 비워지고, 다른 로그인이 먼저 복구를 커밋하면 deletedAt이 NULL이
+    // 되어 어느 쪽이든 조회에서 제외된다 — 호출부는 빈 Optional을 받아 신규 가입으로 이어진다.
     @Transactional
     public Optional<User> restoreByExternalAccount(String externalProvider, String externalId) {
-        return userRepository.findByExternalProviderAndExternalIdForUpdate(externalProvider, externalId)
+        return userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNotNullForUpdate(externalProvider, externalId)
             .map(user -> {
-                // 동시 로그인이 먼저 복구를 끝냈다면 이미 활성 상태이므로 그대로 반환한다.
-                if (user.getDeletedAt() != null) {
-                    user.restore();
-                }
+                user.restore();
                 return user;
             });
     }

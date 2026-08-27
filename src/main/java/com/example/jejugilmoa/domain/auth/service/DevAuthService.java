@@ -26,14 +26,11 @@ public class DevAuthService {
         userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNull(DEV_PROVIDER, request.email())
                 .ifPresent(u -> { throw new GeneralException(AuthErrorCode.DEV_EMAIL_ALREADY_EXISTS); });
 
-        // 행 잠금으로 익명화 스케줄러와 직렬화한다. 잠금 대기 중 익명화가 커밋되면
-        // provider/externalId가 비워져 조회에서 제외되고 신규 가입으로 이어진다.
-        return userRepository.findByExternalProviderAndExternalIdForUpdate(DEV_PROVIDER, request.email())
+        // 탈퇴 계정만 행 잠금으로 조회해 익명화 스케줄러와 직렬화한다. 잠금 대기 중 익명화가
+        // 커밋되면 provider/externalId가 비워지고, 다른 요청이 먼저 복구하면 deletedAt이 NULL이
+        // 되어 조회에서 제외된다 — 후자는 신규 저장 시 유니크 제약 위반으로 드러난다(dev 전용 허용).
+        return userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNotNullForUpdate(DEV_PROVIDER, request.email())
                 .map(user -> {
-                    // 잠금 대기 중 다른 요청이 먼저 복구를 끝냈다면 이미 사용 중인 이메일이다.
-                    if (user.getDeletedAt() == null) {
-                        throw new GeneralException(AuthErrorCode.DEV_EMAIL_ALREADY_EXISTS);
-                    }
                     user.restore();
                     return new DevAuthResponse(user.getId(), user.getEmail(), user.getNickname(), user.getRole(), false, null);
                 })
