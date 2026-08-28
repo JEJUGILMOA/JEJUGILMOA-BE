@@ -82,7 +82,7 @@ erDiagram
     USER ||--o{ TRAVEL_RECORD : writes
     TRAVEL_PLAN |o--o| TRAVEL_RECORD : "recorded from; retained after plan deletion"
     TRAVEL_RECORD ||--o{ TRAVEL_RECORD_IMAGE : photos
-    TRAVEL_RECORD_PLACE ||--o{ TRAVEL_RECORD_IMAGE : "optional place photos"
+    TRAVEL_RECORD_PLACE o|--o{ TRAVEL_RECORD_IMAGE : "optional place photos"
     TRAVEL_RECORD ||--o{ TRAVEL_RECORD_PLACE : "visited places"
     TRAVEL_RECORD ||--o{ TRAVEL_RECORD_REACTION : "liked/disliked"
     TRAVEL_RECORD ||--o{ TRAVEL_SHARED_RECORD : "shared as"
