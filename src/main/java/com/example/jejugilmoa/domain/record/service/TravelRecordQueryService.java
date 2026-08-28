@@ -64,7 +64,7 @@ public class TravelRecordQueryService {
         List<TravelRecordImage> images = travelRecordImageRepository
                 .findAllByRecordIdOrderBySequence(recordId);
 
-        Map<Long, TravelRecordImageResponse> placeImages = new HashMap<>();
+        Map<Long, List<TravelRecordImageResponse>> placeImages = new HashMap<>();
         List<TravelRecordImageResponse> recordImages = new ArrayList<>();
         for (TravelRecordImage image : images) {
             TravelRecordImageResponse response = TravelRecordConverter.toImageResponse(
@@ -72,12 +72,14 @@ public class TravelRecordQueryService {
             if (image.getTravelRecordPlace() == null) {
                 recordImages.add(response);
             } else {
-                placeImages.put(image.getTravelRecordPlace().getId(), response);
+                placeImages.computeIfAbsent(image.getTravelRecordPlace().getId(), ignored -> new ArrayList<>())
+                        .add(response);
             }
         }
 
         List<TravelRecordPlaceResponse> placeResponses = places.stream()
-                .map(place -> TravelRecordConverter.toPlaceResponse(place, placeImages.get(place.getId())))
+                .map(place -> TravelRecordConverter.toPlaceResponse(
+                        place, placeImages.getOrDefault(place.getId(), List.of())))
                 .toList();
         ReactionSummary reactions = loadReactionSummaries(List.of(recordId)).getOrDefault(
                 recordId, ReactionSummary.EMPTY);
