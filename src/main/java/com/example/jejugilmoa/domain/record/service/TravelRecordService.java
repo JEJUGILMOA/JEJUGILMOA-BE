@@ -75,8 +75,7 @@ public class TravelRecordService {
                 request.placeMemos(), courses);
         List<String> recordImageObjectKeys = nullSafe(request.imageObjectKeys());
         List<String> placeImageObjectKeys = placeInputs.values().stream()
-                .map(TravelRecordPlaceMemoRequest::imageObjectKey)
-                .filter(java.util.Objects::nonNull)
+                .flatMap(placeInput -> nullSafe(placeInput.imageObjectKeys()).stream())
                 .toList();
         validateObjectKeys(java.util.stream.Stream.concat(
                 recordImageObjectKeys.stream(), placeImageObjectKeys.stream()).toList(), userId);
@@ -110,9 +109,11 @@ public class TravelRecordService {
         }
         for (TravelCourse course : courses) {
             TravelRecordPlaceMemoRequest placeInput = placeInputs.get(course.getId());
-            if (placeInput != null && placeInput.imageObjectKey() != null) {
-                images.add(TravelRecordConverter.toImage(record, recordPlacesByCourseId.get(course.getId()),
-                        placeInput.imageObjectKey(), imageSequence++));
+            if (placeInput != null) {
+                for (String objectKey : nullSafe(placeInput.imageObjectKeys())) {
+                    images.add(TravelRecordConverter.toImage(record, recordPlacesByCourseId.get(course.getId()),
+                            objectKey, imageSequence++));
+                }
             }
         }
         travelRecordImageRepository.saveAll(images);
@@ -170,10 +171,10 @@ public class TravelRecordService {
             if (update.image() != null) {
                 boolean invalidReplace = update.image().action()
                         == com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REPLACE
-                        && (update.image().objectKey() == null || update.image().objectKey().isBlank());
+                        && (update.image().objectKeys() == null || update.image().objectKeys().isEmpty());
                 boolean invalidRemove = update.image().action()
                         == com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REMOVE
-                        && update.image().objectKey() != null;
+                        && update.image().objectKeys() != null;
                 if (invalidReplace || invalidRemove) {
                     throw new GeneralException(RecordErrorCode.RECORD_INVALID_OBJECT_KEY);
                 }
@@ -193,15 +194,16 @@ public class TravelRecordService {
                 .filter(image -> image.getTravelRecordPlace() == null).toList();
         Map<String, TravelRecordImage> currentRecordByKey = currentRecordImages.stream()
                 .collect(Collectors.toMap(TravelRecordImage::getObjectKey, Function.identity()));
-        Map<Long, TravelRecordImage> currentPlaceById = currentImages.stream()
+        Map<Long, List<TravelRecordImage>> currentPlaceById = currentImages.stream()
                 .filter(image -> image.getTravelRecordPlace() != null)
-                .collect(Collectors.toMap(image -> image.getTravelRecordPlace().getId(), Function.identity()));
+                .collect(Collectors.groupingBy(image -> image.getTravelRecordPlace().getId()));
 
         List<String> finalRecordKeys = requestedRecordKeys == null
                 ? currentRecordImages.stream().map(TravelRecordImage::getObjectKey).toList()
                 : requestedRecordKeys;
-        Map<Long, String> finalPlaceKeys = new HashMap<>();
-        currentPlaceById.forEach((placeId, image) -> finalPlaceKeys.put(placeId, image.getObjectKey()));
+        Map<Long, List<String>> finalPlaceKeys = new HashMap<>();
+        currentPlaceById.forEach((placeId, images) -> finalPlaceKeys.put(placeId,
+                images.stream().map(TravelRecordImage::getObjectKey).toList()));
         placeUpdates.forEach((placeId, update) -> {
             if (update.image() == null) {
                 return;
@@ -210,12 +212,12 @@ public class TravelRecordService {
                     == com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REMOVE) {
                 finalPlaceKeys.remove(placeId);
             } else {
-                finalPlaceKeys.put(placeId, update.image().objectKey());
+                finalPlaceKeys.put(placeId, update.image().objectKeys());
             }
         });
 
         List<String> finalKeys = java.util.stream.Stream.concat(
-                finalRecordKeys.stream(), finalPlaceKeys.values().stream()).toList();
+                finalRecordKeys.stream(), finalPlaceKeys.values().stream().flatMap(List::stream)).toList();
         if (new HashSet<>(finalKeys).size() != finalKeys.size()) {
             throw new GeneralException(RecordErrorCode.RECORD_INVALID_OBJECT_KEY);
         }
@@ -235,18 +237,23 @@ public class TravelRecordService {
             finalRecordImages.add(image);
         }
 
-        Map<Long, TravelRecordImage> finalPlaceImages = new HashMap<>();
-        finalPlaceKeys.forEach((placeId, key) -> {
-            TravelRecordImage image = currentPlaceById.get(placeId);
-            if (image == null) {
-                image = TravelRecordConverter.toImage(record, placesById(recordPlaces).get(placeId), key, 0);
-            } else {
-                retained.add(image);
-                if (!image.getObjectKey().equals(key)) {
-                    image.replaceObjectKey(key);
+        Map<Long, List<TravelRecordImage>> finalPlaceImages = new HashMap<>();
+        Map<Long, TravelRecordPlace> recordPlacesById = placesById(recordPlaces);
+        finalPlaceKeys.forEach((placeId, keys) -> {
+            Map<String, TravelRecordImage> currentByKey = currentPlaceById
+                    .getOrDefault(placeId, List.of()).stream()
+                    .collect(Collectors.toMap(TravelRecordImage::getObjectKey, Function.identity()));
+            List<TravelRecordImage> images = new ArrayList<>();
+            for (String key : keys) {
+                TravelRecordImage image = currentByKey.get(key);
+                if (image == null) {
+                    image = TravelRecordConverter.toImage(record, recordPlacesById.get(placeId), key, 0);
+                } else {
+                    retained.add(image);
                 }
+                images.add(image);
             }
-            finalPlaceImages.put(placeId, image);
+            finalPlaceImages.put(placeId, images);
         });
 
         List<TravelRecordImage> removed = currentImages.stream()
@@ -267,8 +274,7 @@ public class TravelRecordService {
             finalImages.add(image);
         }
         for (TravelRecordPlace place : recordPlaces) {
-            TravelRecordImage image = finalPlaceImages.get(place.getId());
-            if (image != null) {
+            for (TravelRecordImage image : finalPlaceImages.getOrDefault(place.getId(), List.of())) {
                 image.changeSequenceOrder(sequence++);
                 finalImages.add(image);
             }
