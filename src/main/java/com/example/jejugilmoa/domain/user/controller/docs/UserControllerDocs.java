@@ -240,4 +240,92 @@ public interface UserControllerDocs {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody UserSettingsUpdateRequest request
     );
+
+    @Operation(
+            summary = "회원 탈퇴",
+            description = """
+                    로그인한 사용자를 탈퇴 처리합니다.
+
+                    계정은 소프트 삭제(deletedAt 기록)되며, 보유한 모든 리프레시 토큰이 즉시 폐기됩니다.
+
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "회원 탈퇴 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "사용자를 찾을 수 없음(이미 탈퇴한 회원 포함)",
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "isSuccess": false,
+                                              "code": "USER404_1",
+                                              "message": "사용자를 찾을 수 없습니다.",
+                                              "result": null
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    ApiResponse<Void> withdraw(
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal principal
+    );
+
+    @Operation(
+            summary = "회원 탈퇴 복구",
+            description = """
+                    탈퇴한 계정을 복구합니다.
+
+                    탈퇴 시 발급된 액세스 토큰이 만료되기 전에만 호출할 수 있습니다.
+                    (같은 소셜 계정으로 탈퇴 후 30일 이내 재로그인하면 자동으로도 복구됩니다.)
+                    탈퇴 후 30일이 지나 계정이 익명화된 경우에는 복구할 수 없습니다.
+
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "회원 탈퇴 복구 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "탈퇴한 계정이 아님",
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "isSuccess": false,
+                                              "code": "USER400_2",
+                                              "message": "탈퇴한 계정이 아닙니다.",
+                                              "result": null
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "410",
+                    description = "탈퇴 후 30일이 지나 복구 불가",
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "isSuccess": false,
+                                              "code": "USER410_1",
+                                              "message": "탈퇴 후 30일이 지나 복구할 수 없습니다.",
+                                              "result": null
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
+    ApiResponse<Void> restore(
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal principal
+    );
 }

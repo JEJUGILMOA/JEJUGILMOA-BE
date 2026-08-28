@@ -15,6 +15,7 @@ import com.example.jejugilmoa.domain.notification.repository.DeviceTokenReposito
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.enums.Role;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
+import com.example.jejugilmoa.domain.user.service.UserService;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.DisplayName;
@@ -47,6 +48,9 @@ class AuthServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserService userService;
 
     @Mock
     private JwtProvider jwtProvider;
@@ -120,6 +124,39 @@ class AuthServiceTest {
         assertThat(response.nickname()).isEqualTo("기존유저");
         assertThat(response.newUser()).isFalse();
         verify(userRepository).findByExternalProviderAndExternalIdAndDeletedAtIsNull("google", "google-sub");
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("탈퇴 후 30일 이내 재로그인하면 행 잠금 복구를 거쳐 기존 계정을 반환한다")
+    void loginRestoresWithdrawnUserViaLockedRestore() {
+        OAuthLoginRequest request = new OAuthLoginRequest("auth-code", "http://localhost/callback", null);
+        OAuthUserInfo userInfo = new OAuthUserInfo(
+                SocialProvider.KAKAO,
+                "12345",
+                "제주러",
+                null,
+                null
+        );
+        User restoredUser = User.builder()
+                .id(5L)
+                .externalProvider("kakao")
+                .externalId("12345")
+                .nickname("돌아온유저")
+                .email("back@example.com")
+                .build();
+
+        given(socialOAuthClient.fetchUserInfo(SocialProvider.KAKAO, request)).willReturn(userInfo);
+        given(userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNull("kakao", "12345"))
+                .willReturn(Optional.empty());
+        given(userService.restoreByExternalAccount("kakao", "12345"))
+                .willReturn(Optional.of(restoredUser));
+
+        OAuthLoginResponse response = authService.login("kakao", request);
+
+        assertThat(response.userId()).isEqualTo(5L);
+        assertThat(response.newUser()).isFalse();
+        verify(userService).restoreByExternalAccount("kakao", "12345");
         verify(userRepository, never()).save(any(User.class));
     }
 

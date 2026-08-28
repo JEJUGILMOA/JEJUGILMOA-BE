@@ -7,10 +7,18 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByExternalProviderAndExternalIdAndDeletedAtIsNull(String externalProvider, String externalId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.externalProvider = :externalProvider AND u.externalId = :externalId AND u.deletedAt IS NOT NULL")
+    Optional<User> findByExternalProviderAndExternalIdAndDeletedAtIsNotNullForUpdate(
+            @Param("externalProvider") String externalProvider,
+            @Param("externalId") String externalId);
 
     Optional<User> findByIdAndDeletedAtIsNull(Long id);
 
@@ -18,6 +26,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.id = :id AND u.deletedAt IS NULL")
     Optional<User> findByIdAndDeletedAtIsNullForUpdate(@Param("id") Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.id = :id AND u.deletedAt IS NOT NULL")
+    Optional<User> findByIdAndDeletedAtIsNotNullForUpdate(@Param("id") Long id);
+
     @Query("SELECT COUNT(ub) FROM UserBadge ub WHERE ub.user.id = :userId")
     long countBadgesByUserId(@Param("userId") Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.deletedAt < :cutoff AND u.anonymizedAt IS NULL")
+    List<User> findByDeletedAtBeforeAndAnonymizedAtIsNullForUpdate(@Param("cutoff") LocalDateTime cutoff);
 }
