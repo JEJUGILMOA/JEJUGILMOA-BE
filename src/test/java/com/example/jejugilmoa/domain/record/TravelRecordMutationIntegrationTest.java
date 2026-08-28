@@ -2,6 +2,7 @@ package com.example.jejugilmoa.domain.record;
 
 import com.example.jejugilmoa.domain.imageupload.service.ImageObjectVerifier;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateRequest;
+import com.example.jejugilmoa.domain.record.entity.TravelRecordImage;
 import com.example.jejugilmoa.domain.record.repository.TravelRecordImageRepository;
 import com.example.jejugilmoa.domain.record.repository.TravelRecordRepository;
 import com.example.jejugilmoa.domain.record.service.TravelRecordService;
@@ -54,6 +55,21 @@ class TravelRecordMutationIntegrationTest {
     }
 
     @Test
+    void multipleImagesCanReferenceSameRecordPlace() {
+        User owner = userRepository.saveAndFlush(User.builder().nickname("장소 이미지 통합 테스트").build());
+        Long recordId = insertRecord(owner.getId());
+        Long recordPlaceId = insertRecordPlace(recordId);
+
+        insertPlaceImage(recordId, recordPlaceId, "records/%d/place-1.jpg".formatted(owner.getId()), 1);
+        insertPlaceImage(recordId, recordPlaceId, "records/%d/place-2.jpg".formatted(owner.getId()), 2);
+
+        assertThat(travelRecordImageRepository.findAllByRecordIdOrderBySequence(recordId))
+                .extracting(TravelRecordImage::getObjectKey)
+                .containsExactly("records/%d/place-1.jpg".formatted(owner.getId()),
+                        "records/%d/place-2.jpg".formatted(owner.getId()));
+    }
+
+    @Test
     void deleteKeepsDatabaseRowButExcludesAllActiveQueries() {
         User owner = userRepository.saveAndFlush(User.builder().nickname("삭제 통합 테스트").build());
         Long recordId = insertRecord(owner.getId());
@@ -90,5 +106,45 @@ class TravelRecordMutationIntegrationTest {
                         """)
                 .param("recordId", recordId).param("objectKey", objectKey)
                 .param("sequenceOrder", sequenceOrder).update();
+    }
+
+    private Long insertRecordPlace(Long recordId) {
+        Long categoryId = jdbcClient.sql("""
+                        INSERT INTO category (created_at, updated_at, name)
+                        VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :name)
+                        RETURNING id
+                        """)
+                .param("name", "장소 이미지 통합 테스트 " + System.nanoTime()).query(Long.class).single();
+        Long placeId = jdbcClient.sql("""
+                        INSERT INTO place
+                            (created_at, updated_at, name, address, latitude, longitude,
+                             visitor_count, is_published, category_id)
+                        VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '통합 테스트 장소', '제주 테스트 주소',
+                                33.00000000, 126.00000000, 0, TRUE, :categoryId)
+                        RETURNING id
+                        """)
+                .param("categoryId", categoryId).query(Long.class).single();
+        return jdbcClient.sql("""
+                        INSERT INTO travel_record_place
+                            (created_at, updated_at, travel_record_id, travel_place_id, place_name, address,
+                             latitude, longitude, visit_date, sequence_order, visited)
+                        VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :recordId, :placeId,
+                                '통합 테스트 장소', '제주 테스트 주소', 33.00000000, 126.00000000,
+                                CURRENT_DATE, 1, TRUE)
+                        RETURNING id
+                        """)
+                .param("recordId", recordId).param("placeId", placeId).query(Long.class).single();
+    }
+
+    private void insertPlaceImage(Long recordId, Long recordPlaceId, String objectKey, int sequenceOrder) {
+        jdbcClient.sql("""
+                        INSERT INTO travel_record_image
+                            (created_at, updated_at, travel_record_id, travel_record_place_id,
+                             object_key, sequence_order)
+                        VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :recordId, :recordPlaceId,
+                                :objectKey, :sequenceOrder)
+                        """)
+                .param("recordId", recordId).param("recordPlaceId", recordPlaceId)
+                .param("objectKey", objectKey).param("sequenceOrder", sequenceOrder).update();
     }
 }

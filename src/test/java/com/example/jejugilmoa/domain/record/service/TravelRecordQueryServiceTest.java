@@ -160,11 +160,14 @@ class TravelRecordQueryServiceTest {
         TravelRecordImage recordImage = TravelRecordImage.builder().id(401L).travelRecord(record)
                 .objectKey("records/1/general.jpg").sequenceOrder(1).build();
         TravelRecordImage placeImage = TravelRecordImage.builder().id(402L).travelRecord(record)
-                .travelRecordPlace(place).objectKey("records/1/place.jpg").sequenceOrder(2).build();
+                .travelRecordPlace(place).objectKey("records/1/place-1.jpg").sequenceOrder(2).build();
+        TravelRecordImage secondPlaceImage = TravelRecordImage.builder().id(403L).travelRecord(record)
+                .travelRecordPlace(place).objectKey("records/1/place-2.jpg").sequenceOrder(3).build();
         given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(30L))
-                .willReturn(List.of(recordImage, placeImage));
+                .willReturn(List.of(recordImage, placeImage, secondPlaceImage));
         given(imageUrlResolver.resolve("records/1/general.jpg")).willReturn("https://signed/general");
-        given(imageUrlResolver.resolve("records/1/place.jpg")).willReturn("https://signed/place");
+        given(imageUrlResolver.resolve("records/1/place-1.jpg")).willReturn("https://signed/place-1");
+        given(imageUrlResolver.resolve("records/1/place-2.jpg")).willReturn("https://signed/place-2");
         given(travelRecordReactionRepository.countByRecordIdsAndType(List.of(30L))).willReturn(List.of());
         given(travelRecordReactionRepository.findMineByRecordIds(List.of(30L), 1L)).willReturn(List.of());
 
@@ -175,7 +178,8 @@ class TravelRecordQueryServiceTest {
                 assertThat(image.imageUrl()).isEqualTo("https://signed/general"));
         assertThat(result.places()).singleElement().satisfies(response -> {
             assertThat(response.placeName()).isEqualTo("snapshot");
-            assertThat(response.image().imageUrl()).isEqualTo("https://signed/place");
+            assertThat(response.images()).extracting(image -> image.imageUrl())
+                    .containsExactly("https://signed/place-1", "https://signed/place-2");
         });
     }
 

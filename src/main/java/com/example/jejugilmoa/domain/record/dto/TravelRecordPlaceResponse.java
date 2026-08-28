@@ -3,6 +3,7 @@ package com.example.jejugilmoa.domain.record.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record TravelRecordPlaceResponse(
         Long recordPlaceId,
@@ -18,6 +19,6 @@ public record TravelRecordPlaceResponse(
         String memo,
         Integer stayMinutes,
         Integer rating,
-        TravelRecordImageResponse image
+        List<TravelRecordImageResponse> images
 ) {
 }

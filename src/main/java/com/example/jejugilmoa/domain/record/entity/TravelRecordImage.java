@@ -20,8 +20,7 @@ import lombok.*;
                 @UniqueConstraint(
                         name = "uk_record_image_sequence",
                         columnNames = {"travel_record_id", "sequence_order"}
-                ),
-                @UniqueConstraint(name = "uk_record_image_place", columnNames = "travel_record_place_id")
+                )
         }
 )
 public class TravelRecordImage extends BaseEntity {

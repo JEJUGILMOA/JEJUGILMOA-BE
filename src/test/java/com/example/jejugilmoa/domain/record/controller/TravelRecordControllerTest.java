@@ -109,6 +109,28 @@ class TravelRecordControllerTest {
     }
 
     @Test
+    void createAcceptsMultipleImagesForEachPlace() throws Exception {
+        stubSuccessfulCreate();
+
+        mockMvc.perform(post("/api/records")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("""
+                                {"tripId":10,"title":"여행 기록","placeMemos":[
+                                  {"travelCourseId":101,"imageObjectKeys":[
+                                    "records/42/place-1.jpg","records/42/place-2.jpg"
+                                  ]}
+                                ]}
+                                """))
+                .andExpect(status().isCreated());
+
+        var captor = forClass(com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest.class);
+        verify(travelRecordService).create(eq(42L), captor.capture());
+        assertThat(captor.getValue().placeMemos().getFirst().imageObjectKeys())
+                .containsExactly("records/42/place-1.jpg", "records/42/place-2.jpg");
+    }
+
+    @Test
     void createRequiresAuthentication() throws Exception {
         mockMvc.perform(post("/api/records")
                         .contentType("application/json")
@@ -142,13 +164,13 @@ class TravelRecordControllerTest {
     }
 
     @Test
-    void blankPlaceImageObjectKeyReturnsValidationEnvelope() throws Exception {
+    void blankPlaceImageObjectKeyElementReturnsValidationEnvelope() throws Exception {
         mockMvc.perform(post("/api/records")
                         .with(authentication(authenticationFor(42L)))
                         .contentType("application/json")
                         .content("""
                                 {"tripId":10,"title":"여행 기록","placeMemos":[
-                                  {"travelCourseId":101,"memo":"메모","imageObjectKey":"   "}
+                                  {"travelCourseId":101,"memo":"메모","imageObjectKeys":["   "]}
                                 ]}
                                 """))
                 .andExpect(status().isBadRequest())
@@ -250,6 +272,30 @@ class TravelRecordControllerTest {
                 .andExpect(jsonPath("$.result.recordId").value(77))
                 .andExpect(jsonPath("$.result.description").value(""))
                 .andExpect(jsonPath("$.result.visibility").value("PUBLIC"));
+    }
+
+    @Test
+    void updateAcceptsMultipleReplacementImagesForPlace() throws Exception {
+        given(travelRecordService.update(eq(42L), eq(77L), any()))
+                .willReturn(new TravelRecordUpdateResponse(
+                        77L, "제목", null, Visibility.PRIVATE,
+                        Instant.parse("2026-08-26T03:00:00Z")));
+
+        mockMvc.perform(patch("/api/records/77")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("""
+                                {"places":[{"recordPlaceId":501,
+                                  "image":{"action":"REPLACE","objectKeys":[
+                                    "records/42/new-1.jpg","records/42/new-2.jpg"
+                                  ]}}]}
+                                """))
+                .andExpect(status().isOk());
+
+        var captor = forClass(com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateRequest.class);
+        verify(travelRecordService).update(eq(42L), eq(77L), captor.capture());
+        assertThat(captor.getValue().places().getFirst().image().objectKeys())
+                .containsExactly("records/42/new-1.jpg", "records/42/new-2.jpg");
     }
 
     @Test

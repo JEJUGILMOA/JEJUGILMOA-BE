@@ -122,12 +122,12 @@ public final class TravelRecordConverter {
     }
 
     public static TravelRecordPlaceResponse toPlaceResponse(
-            TravelRecordPlace place, TravelRecordImageResponse image) {
+            TravelRecordPlace place, List<TravelRecordImageResponse> images) {
         return new TravelRecordPlaceResponse(
                 place.getId(), place.getPlace().getId(), place.getPlaceName(), place.getAddress(),
                 place.getLatitude(), place.getLongitude(), place.getVisitDate(), place.getSequenceOrder(),
                 place.isVisited(), place.getVisitedAt(), place.getMemo(), place.getStayMinutes(),
-                place.getRating(), image);
+                place.getRating(), images);
     }
 
     public static TravelRecordDetailResponse toDetailResponse(

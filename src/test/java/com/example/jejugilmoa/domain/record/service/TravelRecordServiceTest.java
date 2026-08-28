@@ -84,8 +84,11 @@ class TravelRecordServiceTest {
                 "33.4625", "126.3223", LocalDate.of(2026, 8, 11), 1);
         stubCreate(plan, List.of(first, second));
         var request = request(Visibility.PUBLIC,
-                List.of(new TravelRecordPlaceMemoRequest(
-                        102L, "노을이 좋았다", "records/42/aewol-place.webp")),
+                List.of(
+                        new TravelRecordPlaceMemoRequest(101L, null,
+                                List.of("records/42/sungsan-1.jpg", "records/42/sungsan-2.jpg")),
+                        new TravelRecordPlaceMemoRequest(102L, "노을이 좋았다",
+                                List.of("records/42/aewol-1.webp", "records/42/aewol-2.webp"))),
                 List.of("records/42/first.jpg", "records/42/second.webp"));
 
         var response = travelRecordService.create(USER_ID, request);
@@ -122,14 +125,23 @@ class TravelRecordServiceTest {
         ArgumentCaptor<List<TravelRecordImage>> imageCaptor = ArgumentCaptor.forClass(List.class);
         verify(travelRecordImageRepository).saveAll(imageCaptor.capture());
         assertThat(imageCaptor.getValue()).extracting(TravelRecordImage::getObjectKey)
-                .containsExactly("records/42/first.jpg", "records/42/second.webp", "records/42/aewol-place.webp");
-        assertThat(imageCaptor.getValue()).extracting(TravelRecordImage::getSequenceOrder).containsExactly(1, 2, 3);
+                .containsExactly("records/42/first.jpg", "records/42/second.webp",
+                        "records/42/sungsan-1.jpg", "records/42/sungsan-2.jpg",
+                        "records/42/aewol-1.webp", "records/42/aewol-2.webp");
+        assertThat(imageCaptor.getValue()).extracting(TravelRecordImage::getSequenceOrder)
+                .containsExactly(1, 2, 3, 4, 5, 6);
         assertThat(imageCaptor.getValue().get(0).getTravelRecordPlace()).isNull();
         assertThat(imageCaptor.getValue().get(1).getTravelRecordPlace()).isNull();
-        assertThat(imageCaptor.getValue().get(2).getTravelRecordPlace()).isSameAs(placeCaptor.getValue().get(1));
+        assertThat(imageCaptor.getValue().subList(2, 4)).allSatisfy(image ->
+                assertThat(image.getTravelRecordPlace()).isSameAs(placeCaptor.getValue().get(0)));
+        assertThat(imageCaptor.getValue().subList(4, 6)).allSatisfy(image ->
+                assertThat(image.getTravelRecordPlace()).isSameAs(placeCaptor.getValue().get(1)));
         verify(imageObjectVerifier).verify("records/42/first.jpg");
         verify(imageObjectVerifier).verify("records/42/second.webp");
-        verify(imageObjectVerifier).verify("records/42/aewol-place.webp");
+        verify(imageObjectVerifier).verify("records/42/sungsan-1.jpg");
+        verify(imageObjectVerifier).verify("records/42/sungsan-2.jpg");
+        verify(imageObjectVerifier).verify("records/42/aewol-1.webp");
+        verify(imageObjectVerifier).verify("records/42/aewol-2.webp");
     }
 
     @Test
@@ -215,7 +227,7 @@ class TravelRecordServiceTest {
         willThrow(new GeneralException(ImageUploadErrorCode.OBJECT_NOT_FOUND))
                 .given(imageObjectVerifier).verify(objectKey);
 
-        assertCode(request(null, List.of(new TravelRecordPlaceMemoRequest(101L, null, objectKey)), null),
+        assertCode(request(null, List.of(new TravelRecordPlaceMemoRequest(101L, null, List.of(objectKey))), null),
                 ImageUploadErrorCode.OBJECT_NOT_FOUND);
     }
 
@@ -236,12 +248,30 @@ class TravelRecordServiceTest {
     }
 
     @Test
+    void create_succeedsWhenPlaceHasOneImage() {
+        TravelPlan plan = completedPlan(owner);
+        stubCreate(plan, List.of(course(plan, 101L, 1L, "장소", "주소", "33.1", "126.1",
+                LocalDate.of(2026, 8, 10), 1)));
+
+        travelRecordService.create(USER_ID, request(null,
+                List.of(new TravelRecordPlaceMemoRequest(
+                        101L, null, List.of("records/42/place.jpg"))), null));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<TravelRecordImage>> imageCaptor = ArgumentCaptor.forClass(List.class);
+        verify(travelRecordImageRepository).saveAll(imageCaptor.capture());
+        assertThat(imageCaptor.getValue()).extracting(TravelRecordImage::getObjectKey)
+                .containsExactly("records/42/place.jpg");
+    }
+
+    @Test
     void create_withLocalVerifierFailsWhenImageUsesAnotherUserPrefix() {
         TravelPlan plan = completedPlan(owner);
         stubCreate(plan, List.of(course(plan, 101L, 1L, "장소", "주소", "33.1", "126.1",
                 LocalDate.of(2026, 8, 10), 1)));
         assertCode(localTravelRecordService(), request(null,
-                        List.of(new TravelRecordPlaceMemoRequest(101L, null, "records/999/stolen.jpg")), null),
+                        List.of(new TravelRecordPlaceMemoRequest(
+                                101L, null, List.of("records/999/stolen.jpg"))), null),
                 RecordErrorCode.RECORD_INVALID_OBJECT_KEY);
         verifyNoInteractions(imageObjectVerifier);
     }
@@ -252,7 +282,8 @@ class TravelRecordServiceTest {
         stubCreate(plan, List.of(course(plan, 101L, 1L, "장소", "주소", "33.1", "126.1",
                 LocalDate.of(2026, 8, 10), 1)));
         assertCode(localTravelRecordService(),
-                request(null, List.of(new TravelRecordPlaceMemoRequest(101L, null, "records/42/a.jpg")),
+                request(null, List.of(new TravelRecordPlaceMemoRequest(
+                                101L, null, List.of("records/42/a.jpg"))),
                         List.of("records/42/a.jpg")),
                 RecordErrorCode.RECORD_INVALID_OBJECT_KEY);
         verifyNoInteractions(imageObjectVerifier);
@@ -330,19 +361,26 @@ class TravelRecordServiceTest {
                         new TravelRecordPlaceUpdateRequest(501L, null,
                                 new TravelRecordPlaceImageUpdateRequest(
                                         com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REPLACE,
-                                        "records/42/new.jpg")),
+                                        List.of("records/42/new-1.jpg", "records/42/new-2.jpg"))),
                         new TravelRecordPlaceUpdateRequest(502L, null,
                                 new TravelRecordPlaceImageUpdateRequest(
                                         com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REMOVE, null)),
                         new TravelRecordPlaceUpdateRequest(503L, null,
                                 new TravelRecordPlaceImageUpdateRequest(
                                         com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REPLACE,
-                                        "records/42/third.jpg"))), null));
+                                        List.of("records/42/third-1.jpg", "records/42/third-2.jpg")))), null));
 
-        assertThat(firstImage.getObjectKey()).isEqualTo("records/42/new.jpg");
-        verify(travelRecordImageRepository).deleteAll(List.of(secondImage));
-        verify(imageObjectVerifier).verify("records/42/new.jpg");
-        verify(imageObjectVerifier).verify("records/42/third.jpg");
+        verify(travelRecordImageRepository).deleteAll(List.of(firstImage, secondImage));
+        verify(imageObjectVerifier).verify("records/42/new-1.jpg");
+        verify(imageObjectVerifier).verify("records/42/new-2.jpg");
+        verify(imageObjectVerifier).verify("records/42/third-1.jpg");
+        verify(imageObjectVerifier).verify("records/42/third-2.jpg");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<TravelRecordImage>> captor = ArgumentCaptor.forClass(List.class);
+        verify(travelRecordImageRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).extracting(TravelRecordImage::getObjectKey)
+                .containsExactly("records/42/new-1.jpg", "records/42/new-2.jpg",
+                        "records/42/third-1.jpg", "records/42/third-2.jpg");
     }
 
     @Test
