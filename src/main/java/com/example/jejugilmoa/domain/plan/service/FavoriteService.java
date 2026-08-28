@@ -15,6 +15,7 @@ import com.example.jejugilmoa.domain.user.repository.UserRepository;
 import com.example.jejugilmoa.global.apiPayload.dto.PageResponse;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class FavoriteService {
+
+    private static final String FAVORITE_UNIQUE_CONSTRAINT = "uk_favorite";
 
     private final FavoriteRepository favoriteRepository;
     private final UserRepository userRepository;
@@ -47,7 +50,10 @@ public class FavoriteService {
         try {
             favoriteRepository.saveAndFlush(favorite);
         } catch (DataIntegrityViolationException exception) {
-            throw new GeneralException(FavoriteErrorCode.FAVORITE_ALREADY_EXISTS);
+            if (hasConstraint(exception, FAVORITE_UNIQUE_CONSTRAINT)) {
+                throw new GeneralException(FavoriteErrorCode.FAVORITE_ALREADY_EXISTS);
+            }
+            throw exception;
         }
     }
 
@@ -62,5 +68,17 @@ public class FavoriteService {
         return PageResponse.of(favoriteRepository
                 .findAllByUserIdAndUserDeletedAtIsNullAndPlacePublishedTrueOrderByIdDesc(userId, pageable)
                 .map(FavoriteConverter::toResponse));
+    }
+
+    private boolean hasConstraint(Throwable throwable, String constraintName) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof ConstraintViolationException constraintViolation
+                    && constraintName.equals(constraintViolation.getConstraintName())) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

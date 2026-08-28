@@ -11,6 +11,7 @@ import com.example.jejugilmoa.domain.plan.repository.FavoriteRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +21,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
@@ -86,9 +88,23 @@ class FavoriteServiceTest {
         given(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).willReturn(Optional.of(user));
         given(placeRepository.findByIdAndPublishedTrue(PLACE_ID)).willReturn(Optional.of(place));
         given(favoriteRepository.saveAndFlush(any(Favorite.class)))
-                .willThrow(new DataIntegrityViolationException("uk_favorite"));
+                .willThrow(constraintViolation("uk_favorite"));
 
         assertCode(() -> favoriteService.add(USER_ID, request), FavoriteErrorCode.FAVORITE_ALREADY_EXISTS);
+    }
+
+    @Test
+    void add_rethrowsUnrelatedDataIntegrityViolation() {
+        User user = User.builder().id(USER_ID).nickname("여행자").build();
+        Place place = Place.builder().id(PLACE_ID).published(true).build();
+        FavoriteCreateRequest request = new FavoriteCreateRequest(PLACE_ID);
+        DataIntegrityViolationException exception = constraintViolation("fk_favorite_user");
+        given(favoriteRepository.existsByUserIdAndPlaceId(USER_ID, PLACE_ID)).willReturn(false);
+        given(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).willReturn(Optional.of(user));
+        given(placeRepository.findByIdAndPublishedTrue(PLACE_ID)).willReturn(Optional.of(place));
+        given(favoriteRepository.saveAndFlush(any(Favorite.class))).willThrow(exception);
+
+        assertThatThrownBy(() -> favoriteService.add(USER_ID, request)).isSameAs(exception);
     }
 
     @Test
@@ -145,5 +161,11 @@ class FavoriteServiceTest {
         assertThatThrownBy(callable)
                 .isInstanceOf(GeneralException.class)
                 .satisfies(exception -> assertThat(((GeneralException) exception).getCode()).isEqualTo(expectedCode));
+    }
+
+    private DataIntegrityViolationException constraintViolation(String constraintName) {
+        ConstraintViolationException cause = new ConstraintViolationException(
+                "constraint violation", new SQLException("constraint violation"), constraintName);
+        return new DataIntegrityViolationException("data integrity violation", cause);
     }
 }
