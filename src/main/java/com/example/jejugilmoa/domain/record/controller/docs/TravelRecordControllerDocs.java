@@ -48,7 +48,7 @@ public interface TravelRecordControllerDocs {
 
                     - tripId는 여행 계획 ID와 같습니다.
                     - 장소는 서버가 완료 여행의 전체 경유지를 날짜/순서대로 복사합니다.
-                    - 장소 메모와 선택 이미지 1장은 travelCourseId로 지정하며, 다른 여행의 경유지는 거부합니다.
+                    - 장소 메모와 선택 이미지들은 travelCourseId로 지정하며, 다른 여행의 경유지는 거부합니다.
                     - visibility를 생략하면 PRIVATE입니다.
                     - imageObjectKeys는 먼저 `/api/image-uploads`에서 발급받은
                       `records/{userId}/...` 형식이어야 하며 요청 순서대로 저장됩니다.
@@ -67,7 +67,11 @@ public interface TravelRecordControllerDocs {
                               "description": "바다와 오름을 함께 본 하루",
                               "visibility": "PUBLIC",
                               "placeMemos": [
-                                {"travelCourseId": 7, "memo": "노을 시간에 다시 오고 싶은 곳", "imageObjectKey": "records/42/place.jpg"}
+                                {
+                                  "travelCourseId": 7,
+                                  "memo": "노을 시간에 다시 오고 싶은 곳",
+                                  "imageObjectKeys": ["records/42/place1.jpg", "records/42/place2.jpg"]
+                                }
                               ],
                               "imageObjectKeys": [
                                 "records/42/550e8400-e29b-41d4-a716-446655440000.jpg"
@@ -118,6 +122,7 @@ public interface TravelRecordControllerDocs {
                     본인의 활성 여행 기록에서 제목, 소개, 공개 범위, 장소 메모와 사진만 수정합니다.
                     places의 recordPlaceId는 현재 기록의 snapshot 장소 ID입니다.
                     장소 image를 생략하면 유지하고, action은 REPLACE 또는 REMOVE를 사용합니다.
+                    REPLACE의 objectKeys 배열 순서대로 장소 사진 전체를 교체합니다.
                     imageObjectKeys는 null이면 유지, 빈 배열이면 전체 기록 사진을 제거합니다.
                     """
     )
