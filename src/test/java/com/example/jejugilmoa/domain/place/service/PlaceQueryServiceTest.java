@@ -84,6 +84,15 @@ class PlaceQueryServiceTest {
     }
 
     @Test
+    void browse_escapesExclamationMark() {
+        given(placeRepository.search(any(), any(), any())).willReturn(Page.empty());
+
+        placeQueryService.browse("!test", null, PageRequest.of(0, 10));
+
+        verify(placeRepository).search(eq("!!test"), isNull(), any());
+    }
+
+    @Test
     void getDetail_returnsPlaceData() {
         var place = Place.builder().id(1L).name("한라산").imageUrl("img.jpg")
             .externalId("c1").address("제주시").latitude(new BigDecimal("33.36")).longitude(new BigDecimal("126.53")).build();

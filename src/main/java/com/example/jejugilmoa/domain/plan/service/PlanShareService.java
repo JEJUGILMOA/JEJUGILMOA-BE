@@ -3,10 +3,12 @@ package com.example.jejugilmoa.domain.plan.service;
 import com.example.jejugilmoa.domain.plan.converter.PlanShareConverter;
 import com.example.jejugilmoa.domain.plan.dto.ShareLinkResponse;
 import com.example.jejugilmoa.domain.plan.dto.SharedPlanResponse;
+import com.example.jejugilmoa.domain.plan.entity.DayDeparture;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.entity.TravelSharedPlan;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
+import com.example.jejugilmoa.domain.plan.repository.DayDepartureRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelSharedPlanRepository;
@@ -32,6 +34,7 @@ public class PlanShareService {
     private final TravelPlanRepository travelPlanRepository;
     private final TravelSharedPlanRepository travelSharedPlanRepository;
     private final TravelCourseRepository travelCourseRepository;
+    private final DayDepartureRepository dayDepartureRepository;
     private final Clock clock;
 
     @Transactional
@@ -79,7 +82,8 @@ public class PlanShareService {
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
         List<TravelCourse> courses = travelCourseRepository
                 .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId);
-        return PlanShareConverter.toSharedPlanResponse(plan, courses);
+        List<DayDeparture> dayDepartures = dayDepartureRepository.findAllByTravelPlanIdOrderByVisitDateAsc(planId);
+        return PlanShareConverter.toSharedPlanResponse(plan, courses, dayDepartures);
     }
 
     private String generateUniqueToken() {

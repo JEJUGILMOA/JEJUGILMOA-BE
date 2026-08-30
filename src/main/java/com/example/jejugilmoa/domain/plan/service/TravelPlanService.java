@@ -131,6 +131,7 @@ public class TravelPlanService {
         }
 
         List<DayPlanRequest> days = request.days() != null ? request.days() : List.of();
+        validateDayDates(plan, days);
         persistDepartures(plan, days);
         persistCourses(plan, days);
 
@@ -191,6 +192,7 @@ public class TravelPlanService {
         }
 
         List<DayPlanRequest> dayRequests = request.days() != null ? request.days() : List.of();
+        validateDayDates(plan, dayRequests);
         persistDepartures(plan, dayRequests);
         persistCourses(plan, dayRequests);
 
@@ -223,6 +225,16 @@ public class TravelPlanService {
         travelPlanRepository.delete(plan);
     }
 
+    private void validateDayDates(TravelPlan plan, List<DayPlanRequest> days) {
+        Set<LocalDate> seen = new HashSet<>();
+        for (DayPlanRequest day : days) {
+            if (!seen.add(day.visitDate()))
+                throw new GeneralException(PlanErrorCode.DUPLICATE_VISIT_DATE);
+            if (day.visitDate().isBefore(plan.getStartDate()) || day.visitDate().isAfter(plan.getEndDate()))
+                throw new GeneralException(PlanErrorCode.INVALID_VISIT_DATE);
+        }
+    }
+
     private void persistDepartures(TravelPlan plan, List<DayPlanRequest> days) {
         for (DayPlanRequest day : days) {
             if (day.departurePlaceId() == null
@@ -248,13 +260,7 @@ public class TravelPlanService {
     }
 
     private void persistCourses(TravelPlan plan, List<DayPlanRequest> days) {
-        Set<LocalDate> seenDates = new HashSet<>();
         for (DayPlanRequest day : days) {
-            if (!seenDates.add(day.visitDate()))
-                throw new GeneralException(PlanErrorCode.DUPLICATE_VISIT_DATE);
-            if (day.visitDate().isBefore(plan.getStartDate()) || day.visitDate().isAfter(plan.getEndDate()))
-                throw new GeneralException(PlanErrorCode.INVALID_VISIT_DATE);
-
             List<WaypointCreateRequest> waypoints = day.waypoints() != null ? day.waypoints() : List.of();
             Set<Long> seenPlaceIds = new HashSet<>();
             for (int i = 0; i < waypoints.size(); i++) {

@@ -3,6 +3,7 @@ package com.example.jejugilmoa.domain.plan.converter;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.plan.dto.ShareLinkResponse;
 import com.example.jejugilmoa.domain.plan.dto.SharedPlanResponse;
+import com.example.jejugilmoa.domain.plan.entity.DayDeparture;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.entity.TravelSharedPlan;
@@ -21,8 +22,8 @@ public final class PlanShareConverter {
                 sharedPlan.getExpiresAt());
     }
 
-    public static SharedPlanResponse toSharedPlanResponse(TravelPlan plan, List<TravelCourse> courses) {
-
+    public static SharedPlanResponse toSharedPlanResponse(TravelPlan plan, List<TravelCourse> courses,
+                                                          List<DayDeparture> dayDepartures) {
         List<SharedPlanResponse.SharedWaypointResponse> waypoints = courses.stream()
                 .map(course -> {
                     Place place = course.getPlace();
@@ -31,6 +32,13 @@ public final class PlanShareConverter {
                             place.getLatitude(), place.getLongitude(), place.getImageUrl());
                 })
                 .toList();
+
+        // 출발지는 여행 시작일의 DayDeparture를 대표값으로 사용
+        String departure = dayDepartures.stream()
+                .filter(d -> d.getVisitDate().equals(plan.getStartDate()))
+                .findFirst()
+                .map(d -> d.getPlace() != null ? d.getPlace().getName() : d.getLocationName())
+                .orElse(null);
 
         boolean anyBudgetSet = plan.getBudgetTransportation() != null
                 || plan.getBudgetAccommodation() != null
@@ -43,7 +51,7 @@ public final class PlanShareConverter {
                 : null;
 
         return new SharedPlanResponse(
-                plan.getId(), plan.getTitle(), plan.getStartDate(), plan.getEndDate(), null,
+                plan.getId(), plan.getTitle(), plan.getStartDate(), plan.getEndDate(), departure,
                 waypoints, plan.getBudgetTransportation(), plan.getBudgetAccommodation(), plan.getBudgetFood(),
                 plan.getBudgetEtc(), totalBudget);
     }
