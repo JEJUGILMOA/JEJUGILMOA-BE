@@ -80,7 +80,16 @@ class PlaceQueryServiceTest {
 
         placeQueryService.browse("%카페_", null, PageRequest.of(0, 10));
 
-        verify(placeRepository).search(eq("\\%카페\\_"), isNull(), any());
+        verify(placeRepository).search(eq("!%카페!_"), isNull(), any());
+    }
+
+    @Test
+    void browse_escapesExclamationMark() {
+        given(placeRepository.search(any(), any(), any())).willReturn(Page.empty());
+
+        placeQueryService.browse("!test", null, PageRequest.of(0, 10));
+
+        verify(placeRepository).search(eq("!!test"), isNull(), any());
     }
 
     @Test

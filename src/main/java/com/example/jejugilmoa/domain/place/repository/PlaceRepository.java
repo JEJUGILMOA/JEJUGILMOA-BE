@@ -17,9 +17,25 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
     Page<Place> findByCategoryNameAndPublishedTrue(String categoryName, Pageable pageable);
     boolean existsByExternalId(String externalId);
 
-    @Query("SELECT p FROM Place p WHERE p.published = true " +
-           "AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\' OR LOWER(p.address) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\') " +
-           "AND (:categoryName IS NULL OR p.category.name = :categoryName)")
+    @Query(value = """
+            SELECT p.* FROM place p
+            LEFT JOIN category c ON c.id = p.category_id
+            WHERE p.is_published = true
+              AND (CAST(:keyword AS text) IS NULL
+                   OR lower(p.name)    LIKE lower('%' || CAST(:keyword AS text) || '%') ESCAPE '!'
+                   OR lower(p.address) LIKE lower('%' || CAST(:keyword AS text) || '%') ESCAPE '!')
+              AND (CAST(:categoryName AS text) IS NULL OR c.name = CAST(:categoryName AS text))
+            """,
+            countQuery = """
+            SELECT COUNT(p.id) FROM place p
+            LEFT JOIN category c ON c.id = p.category_id
+            WHERE p.is_published = true
+              AND (CAST(:keyword AS text) IS NULL
+                   OR lower(p.name)    LIKE lower('%' || CAST(:keyword AS text) || '%') ESCAPE '!'
+                   OR lower(p.address) LIKE lower('%' || CAST(:keyword AS text) || '%') ESCAPE '!')
+              AND (CAST(:categoryName AS text) IS NULL OR c.name = CAST(:categoryName AS text))
+            """,
+            nativeQuery = true)
     Page<Place> search(@Param("keyword") String keyword, @Param("categoryName") String categoryName, Pageable pageable);
 
     /**

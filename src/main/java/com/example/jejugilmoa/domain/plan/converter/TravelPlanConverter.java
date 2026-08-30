@@ -1,10 +1,11 @@
 package com.example.jejugilmoa.domain.plan.converter;
 
-import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.plan.dto.*;
+import com.example.jejugilmoa.domain.plan.entity.DayDeparture;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.user.entity.User;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
@@ -19,7 +20,7 @@ public class TravelPlanConverter {
 
     private TravelPlanConverter() {}
 
-    public static TravelPlan toEntity(User user, Place departurePlace, TravelPlanCreateRequest request) {
+    public static TravelPlan toEntity(User user, TravelPlanCreateRequest request) {
         long days = ChronoUnit.DAYS.between(request.startDate(), request.endDate());
         int totalAvailableTime = (int) (days + 1) * 8 * 60;
 
@@ -30,10 +31,6 @@ public class TravelPlanConverter {
                 .endDate(request.endDate())
                 .sameDay(request.startDate().equals(request.endDate()))
                 .totalAvailableTime(totalAvailableTime)
-                .departurePlace(departurePlace)
-                .departureLocationName(request.departureLocationName())
-                .departureLatitude(request.departureLatitude())
-                .departureLongitude(request.departureLongitude())
                 .companion(request.companion())
                 .build();
     }
@@ -55,17 +52,29 @@ public class TravelPlanConverter {
         );
     }
 
-    public static TravelPlanDetailResponse toDetail(TravelPlan plan, List<WaypointResponse> waypoints) {
+    public static TravelPlanDetailResponse toDetail(TravelPlan plan, List<WaypointResponse> waypoints,
+                                                    List<DayDeparture> dayDepartures) {
         int nights = (int) ChronoUnit.DAYS.between(plan.getStartDate(), plan.getEndDate());
 
         Map<LocalDate, List<WaypointResponse>> byDate = waypoints.stream()
                 .collect(Collectors.groupingBy(WaypointResponse::visitDate, LinkedHashMap::new, Collectors.toList()));
 
-        // 계획 기간의 모든 날짜를 포함 (경유지 없는 날도 빈 리스트로)
+        Map<LocalDate, DayDeparture> departureByDate = dayDepartures.stream()
+                .collect(Collectors.toMap(DayDeparture::getVisitDate, d -> d));
+
         List<DayItineraryResponse> itinerary = IntStream.rangeClosed(0, nights)
                 .mapToObj(i -> {
                     LocalDate date = plan.getStartDate().plusDays(i);
-                    return new DayItineraryResponse(date, i + 1, byDate.getOrDefault(date, List.of()));
+                    DayDeparture dep = departureByDate.get(date);
+                    String depName = null;
+                    BigDecimal depLat = null, depLon = null;
+                    if (dep != null) {
+                        depName = dep.getPlace() != null ? dep.getPlace().getName() : dep.getLocationName();
+                        depLat = dep.getLatitude();
+                        depLon = dep.getLongitude();
+                    }
+                    return new DayItineraryResponse(date, i + 1, depName, depLat, depLon,
+                            byDate.getOrDefault(date, List.of()));
                 })
                 .toList();
 
@@ -85,10 +94,6 @@ public class TravelPlanConverter {
                         .sum()
                 : null;
 
-        String departureName = plan.getDeparturePlace() != null
-                ? plan.getDeparturePlace().getName()
-                : plan.getDepartureLocationName();
-
         return new TravelPlanDetailResponse(
                 plan.getId(),
                 plan.getTitle(),
@@ -99,9 +104,6 @@ public class TravelPlanConverter {
                 plan.getStatus(),
                 plan.getTravelStyle(),
                 plan.getCompanion(),
-                departureName,
-                plan.getDepartureLatitude(),
-                plan.getDepartureLongitude(),
                 categories,
                 itinerary,
                 plan.getBudgetTransportation(),

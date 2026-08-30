@@ -12,10 +12,12 @@ import static org.mockito.Mockito.verify;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.plan.dto.ShareLinkResponse;
 import com.example.jejugilmoa.domain.plan.dto.SharedPlanResponse;
+import com.example.jejugilmoa.domain.plan.entity.DayDeparture;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.entity.TravelSharedPlan;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
+import com.example.jejugilmoa.domain.plan.repository.DayDepartureRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelSharedPlanRepository;
@@ -46,6 +48,7 @@ class PlanShareServiceTest {
     @Mock TravelPlanRepository travelPlanRepository;
     @Mock TravelSharedPlanRepository sharedPlanRepository;
     @Mock TravelCourseRepository travelCourseRepository;
+    @Mock DayDepartureRepository dayDepartureRepository;
 
     PlanShareService service;
     TravelPlan plan;
@@ -53,7 +56,7 @@ class PlanShareServiceTest {
     @BeforeEach
     void setUp() {
         service = new PlanShareService(travelPlanRepository, sharedPlanRepository, travelCourseRepository,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                dayDepartureRepository, Clock.fixed(NOW, ZoneOffset.UTC));
         User owner = mock(User.class);
         lenient().when(owner.getId()).thenReturn(OWNER_ID);
         plan = mock(TravelPlan.class);
@@ -144,7 +147,6 @@ class PlanShareServiceTest {
         given(plan.getTitle()).willReturn("현재 제목");
         given(plan.getStartDate()).willReturn(LocalDate.of(2026, 8, 10));
         given(plan.getEndDate()).willReturn(LocalDate.of(2026, 8, 11));
-        given(plan.getDepartureLocationName()).willReturn("출발지");
         given(plan.getBudgetFood()).willReturn(30_000);
 
         TravelCourse dayOne = course(LocalDate.of(2026, 8, 10), 2, "두 번째");
@@ -152,9 +154,14 @@ class PlanShareServiceTest {
         given(travelCourseRepository.findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(PLAN_ID))
                 .willReturn(List.of(dayOne, dayTwo));
 
+        DayDeparture startDep = departure(LocalDate.of(2026, 8, 10), "제주국제공항");
+        given(dayDepartureRepository.findAllByTravelPlanIdOrderByVisitDateAsc(PLAN_ID))
+                .willReturn(List.of(startDep));
+
         SharedPlanResponse response = service.getSharedPlan("valid-token");
 
         assertThat(response.title()).isEqualTo("현재 제목");
+        assertThat(response.departure()).isEqualTo("제주국제공항");
         assertThat(response.waypoints()).extracting(SharedPlanResponse.SharedWaypointResponse::placeName)
                 .containsExactly("두 번째", "다음 날");
         String json = new ObjectMapper().findAndRegisterModules().writeValueAsString(response);
@@ -172,6 +179,11 @@ class PlanShareServiceTest {
         assertCode(() -> service.getSharedPlan("missing"), PlanErrorCode.SHARE_TOKEN_NOT_FOUND);
         assertCode(() -> service.getSharedPlan("expired"), PlanErrorCode.SHARE_LINK_EXPIRED);
         assertCode(() -> service.getSharedPlan("inactive"), PlanErrorCode.SHARE_LINK_INACTIVE);
+    }
+
+    private DayDeparture departure(LocalDate date, String locationName) {
+        return DayDeparture.builder().travelPlan(plan).visitDate(date).locationName(locationName)
+                .latitude(new BigDecimal("33.51111111")).longitude(new BigDecimal("126.49222222")).build();
     }
 
     private TravelSharedPlan sharedPlan(String token, Instant expiresAt, boolean active) {
