@@ -30,7 +30,12 @@ public class PlaceQueryService {
     public PageResponse<PlaceSummaryDto> browse(String keyword, String categoryName, Pageable pageable) {
         String kw = (keyword == null || keyword.isBlank()) ? null : escapeLike(keyword.trim());
         String cat = (categoryName == null || categoryName.isBlank()) ? null : categoryName.trim();
-        return PageResponse.of(placeRepository.search(kw, cat, pageable).map(placeConverter::toSummary));
+        var places = kw == null
+            ? (cat == null
+                ? placeRepository.findByPublishedTrue(pageable)
+                : placeRepository.findByCategoryNameAndPublishedTrue(cat, pageable))
+            : placeRepository.search(kw, cat, pageable);
+        return PageResponse.of(places.map(placeConverter::toSummary));
     }
 
     private static String escapeLike(String value) {
