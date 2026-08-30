@@ -80,7 +80,7 @@ class PlaceQueryServiceTest {
 
         placeQueryService.browse("%카페_", null, PageRequest.of(0, 10));
 
-        verify(placeRepository).search(eq("\\%카페\\_"), isNull(), any());
+        verify(placeRepository).search(eq("!%카페!_"), isNull(), any());
     }
 
     @Test
