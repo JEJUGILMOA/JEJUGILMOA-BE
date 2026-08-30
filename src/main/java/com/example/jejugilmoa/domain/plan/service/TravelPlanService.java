@@ -12,11 +12,13 @@ import com.example.jejugilmoa.domain.plan.dto.TravelPlanDetailResponse;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanListResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointCreateRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
+import com.example.jejugilmoa.domain.plan.entity.DayDeparture;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlanPreference;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
+import com.example.jejugilmoa.domain.plan.repository.DayDepartureRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanPreferenceRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
@@ -45,6 +47,7 @@ public class TravelPlanService {
     private final TravelPlanRepository travelPlanRepository;
     private final TravelPlanPreferenceRepository travelPlanPreferenceRepository;
     private final TravelCourseRepository travelCourseRepository;
+    private final DayDepartureRepository dayDepartureRepository;
     private final UserRepository userRepository;
     private final PlaceRepository placeRepository;
 
@@ -74,7 +77,9 @@ public class TravelPlanService {
                 .map(WaypointConverter::toResponse)
                 .toList();
 
-        return TravelPlanConverter.toDetail(plan, waypoints);
+        List<DayDeparture> dayDepartures = dayDepartureRepository.findAllByTravelPlanIdOrderByVisitDateAsc(planId);
+
+        return TravelPlanConverter.toDetail(plan, waypoints, dayDepartures);
     }
 
     @Transactional(readOnly = true)
@@ -107,18 +112,14 @@ public class TravelPlanService {
         if (ChronoUnit.DAYS.between(request.startDate(), request.endDate()) > MAX_TRIP_DAYS)
             throw new GeneralException(PlanErrorCode.TRIP_DURATION_EXCEEDED);
 
-        validateDeparture(request);
-
         if (request.categories() != null
                 && new HashSet<>(request.categories()).size() != request.categories().size())
             throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
 
-        Place departurePlace = resolveDeparturePlace(request);
-
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new GeneralException(UserErrorCode.USER_NOT_FOUND));
 
-        TravelPlan plan = TravelPlanConverter.toEntity(user, departurePlace, request);
+        TravelPlan plan = TravelPlanConverter.toEntity(user, request);
         travelPlanRepository.save(plan);
 
         if (request.categories() != null && !request.categories().isEmpty()) {
@@ -129,7 +130,9 @@ public class TravelPlanService {
             plan.getPreferredCategories().addAll(preferences);
         }
 
-        persistCourses(plan, request.days() != null ? request.days() : List.of());
+        List<DayPlanRequest> days = request.days() != null ? request.days() : List.of();
+        persistDepartures(plan, days);
+        persistCourses(plan, days);
 
         if (request.budget() != null) {
             BudgetCreateRequest b = request.budget();
@@ -141,8 +144,9 @@ public class TravelPlanService {
                 .stream()
                 .map(WaypointConverter::toResponse)
                 .toList();
+        List<DayDeparture> dayDepartures = dayDepartureRepository.findAllByTravelPlanIdOrderByVisitDateAsc(plan.getId());
 
-        return TravelPlanConverter.toDetail(plan, waypoints);
+        return TravelPlanConverter.toDetail(plan, waypoints, dayDepartures);
     }
 
     @Transactional
@@ -159,13 +163,9 @@ public class TravelPlanService {
         if (!request.startDate().equals(plan.getStartDate()) || !request.endDate().equals(plan.getEndDate()))
             throw new GeneralException(PlanErrorCode.PLAN_DATE_NOT_MODIFIABLE);
 
-        validateDeparture(request);
-
         if (request.categories() != null
                 && new HashSet<>(request.categories()).size() != request.categories().size())
             throw new GeneralException(PlanErrorCode.DUPLICATE_THEME);
-
-        Place departurePlace = resolveDeparturePlace(request);
 
         long days = ChronoUnit.DAYS.between(request.startDate(), request.endDate());
         int totalAvailableTime = (int) (days + 1) * 8 * 60;
@@ -173,10 +173,6 @@ public class TravelPlanService {
                 request.title(),
                 request.startDate(),
                 request.endDate(),
-                departurePlace,
-                request.departureLocationName(),
-                request.departureLatitude(),
-                request.departureLongitude(),
                 request.companion(),
                 totalAvailableTime,
                 request.startDate().equals(request.endDate())
@@ -185,6 +181,7 @@ public class TravelPlanService {
         // DELETE 확정 후 INSERT해야 UK 위반을 피할 수 있다
         plan.getPreferredCategories().clear();
         plan.getTravelCourses().clear();
+        plan.getDayDepartures().clear();
         travelPlanRepository.flush();
 
         if (request.categories() != null && !request.categories().isEmpty()) {
@@ -193,7 +190,9 @@ public class TravelPlanService {
                     .forEach(plan.getPreferredCategories()::add);
         }
 
-        persistCourses(plan, request.days() != null ? request.days() : List.of());
+        List<DayPlanRequest> dayRequests = request.days() != null ? request.days() : List.of();
+        persistDepartures(plan, dayRequests);
+        persistCourses(plan, dayRequests);
 
         BudgetCreateRequest b = request.budget();
         plan.updateBudget(
@@ -208,8 +207,9 @@ public class TravelPlanService {
                 .stream()
                 .map(WaypointConverter::toResponse)
                 .toList();
+        List<DayDeparture> dayDepartures = dayDepartureRepository.findAllByTravelPlanIdOrderByVisitDateAsc(plan.getId());
 
-        return TravelPlanConverter.toDetail(plan, waypoints);
+        return TravelPlanConverter.toDetail(plan, waypoints, dayDepartures);
     }
 
     @Transactional
@@ -223,17 +223,28 @@ public class TravelPlanService {
         travelPlanRepository.delete(plan);
     }
 
-    private void validateDeparture(TravelPlanCreateRequest request) {
-        if (request.departurePlaceId() == null
-                && (request.departureLocationName() == null || request.departureLocationName().isBlank()))
-            throw new GeneralException(PlanErrorCode.DEPARTURE_REQUIRED);
-    }
+    private void persistDepartures(TravelPlan plan, List<DayPlanRequest> days) {
+        for (DayPlanRequest day : days) {
+            if (day.departurePlaceId() == null
+                    && (day.departureLocationName() == null || day.departureLocationName().isBlank()))
+                throw new GeneralException(PlanErrorCode.DEPARTURE_REQUIRED);
 
-    private Place resolveDeparturePlace(TravelPlanCreateRequest request) {
-        return request.departurePlaceId() != null
-                ? placeRepository.findByIdAndPublishedTrue(request.departurePlaceId())
-                        .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND))
-                : null;
+            Place depPlace = null;
+            if (day.departurePlaceId() != null) {
+                depPlace = placeRepository.findByIdAndPublishedTrue(day.departurePlaceId())
+                        .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND));
+            }
+
+            DayDeparture departure = DayDeparture.builder()
+                    .travelPlan(plan)
+                    .visitDate(day.visitDate())
+                    .place(depPlace)
+                    .locationName(day.departureLocationName())
+                    .latitude(day.departureLatitude())
+                    .longitude(day.departureLongitude())
+                    .build();
+            dayDepartureRepository.save(departure);
+        }
     }
 
     private void persistCourses(TravelPlan plan, List<DayPlanRequest> days) {

@@ -22,8 +22,6 @@ public final class PlanShareConverter {
     }
 
     public static SharedPlanResponse toSharedPlanResponse(TravelPlan plan, List<TravelCourse> courses) {
-        String departure = plan.getDeparturePlace() != null
-                ? plan.getDeparturePlace().getName() : plan.getDepartureLocationName();
 
         List<SharedPlanResponse.SharedWaypointResponse> waypoints = courses.stream()
                 .map(course -> {
@@ -45,7 +43,7 @@ public final class PlanShareConverter {
                 : null;
 
         return new SharedPlanResponse(
-                plan.getId(), plan.getTitle(), plan.getStartDate(), plan.getEndDate(), departure,
+                plan.getId(), plan.getTitle(), plan.getStartDate(), plan.getEndDate(), null,
                 waypoints, plan.getBudgetTransportation(), plan.getBudgetAccommodation(), plan.getBudgetFood(),
                 plan.getBudgetEtc(), totalBudget);
     }

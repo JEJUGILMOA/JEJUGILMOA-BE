@@ -45,14 +45,14 @@ public interface TravelPlanControllerDocs {
                                 "status": "DRAFT",
                                 "travelStyle": "RELAXED",
                                 "companion": "COUPLE",
-                                "departureLocationName": "새별오름",
-                                "departureLatitude": 33.36050,
-                                "departureLongitude": 126.40860,
                                 "categories": ["NATURE", "CAFE"],
                                 "itinerary": [
                                   {
                                     "date": "2027-08-15",
                                     "dayNumber": 1,
+                                    "departureLocationName": "새별오름",
+                                    "departureLatitude": 33.36050,
+                                    "departureLongitude": 126.40860,
                                     "waypoints": [
                                       {"waypointId": 7, "visitDate": "2027-08-15", "sequenceOrder": 1, "placeId": 42, "placeName": "협재해수욕장", "categoryName": "자연", "imageUrl": null, "address": "제주시 한림읍"},
                                       {"waypointId": 8, "visitDate": "2027-08-15", "sequenceOrder": 2, "placeId": 10, "placeName": "애월 카페거리", "categoryName": "카페", "imageUrl": null, "address": "제주시 애월읍"}
@@ -61,6 +61,9 @@ public interface TravelPlanControllerDocs {
                                   {
                                     "date": "2027-08-16",
                                     "dayNumber": 2,
+                                    "departureLocationName": "제주시 숙소",
+                                    "departureLatitude": 33.49910,
+                                    "departureLongitude": 126.53160,
                                     "waypoints": [
                                       {"waypointId": 9, "visitDate": "2027-08-16", "sequenceOrder": 1, "placeId": 5, "placeName": "성산일출봉", "categoryName": "자연", "imageUrl": null, "address": "서귀포시 성산읍"}
                                     ]
@@ -68,6 +71,9 @@ public interface TravelPlanControllerDocs {
                                   {
                                     "date": "2027-08-17",
                                     "dayNumber": 3,
+                                    "departureLocationName": null,
+                                    "departureLatitude": null,
+                                    "departureLongitude": null,
                                     "waypoints": []
                                   }
                                 ],
@@ -151,9 +157,9 @@ public interface TravelPlanControllerDocs {
     @Operation(summary = "여행 계획 생성", description = """
             새로운 여행 계획을 단일 요청으로 생성합니다. 일정(날짜별 경유지), 예산, 동반자를 한 번에 저장할 수 있습니다.
 
-            **출발지**
-            - `departureLatitude` / `departureLongitude`: 항상 필수
-            - `departurePlaceId` 또는 `departureLocationName` 중 하나 추가 필수 (둘 다 없으면 `PLAN400_3`)
+            **날짜별 출발지 (각 day에 포함)**
+            - `departureLatitude` / `departureLongitude`: day 전달 시 필수
+            - `departurePlaceId` 또는 `departureLocationName` 중 하나 필수 (둘 다 없으면 `PLAN400_3`)
 
             **날짜별 경유지 (`days`, 선택)**
             - 생략하거나 빈 배열을 전달하면 경유지 없이 계획만 생성됩니다.
@@ -175,15 +181,15 @@ public interface TravelPlanControllerDocs {
                               "title": "제주 가을 여행",
                               "startDate": "2027-08-15",
                               "endDate": "2027-08-17",
-                              "departurePlaceId": null,
-                              "departureLocationName": "제주국제공항",
-                              "departureLatitude": 33.5070,
-                              "departureLongitude": 126.4927,
                               "companion": "COUPLE",
                               "categories": ["NATURE", "CAFE"],
                               "days": [
                                 {
                                   "visitDate": "2027-08-15",
+                                  "departurePlaceId": null,
+                                  "departureLocationName": "제주국제공항",
+                                  "departureLatitude": 33.5070,
+                                  "departureLongitude": 126.4927,
                                   "waypoints": [
                                     { "placeId": 42, "isPreferred": true },
                                     { "placeId": 10, "isPreferred": false }
@@ -191,6 +197,10 @@ public interface TravelPlanControllerDocs {
                                 },
                                 {
                                   "visitDate": "2027-08-16",
+                                  "departurePlaceId": null,
+                                  "departureLocationName": "제주시 숙소",
+                                  "departureLatitude": 33.4991,
+                                  "departureLongitude": 126.5316,
                                   "waypoints": []
                                 }
                               ],
@@ -224,21 +234,21 @@ public interface TravelPlanControllerDocs {
                                         "status": "DRAFT",
                                         "travelStyle": "RELAXED",
                                         "companion": "COUPLE",
-                                        "departureLocationName": "제주국제공항",
-                                        "departureLatitude": 33.50720,
-                                        "departureLongitude": 126.49290,
                                         "categories": ["NATURE", "CAFE"],
                                         "itinerary": [
                                           {
                                             "date": "2027-08-15",
                                             "dayNumber": 1,
+                                            "departureLocationName": "제주국제공항",
+                                            "departureLatitude": 33.50720,
+                                            "departureLongitude": 126.49290,
                                             "waypoints": [
                                               {"waypointId": 1, "visitDate": "2027-08-15", "sequenceOrder": 1, "placeId": 42, "placeName": "협재해수욕장", "isPreferred": true, "isStart": true, "isDestination": false, "visited": false, "visitedAt": null},
                                               {"waypointId": 2, "visitDate": "2027-08-15", "sequenceOrder": 2, "placeId": 10, "placeName": "애월 카페거리", "isPreferred": false, "isStart": false, "isDestination": true, "visited": false, "visitedAt": null}
                                             ]
                                           },
-                                          {"date": "2027-08-16", "dayNumber": 2, "waypoints": []},
-                                          {"date": "2027-08-17", "dayNumber": 3, "waypoints": []}
+                                          {"date": "2027-08-16", "dayNumber": 2, "departureLocationName": "제주시 숙소", "departureLatitude": 33.4991, "departureLongitude": 126.5316, "waypoints": []},
+                                          {"date": "2027-08-17", "dayNumber": 3, "departureLocationName": null, "departureLatitude": null, "departureLongitude": null, "waypoints": []}
                                         ],
                                         "budgetTransportation": 50000,
                                         "budgetAccommodation": 150000,
@@ -307,15 +317,15 @@ public interface TravelPlanControllerDocs {
                               "title": "제주 가을 여행 (수정)",
                               "startDate": "2027-08-15",
                               "endDate": "2027-08-17",
-                              "departurePlaceId": null,
-                              "departureLocationName": "제주국제공항",
-                              "departureLatitude": 33.5070,
-                              "departureLongitude": 126.4927,
                               "companion": "COUPLE",
                               "categories": ["NATURE", "CAFE"],
                               "days": [
                                 {
                                   "visitDate": "2027-08-15",
+                                  "departurePlaceId": null,
+                                  "departureLocationName": "제주국제공항",
+                                  "departureLatitude": 33.5070,
+                                  "departureLongitude": 126.4927,
                                   "waypoints": [
                                     { "placeId": 42, "isPreferred": true }
                                   ]
@@ -349,20 +359,20 @@ public interface TravelPlanControllerDocs {
                                 "status": "DRAFT",
                                 "travelStyle": "RELAXED",
                                 "companion": "COUPLE",
-                                "departureLocationName": "제주국제공항",
-                                "departureLatitude": 33.50720,
-                                "departureLongitude": 126.49290,
                                 "categories": ["NATURE", "CAFE"],
                                 "itinerary": [
                                   {
                                     "date": "2027-08-15",
                                     "dayNumber": 1,
+                                    "departureLocationName": "제주국제공항",
+                                    "departureLatitude": 33.50720,
+                                    "departureLongitude": 126.49290,
                                     "waypoints": [
                                       {"waypointId": 15, "visitDate": "2027-08-15", "sequenceOrder": 1, "placeId": 42, "placeName": "협재해수욕장", "isPreferred": true, "isStart": true, "isDestination": true, "visited": false, "visitedAt": null}
                                     ]
                                   },
-                                  {"date": "2027-08-16", "dayNumber": 2, "waypoints": []},
-                                  {"date": "2027-08-17", "dayNumber": 3, "waypoints": []}
+                                  {"date": "2027-08-16", "dayNumber": 2, "departureLocationName": null, "departureLatitude": null, "departureLongitude": null, "waypoints": []},
+                                  {"date": "2027-08-17", "dayNumber": 3, "departureLocationName": null, "departureLatitude": null, "departureLongitude": null, "waypoints": []}
                                 ],
                                 "budgetTransportation": 50000,
                                 "budgetAccommodation": 150000,

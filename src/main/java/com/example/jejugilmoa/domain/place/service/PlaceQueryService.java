@@ -34,9 +34,9 @@ public class PlaceQueryService {
     }
 
     private static String escapeLike(String value) {
-        return value.replace("\\", "\\\\")
-                    .replace("%", "\\%")
-                    .replace("_", "\\_");
+        return value.replace("!", "!!")
+                    .replace("%", "!%")
+                    .replace("_", "!_");
     }
 
     @Cacheable(value = "popularPlaces", key = "#limit")

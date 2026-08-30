@@ -1,6 +1,5 @@
 package com.example.jejugilmoa.domain.plan.entity;
 
-import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.plan.enums.TravelCompanion;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.user.entity.User;
@@ -9,7 +8,6 @@ import com.example.jejugilmoa.global.entity.BaseEntity;
 import lombok.*;
 
 import jakarta.persistence.*;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -60,19 +58,6 @@ public class TravelPlan extends BaseEntity {
     @Column(nullable = false)
     private int totalAvailableTime;  // 전체 여행 가능 시간 (분)
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "departure_place_id")
-    private Place departurePlace;  // 출발지 (nullable — 직접 입력 시 null)
-
-    @Column(length = 200)
-    private String departureLocationName;  // 출발지 텍스트 (지도 미선택 시 사용)
-
-    @Column(precision = 10, scale = 8)
-    private BigDecimal departureLatitude;
-
-    @Column(precision = 11, scale = 8)
-    private BigDecimal departureLongitude;
-
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private TravelCompanion companion;
@@ -100,6 +85,14 @@ public class TravelPlan extends BaseEntity {
     )
     @Builder.Default
     private List<TravelCourse> travelCourses = new ArrayList<>();
+
+    @OneToMany(
+            mappedBy = "travelPlan",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    @Builder.Default
+    private List<DayDeparture> dayDepartures = new ArrayList<>();
 
     @OneToMany(
             mappedBy = "travelPlan",
@@ -135,15 +128,10 @@ public class TravelPlan extends BaseEntity {
     }
 
     public void updatePlanMeta(String title, LocalDate startDate, LocalDate endDate,
-            Place departure, String departureName, BigDecimal lat, BigDecimal lng,
             TravelCompanion companion, int totalAvailableTime, boolean sameDay) {
         this.title = title;
         this.startDate = startDate;
         this.endDate = endDate;
-        this.departurePlace = departure;
-        this.departureLocationName = departureName;
-        this.departureLatitude = lat;
-        this.departureLongitude = lng;
         this.companion = companion;
         this.totalAvailableTime = totalAvailableTime;
         this.sameDay = sameDay;
