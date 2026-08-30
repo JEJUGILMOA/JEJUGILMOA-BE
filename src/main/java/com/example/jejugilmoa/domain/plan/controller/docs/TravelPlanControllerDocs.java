@@ -425,6 +425,7 @@ public interface TravelPlanControllerDocs {
 
                     **삭제 범위**
                     - 경유지 목록 (TravelCourse)
+                    - 날짜별 출발지 (DayDeparture)
                     - 선호 카테고리 설정
 
                     이미 생성된 여행 기록(TravelRecord)은 삭제되지 않고 보존됩니다.
