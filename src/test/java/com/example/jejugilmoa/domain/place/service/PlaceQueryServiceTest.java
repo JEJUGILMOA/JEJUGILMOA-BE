@@ -97,7 +97,7 @@ class PlaceQueryServiceTest {
         var place = Place.builder().id(1L).name("한라산").imageUrl("img.jpg")
             .externalId("c1").address("제주시").latitude(new BigDecimal("33.36")).longitude(new BigDecimal("126.53")).build();
         var expected = new PlaceDetailDto(1L, "한라산", "제주시", new BigDecimal("33.36"), new BigDecimal("126.53"),
-            null, "img.jpg", List.of(), "자연", null, null, null);
+            null, "img.jpg", List.of(), "자연", null);
 
         given(placeRepository.findByIdAndPublishedTrue(1L)).willReturn(Optional.of(place));
         given(placeConverter.toDetail(place)).willReturn(expected);
