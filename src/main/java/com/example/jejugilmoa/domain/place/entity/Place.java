@@ -82,4 +82,12 @@ public class Place extends BaseEntity {
     @OneToMany(mappedBy = "place")
     @Builder.Default
     private List<TravelCourse> travelCourses = new ArrayList<>();
+
+    public void updateCommonInfo(String overview) {
+        if (overview != null) this.description = overview;
+    }
+
+    public void updateImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
 }

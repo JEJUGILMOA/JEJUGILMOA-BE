@@ -14,7 +14,5 @@ public record PlaceDetailDto(
     String imageUrl,
     List<String> images,
     String categoryName,
-    String homepage,
-    String tel,
     String overview
 ) implements Serializable {}

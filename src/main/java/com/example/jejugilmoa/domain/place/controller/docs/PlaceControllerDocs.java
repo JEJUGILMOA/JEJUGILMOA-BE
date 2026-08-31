@@ -182,7 +182,6 @@ public interface PlaceControllerDocs {
 
             결과는 30분간 Redis에 캐싱됩니다. (캐시 키: `placeDetail::{id}`)
 
-            현재 `homepage`, `tel`은 TarRlteTarService1 API 미제공으로 항상 `null`입니다.
             `images`는 추후 PlaceImage 테이블 연동 예정으로 현재 빈 배열입니다.
             """
     )
@@ -207,8 +206,6 @@ public interface PlaceControllerDocs {
                             "imageUrl": null,
                             "images": [],
                             "categoryName": "자연",
-                            "homepage": null,
-                            "tel": null,
                             "overview": null
                           }
                         }
