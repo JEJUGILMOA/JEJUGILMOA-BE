@@ -98,12 +98,11 @@ public class KorServiceClient {
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
-            log.warn("areaBasedListByPopularity 호출 오류", e);
-            return List.of();
+            throw new TourApiException("areaBasedListByPopularity 호출 오류", e);
         }
 
         if (response == null || !response.isSuccess()) {
-            return List.of();
+            throw new TourApiException("areaBasedListByPopularity 응답 실패");
         }
         return response.items();
     }

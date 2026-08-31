@@ -32,8 +32,12 @@ class NullableItemsDeserializer extends StdDeserializer<TourApiResponse.Items> {
     @Override
     public TourApiResponse.Items deserialize(JsonParser p, DeserializationContext ctxt) throws JacksonException {
         if (p.currentToken() == JsonToken.VALUE_STRING) {
-            // KorService2 API quirk: "items":"" means no data — treat as null
-            return null;
+            // KorService2 API가 결과 없을 때 "items":"" 반환 — 빈 문자열만 null로 처리
+            if (p.getText().isEmpty()) {
+                return null;
+            }
+            return ctxt.reportInputMismatch(TourApiResponse.Items.class,
+                    "items 필드에 예상치 못한 문자열 값: \"%s\"", p.getText());
         }
         if (targetType != null) {
             return (TourApiResponse.Items) ctxt.readValue(p, targetType);
