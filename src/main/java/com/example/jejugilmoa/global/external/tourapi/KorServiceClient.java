@@ -10,8 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -25,10 +27,12 @@ public class KorServiceClient {
 
     private final RestClient restClient;
     private final String serviceKey;
+    private final ObjectMapper objectMapper;
 
     @Autowired
-    public KorServiceClient(ExternalApiProperties props) {
+    public KorServiceClient(ExternalApiProperties props, ObjectMapper objectMapper) {
         this.serviceKey = props.tourApi().serviceKey();
+        this.objectMapper = objectMapper;
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(3_000);
         factory.setReadTimeout(10_000);
@@ -108,7 +112,8 @@ public class KorServiceClient {
     }
 
     /**
-     * 공통 정보 조회 (detailCommon2) — overview 반환
+     * 공통 정보 조회 (detailCommon2) — overview 반환.
+     * 429 응답 시 최대 2회 재시도 (1초 간격).
      */
     public DetailCommonItem detailCommon2(String contentId) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/detailCommon2")
@@ -117,25 +122,43 @@ public class KorServiceClient {
                 .queryParam("MobileApp", MOBILE_APP)
                 .queryParam("_type", "json")
                 .queryParam("contentId", contentId)
-                .queryParam("overviewYN", "Y")
-                .queryParam("defaultYN", "Y")
                 .build().toUriString();
 
-        TourApiResponse<DetailCommonItem> response;
-        try {
-            response = restClient.get()
-                    .uri(uri)
-                    .retrieve()
-                    .body(new ParameterizedTypeReference<>() {});
-        } catch (Exception e) {
-            log.warn("detailCommon2 호출 오류: contentId={}", contentId, e);
-            return null;
-        }
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                String rawBody = restClient.get()
+                        .uri(uri)
+                        .retrieve()
+                        .body(String.class);
+                if (rawBody == null || rawBody.isBlank()) {
+                    return null;
+                }
 
-        if (response == null || !response.isSuccess()) {
-            return null;
+                TourApiResponse<DetailCommonItem> response;
+                try {
+                    response = objectMapper.readValue(rawBody,
+                            objectMapper.getTypeFactory().constructParametricType(TourApiResponse.class, DetailCommonItem.class));
+                } catch (Exception parseEx) {
+                    return null;
+                }
+
+                if (response == null || !response.isSuccess()) {
+                    return null;
+                }
+                List<DetailCommonItem> items = response.items();
+                return items.isEmpty() ? null : items.get(0);
+            } catch (HttpClientErrorException.TooManyRequests e) {
+                if (attempt < 2) {
+                    log.warn("detailCommon2 rate limit 초과: contentId={}, 1초 후 재시도 ({}/2)", contentId, attempt + 1);
+                    try { Thread.sleep(1_000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null; }
+                } else {
+                    log.warn("detailCommon2 rate limit 초과 (재시도 소진): contentId={}", contentId);
+                }
+            } catch (Exception e) {
+                log.warn("detailCommon2 호출 오류: contentId={}", contentId, e);
+                return null;
+            }
         }
-        List<DetailCommonItem> items = response.items();
-        return items.isEmpty() ? null : items.get(0);
+        return null;
     }
 }
