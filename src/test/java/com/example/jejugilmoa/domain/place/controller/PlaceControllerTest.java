@@ -62,7 +62,7 @@ class PlaceControllerTest {
     void getDetail_returns200() throws Exception {
         given(placeQueryService.getDetail(1L)).willReturn(
             new PlaceDetailDto(1L, "한라산", "제주시", new BigDecimal("33.36"), new BigDecimal("126.53"),
-                null, "img.jpg", List.of(), "자연", null, "064-123-4567", "한국 최고봉")
+                null, "img.jpg", List.of(), "자연", "한국 최고봉")
         );
 
         mockMvc.perform(get("/api/places/1"))

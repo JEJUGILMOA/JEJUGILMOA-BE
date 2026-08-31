@@ -2,8 +2,10 @@ package com.example.jejugilmoa.domain.place.repository;
 
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.entity.PopularPlace;
+import com.example.jejugilmoa.domain.place.enums.CurationLabel;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,6 +15,19 @@ import java.util.Optional;
 public interface PopularPlaceRepository extends JpaRepository<PopularPlace, Long> {
     List<PopularPlace> findAllByOrderByVisitCountDesc(Pageable pageable);
     Optional<PopularPlace> findByPlace(Place place);
+
+    @Query("SELECT pp FROM PopularPlace pp JOIN FETCH pp.place WHERE pp.curationLabel = :label ORDER BY pp.visitCount DESC")
+    List<PopularPlace> findByCurationLabelWithPlace(@Param("label") CurationLabel label, Pageable pageable);
+
+    @Query("SELECT pp FROM PopularPlace pp JOIN FETCH pp.place WHERE pp.curationLabel IS NULL ORDER BY pp.visitCount DESC")
+    List<PopularPlace> findTopGeneralWithPlace(Pageable pageable);
+
+    @Query("SELECT pp FROM PopularPlace pp WHERE pp.place.externalId = :externalId")
+    Optional<PopularPlace> findByPlaceExternalId(@Param("externalId") String externalId);
+
+    @Modifying
+    @Query("UPDATE PopularPlace pp SET pp.curationLabel = NULL WHERE pp.curationLabel = :label")
+    void clearCurationLabelByType(@Param("label") CurationLabel label);
 
     /**
      * TravelRecordPlaceRepository.GridCellCount와 구조적으로 동일하지만 별도로 선언된 프로젝션 —

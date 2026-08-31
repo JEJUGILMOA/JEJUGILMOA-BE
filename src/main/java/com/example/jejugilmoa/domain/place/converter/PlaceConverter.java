@@ -35,8 +35,6 @@ public class PlaceConverter {
             p.getImageUrl(),
             List.of(),  // TarRlteTarService1 미제공 — 추후 PlaceImage 테이블로 확장
             p.getCategory() != null ? p.getCategory().getName() : null,
-            null,  // homepage: TarRlteTarService1 미제공
-            null,  // tel: TarRlteTarService1 미제공
             p.getDescription()
         );
     }

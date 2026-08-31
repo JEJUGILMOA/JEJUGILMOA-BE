@@ -1,6 +1,7 @@
 package com.example.jejugilmoa.global.external.tourapi.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 import java.util.List;
 
@@ -28,7 +29,9 @@ public record TourApiResponse<T>(Response<T> response) {
     public record Header(String resultCode, String resultMsg) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Body<T>(Items<T> items, int totalCount, int numOfRows, int pageNo) {}
+    public record Body<T>(
+        @JsonDeserialize(using = NullableItemsDeserializer.class) Items<T> items,
+        int totalCount, int numOfRows, int pageNo) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Items<T>(List<T> item) {}

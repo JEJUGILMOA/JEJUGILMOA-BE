@@ -47,6 +47,18 @@ public class RecommendedCourse extends BaseEntity {
     @Builder.Default
     private Integer shareCount = 0;
 
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    @Column(length = 200)
+    private String tags;
+
+    @Column(name = "estimated_minutes")
+    private Integer estimatedMinutes;
+
+    @Column(name = "transport_mode", length = 20)
+    private String transportMode;
+
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sequenceOrder ASC")
     @Builder.Default
