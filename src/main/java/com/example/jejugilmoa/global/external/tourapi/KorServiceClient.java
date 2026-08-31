@@ -1,8 +1,12 @@
 package com.example.jejugilmoa.global.external.tourapi;
 
 import com.example.jejugilmoa.global.external.config.ExternalApiProperties;
+import com.example.jejugilmoa.global.external.tourapi.dto.AreaBasedItem;
+import com.example.jejugilmoa.global.external.tourapi.dto.DetailCommonItem;
+import com.example.jejugilmoa.global.external.tourapi.dto.DetailIntroItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.LocationBasedItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.TourApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -12,6 +16,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
 
+@Slf4j
 @Component
 public class KorServiceClient {
 
@@ -69,5 +74,101 @@ public class KorServiceClient {
             return List.of();
         }
         return response.items();
+    }
+
+    /**
+     * 지역 기반 관광정보 조회 (areaBasedList2, 추천순)
+     * areaCode=39(제주도), arrange=Q(추천순)
+     */
+    public List<AreaBasedItem> areaBasedListByPopularity(int numOfRows) {
+        String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/areaBasedList2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("MobileOS", MOBILE_OS)
+                .queryParam("MobileApp", MOBILE_APP)
+                .queryParam("_type", "json")
+                .queryParam("areaCode", 39)
+                .queryParam("arrange", "Q")
+                .queryParam("numOfRows", numOfRows)
+                .queryParam("pageNo", 1)
+                .build().toUriString();
+
+        TourApiResponse<AreaBasedItem> response;
+        try {
+            response = restClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("areaBasedListByPopularity 호출 오류", e);
+            return List.of();
+        }
+
+        if (response == null || !response.isSuccess()) {
+            return List.of();
+        }
+        return response.items();
+    }
+
+    /**
+     * 공통 정보 조회 (detailCommon2) — overview 반환
+     */
+    public DetailCommonItem detailCommon2(String contentId) {
+        String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/detailCommon2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("MobileOS", MOBILE_OS)
+                .queryParam("MobileApp", MOBILE_APP)
+                .queryParam("_type", "json")
+                .queryParam("contentId", contentId)
+                .queryParam("overviewYN", "Y")
+                .queryParam("defaultYN", "Y")
+                .build().toUriString();
+
+        TourApiResponse<DetailCommonItem> response;
+        try {
+            response = restClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("detailCommon2 호출 오류: contentId={}", contentId, e);
+            return null;
+        }
+
+        if (response == null || !response.isSuccess()) {
+            return null;
+        }
+        List<DetailCommonItem> items = response.items();
+        return items.isEmpty() ? null : items.get(0);
+    }
+
+    /**
+     * 소개 정보 조회 (detailIntro2) — usetime, restdate 등 타입별 정보 반환
+     */
+    public DetailIntroItem detailIntro2(String contentId, int contentTypeId) {
+        String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/detailIntro2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("MobileOS", MOBILE_OS)
+                .queryParam("MobileApp", MOBILE_APP)
+                .queryParam("_type", "json")
+                .queryParam("contentId", contentId)
+                .queryParam("contentTypeId", contentTypeId)
+                .build().toUriString();
+
+        TourApiResponse<DetailIntroItem> response;
+        try {
+            response = restClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("detailIntro2 호출 오류: contentId={}", contentId, e);
+            return null;
+        }
+
+        if (response == null || !response.isSuccess()) {
+            return null;
+        }
+        List<DetailIntroItem> items = response.items();
+        return items.isEmpty() ? null : items.get(0);
     }
 }
