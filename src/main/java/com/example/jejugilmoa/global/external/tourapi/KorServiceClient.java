@@ -3,7 +3,6 @@ package com.example.jejugilmoa.global.external.tourapi;
 import com.example.jejugilmoa.global.external.config.ExternalApiProperties;
 import com.example.jejugilmoa.global.external.tourapi.dto.AreaBasedItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.DetailCommonItem;
-import com.example.jejugilmoa.global.external.tourapi.dto.DetailIntroItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.LocationBasedItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.TourApiResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -138,37 +137,6 @@ public class KorServiceClient {
             return null;
         }
         List<DetailCommonItem> items = response.items();
-        return items.isEmpty() ? null : items.get(0);
-    }
-
-    /**
-     * 소개 정보 조회 (detailIntro2) — usetime, restdate 등 타입별 정보 반환
-     */
-    public DetailIntroItem detailIntro2(String contentId, int contentTypeId) {
-        String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/detailIntro2")
-                .queryParam("serviceKey", serviceKey)
-                .queryParam("MobileOS", MOBILE_OS)
-                .queryParam("MobileApp", MOBILE_APP)
-                .queryParam("_type", "json")
-                .queryParam("contentId", contentId)
-                .queryParam("contentTypeId", contentTypeId)
-                .build().toUriString();
-
-        TourApiResponse<DetailIntroItem> response;
-        try {
-            response = restClient.get()
-                    .uri(uri)
-                    .retrieve()
-                    .body(new ParameterizedTypeReference<>() {});
-        } catch (Exception e) {
-            log.warn("detailIntro2 호출 오류: contentId={}", contentId, e);
-            return null;
-        }
-
-        if (response == null || !response.isSuccess()) {
-            return null;
-        }
-        List<DetailIntroItem> items = response.items();
         return items.isEmpty() ? null : items.get(0);
     }
 }
