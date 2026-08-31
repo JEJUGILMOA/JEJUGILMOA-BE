@@ -1,8 +1,8 @@
 package com.example.jejugilmoa.global.controller;
 
+import com.example.jejugilmoa.domain.place.service.PlaceSyncService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import com.example.jejugilmoa.global.apiPayload.code.GeneralSuccessCode;
-import com.example.jejugilmoa.global.scheduler.PlaceDataSyncScheduler;
 import com.example.jejugilmoa.global.scheduler.PopularPlaceSyncScheduler;
 import com.example.jejugilmoa.global.scheduler.TodayPickSyncScheduler;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class DevAdminController {
 
-    private final PlaceDataSyncScheduler placeDataSyncScheduler;
+    private final PlaceSyncService placeSyncService;
     private final TodayPickSyncScheduler todayPickSyncScheduler;
     private final PopularPlaceSyncScheduler popularPlaceSyncScheduler;
 
@@ -32,7 +32,7 @@ public class DevAdminController {
     )
     @PostMapping("/sync/places")
     public ApiResponse<String> syncPlaces() {
-        placeDataSyncScheduler.syncAll();
+        placeSyncService.syncFromKorService();
         return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, "장소 전체 동기화 완료");
     }
 
@@ -43,7 +43,7 @@ public class DevAdminController {
     )
     @PostMapping("/sync/enrich")
     public ApiResponse<String> enrichPlaces() {
-        placeDataSyncScheduler.enrichDetails();
+        placeSyncService.enrichPlaceDetails();
         return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, "장소 상세 정보 보강 완료");
     }
 

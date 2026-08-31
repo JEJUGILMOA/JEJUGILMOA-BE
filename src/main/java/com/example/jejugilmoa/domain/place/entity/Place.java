@@ -84,7 +84,7 @@ public class Place extends BaseEntity {
     private List<TravelCourse> travelCourses = new ArrayList<>();
 
     public void updateCommonInfo(String overview) {
-        if (overview != null) this.description = overview;
+        if (overview != null && !overview.isBlank()) this.description = overview;
     }
 
     public void updateImageUrl(String imageUrl) {
