@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -156,6 +157,15 @@ public class PlacePersistService {
                     .build())
             );
         }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int applyOverviews(Map<String, String> overviews) {
+        List<Place> places = placeRepository.findByExternalIdIn(new ArrayList<>(overviews.keySet()));
+        for (Place place : places) {
+            place.updateCommonInfo(overviews.get(place.getExternalId()));
+        }
+        return places.size();
     }
 
     private String buildAddress(TourListItem item) {

@@ -8,11 +8,15 @@ import com.example.jejugilmoa.global.scheduler.TodayPickSyncScheduler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.concurrent.CompletableFuture;
+
+@Slf4j
 @Profile("!prod")
 @Tag(name = "[개발전용] 관리자 수동 동기화", description = "스케줄러를 즉시 실행하는 개발/테스트 전용 API")
 @RestController
@@ -32,19 +36,22 @@ public class DevAdminController {
     )
     @PostMapping("/sync/places")
     public ApiResponse<String> syncPlaces() {
-        placeSyncService.syncFromKorService();
-        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, "장소 전체 동기화 완료");
+        CompletableFuture.runAsync(placeSyncService::syncFromKorService)
+                .exceptionally(e -> { log.error("장소 전체 동기화 실패", e); return null; });
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, "장소 전체 동기화를 백그라운드에서 시작했습니다. 서버 로그를 확인하세요.");
     }
 
     @Operation(
         summary = "[개발전용] 장소 상세 정보 보강",
         description = "detailCommon2로 description(개요)을 채웁니다. " +
-                      "장소 동기화 이후 실행해야 합니다. 50건 배치, 호출 간 100ms sleep."
+                      "장소 동기화 이후 실행해야 합니다. 1회 호출당 50건 처리, 호출 간 200ms sleep. " +
+                      "장기 작업이므로 즉시 반환되며 서버 로그에서 진행 상황을 확인하세요."
     )
     @PostMapping("/sync/enrich")
     public ApiResponse<String> enrichPlaces() {
-        placeSyncService.enrichPlaceDetails();
-        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, "장소 상세 정보 보강 완료");
+        CompletableFuture.runAsync(() -> placeSyncService.enrichPlaceDetails(100))
+                .exceptionally(e -> { log.error("장소 상세 정보 보강 실패", e); return null; });
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, "장소 상세 정보 보강을 백그라운드에서 시작했습니다. 서버 로그를 확인하세요.");
     }
 
     @Operation(

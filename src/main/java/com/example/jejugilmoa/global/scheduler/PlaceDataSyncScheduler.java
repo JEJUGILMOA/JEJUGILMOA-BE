@@ -26,12 +26,6 @@ public class PlaceDataSyncScheduler {
         log.info("장소 데이터 동기화 완료");
     }
 
-    public void enrichDetails() {
-        log.info("장소 상세 정보 보강 시작");
-        placeSyncService.enrichPlaceDetails();
-        log.info("장소 상세 정보 보강 완료");
-    }
-
     @EventListener(ApplicationReadyEvent.class)
     public void onStartup() {
         if (runOnStartup) {
