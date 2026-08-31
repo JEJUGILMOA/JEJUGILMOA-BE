@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -17,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
+@Sql(statements = "TRUNCATE place CASCADE", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class PlaceQueryServiceIntegrationTest {
 
     private static final String CATEGORY = "장소검색통합테스트";
