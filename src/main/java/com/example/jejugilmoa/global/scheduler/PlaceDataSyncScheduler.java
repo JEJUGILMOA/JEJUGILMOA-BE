@@ -22,8 +22,14 @@ public class PlaceDataSyncScheduler {
     @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
     public void syncAll() {
         log.info("장소 데이터 동기화 시작");
-        placeSyncService.syncAllCategories();
+        placeSyncService.syncFromKorService();
         log.info("장소 데이터 동기화 완료");
+    }
+
+    public void enrichDetails() {
+        log.info("장소 상세 정보 보강 시작");
+        placeSyncService.enrichPlaceDetails();
+        log.info("장소 상세 정보 보강 완료");
     }
 
     @EventListener(ApplicationReadyEvent.class)
