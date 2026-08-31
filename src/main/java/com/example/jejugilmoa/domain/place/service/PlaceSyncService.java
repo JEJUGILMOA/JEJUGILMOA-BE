@@ -11,6 +11,7 @@ import com.example.jejugilmoa.global.external.tourapi.dto.DetailCommonItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.TourListItem;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -68,9 +69,9 @@ public class PlaceSyncService {
     private static final long ENRICH_CALL_DELAY_MS = 200; // 초당 5건 — KorService2 rate limit 대비
 
     public void enrichPlaceDetails(int maxCalls) {
-        List<String> allIds = placeRepository.findExternalIdsNeedingEnrichment();
-        List<String> target = allIds.size() <= maxCalls ? allIds : allIds.subList(0, maxCalls);
-        log.info("상세 정보 보강 대상: {}건 중 오늘 {}건 처리", allIds.size(), target.size());
+        long remaining = placeRepository.countNeedingEnrichment();
+        List<String> target = placeRepository.findExternalIdsNeedingEnrichment(PageRequest.of(0, maxCalls));
+        log.info("상세 정보 보강 대상: {}건 중 오늘 {}건 처리", remaining, target.size());
 
         int totalCount = 0;
         int totalBatches = (target.size() + ENRICH_BATCH_SIZE - 1) / ENRICH_BATCH_SIZE;
@@ -108,8 +109,8 @@ public class PlaceSyncService {
             }
         }
 
-        int remaining = allIds.size() - target.size();
+        long leftover = remaining - target.size();
         log.info("상세 정보 보강 완료: {}건 처리{}",
-                totalCount, remaining > 0 ? " (미완료 " + remaining + "건, 내일 이어서 처리)" : "");
+                totalCount, leftover > 0 ? " (미완료 " + leftover + "건, 내일 이어서 처리)" : "");
     }
 }

@@ -44,7 +44,7 @@ public class DevAdminController {
     @Operation(
         summary = "[개발전용] 장소 상세 정보 보강",
         description = "detailCommon2로 description(개요)을 채웁니다. " +
-                      "장소 동기화 이후 실행해야 합니다. 1회 호출당 50건 처리, 호출 간 200ms sleep. " +
+                      "장소 동기화 이후 실행해야 합니다. 1회 실행 시 최대 100건, 50건 단위 배치 처리, 호출 간 200ms sleep. " +
                       "장기 작업이므로 즉시 반환되며 서버 로그에서 진행 상황을 확인하세요."
     )
     @PostMapping("/sync/enrich")

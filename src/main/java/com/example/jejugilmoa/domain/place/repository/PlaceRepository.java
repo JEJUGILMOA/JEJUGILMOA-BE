@@ -17,7 +17,10 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
     Page<Place> findByCategoryNameAndPublishedTrue(String categoryName, Pageable pageable);
     boolean existsByExternalId(String externalId);
     @Query("SELECT p.externalId FROM Place p WHERE p.description IS NULL AND p.externalId IS NOT NULL")
-    List<String> findExternalIdsNeedingEnrichment();
+    List<String> findExternalIdsNeedingEnrichment(Pageable pageable);
+
+    @Query("SELECT COUNT(p) FROM Place p WHERE p.description IS NULL AND p.externalId IS NOT NULL")
+    long countNeedingEnrichment();
 
     List<Place> findByExternalIdIn(List<String> externalIds);
     Optional<Place> findByNameIgnoreCase(String name);
