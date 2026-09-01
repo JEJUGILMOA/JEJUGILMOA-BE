@@ -79,6 +79,10 @@ public class Place extends BaseEntity {
     @Column(name = "is_published")
     private boolean published = true;  // 노출 여부
 
+    @Builder.Default
+    @Column(name = "image_enriched", nullable = false)
+    private boolean imageEnriched = false;  // detailImage2 호출 시도 여부 (true면 재호출 안 함)
+
     @OneToMany(mappedBy = "place")
     @Builder.Default
     private List<TravelCourse> travelCourses = new ArrayList<>();
@@ -89,5 +93,9 @@ public class Place extends BaseEntity {
 
     public void updateImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public void markImageEnriched() {
+        this.imageEnriched = true;
     }
 }
