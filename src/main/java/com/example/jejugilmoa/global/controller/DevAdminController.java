@@ -41,15 +41,14 @@ public class DevAdminController {
 
     @Operation(
         summary = "[개발전용] 장소 500건 배치 추가",
-        description = "DB 보유 건수에서 다음 페이지를 자동 계산해 KorService2에서 500건씩 추가 동기화합니다. " +
-                      "중복 장소는 자동 스킵됩니다. " +
-                      "매일 1회 실행해 장소 데이터를 점진적으로 누적하세요."
+        description = "지정한 pageNo의 KorService2 areaBasedList2 결과(500건)를 저장합니다. " +
+                      "중복 장소는 자동 스킵됩니다. pageNo=1부터 시작해 매 호출마다 1씩 증가시켜 데이터를 누적하세요."
     )
     @PostMapping("/sync/places/batch")
-    public ApiResponse<String> syncPlacesBatch() {
-        int saved = placeSyncService.syncBatch();
+    public ApiResponse<String> syncPlacesBatch(@RequestParam(defaultValue = "1") int pageNo) {
+        int saved = placeSyncService.syncBatch(pageNo);
         return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK,
-                "장소 배치 동기화 완료: " + saved + "건 신규 추가");
+                "장소 배치 동기화 완료 (page=" + pageNo + "): " + saved + "건 신규 추가");
     }
 
     @Operation(

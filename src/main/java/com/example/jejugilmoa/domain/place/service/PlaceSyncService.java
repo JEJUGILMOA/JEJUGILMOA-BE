@@ -2,7 +2,6 @@ package com.example.jejugilmoa.domain.place.service;
 
 import com.example.jejugilmoa.domain.place.dto.PlaceSyncResponse;
 import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
-import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import com.example.jejugilmoa.global.external.tourapi.KorServiceClient;
 import com.example.jejugilmoa.global.external.tourapi.TourApiClient;
@@ -11,6 +10,7 @@ import com.example.jejugilmoa.global.external.tourapi.dto.TourListItem;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +23,6 @@ public class PlaceSyncService {
     private final TourApiClient tourApiClient;
     private final PlacePersistService placePersistService;
     private final KorServiceClient korServiceClient;
-    private final PlaceRepository placeRepository;
 
     public PlaceSyncResponse syncAllCategories() {
         List<String> signgus = List.of(TourApiClient.SIGNGU_JEJU_SI, TourApiClient.SIGNGU_SEOGWIPO);
@@ -63,14 +62,10 @@ public class PlaceSyncService {
         placePersistService.saveKorServiceItems(items);
     }
 
-    /**
-     * DB 보유 건수에서 다음 페이지를 자동 계산해 500건씩 추가 동기화.
-     * pageNo = (place 총 건수 / 500) + 1 — 중복은 existsByExternalId로 스킵.
-     */
-    public int syncBatch() {
-        long total = placeRepository.count();
-        int pageNo = (int) (total / BATCH_SIZE) + 1;
-        log.info("장소 배치 동기화 시작: DB {}건 → page={}, numOfRows={}", total, pageNo, BATCH_SIZE);
+    /** KorService2 areaBasedList2 기준 페이지(1-based)를 지정해 500건씩 추가 동기화. */
+    public int syncBatch(int pageNo) {
+        Assert.isTrue(pageNo >= 1, "pageNo는 1 이상이어야 합니다");
+        log.info("장소 배치 동기화 시작: page={}, numOfRows={}", pageNo, BATCH_SIZE);
         List<AreaBasedItem> items = korServiceClient.areaBasedListByPopularity(BATCH_SIZE, pageNo);
         log.info("KorService2 areaBasedList2 조회: {}건 (page={})", items.size(), pageNo);
         int saved = placePersistService.saveKorServiceItems(items);
