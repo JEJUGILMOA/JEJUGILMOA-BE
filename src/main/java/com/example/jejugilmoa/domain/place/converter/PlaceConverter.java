@@ -4,9 +4,12 @@ import com.example.jejugilmoa.domain.place.dto.PlaceDetailDto;
 import com.example.jejugilmoa.domain.place.dto.PlaceSummaryDto;
 import com.example.jejugilmoa.domain.place.dto.PopularPlaceDto;
 import com.example.jejugilmoa.domain.place.entity.Place;
+import com.example.jejugilmoa.domain.place.entity.PlaceHashtag;
+import com.example.jejugilmoa.domain.place.entity.PlaceImage;
 import com.example.jejugilmoa.domain.place.entity.PopularPlace;
 import org.springframework.stereotype.Component;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Component
@@ -24,27 +27,49 @@ public class PlaceConverter {
         );
     }
 
-    public PlaceDetailDto toDetail(Place p) {
+    public PlaceDetailDto toDetail(Place p, List<PlaceImage> images, String description) {
+        List<String> imageUrls = images.stream()
+            .sorted(Comparator.comparingInt(PlaceImage::getSequenceOrder))
+            .map(PlaceImage::getImageUrl)
+            .toList();
         return new PlaceDetailDto(
             p.getId(),
             p.getName(),
             p.getAddress(),
             p.getLatitude(),
             p.getLongitude(),
-            p.getDescription(),
+            description,
             p.getImageUrl(),
-            List.of(),  // TarRlteTarService1 미제공 — 추후 PlaceImage 테이블로 확장
+            imageUrls,
             p.getCategory() != null ? p.getCategory().getName() : null,
-            p.getDescription()
+            description
         );
     }
 
-    public PopularPlaceDto toPopular(PopularPlace pp) {
+    public PopularPlaceDto toPopular(PopularPlace pp, PlaceHashtag hashtag, List<PlaceImage> images) {
+        Place place = pp.getPlace();
+        String mid = hashtag != null ? hashtag.getMidLabel() : null;
+        List<String> imageUrls = (images != null && !images.isEmpty())
+                ? images.stream()
+                    .sorted(Comparator.comparingInt(PlaceImage::getSequenceOrder))
+                    .map(PlaceImage::getImageUrl)
+                    .toList()
+                : null;
         return new PopularPlaceDto(
-            pp.getPlace().getId(),
-            pp.getPlace().getName(),
-            pp.getPlace().getImageUrl(),
-            pp.getVisitCount()
+            place.getId(),
+            place.getName(),
+            place.getImageUrl(),
+            pp.getVisitCount(),
+            stripJejuPrefix(place.getAddress()),
+            mid != null ? List.of(mid) : null,
+            imageUrls
         );
     }
+
+    private static String stripJejuPrefix(String address) {
+        if (address == null || address.isBlank()) return null;
+        String stripped = address.replace("제주특별자치도", "").strip();
+        return stripped.isBlank() ? null : stripped;
+    }
+
 }

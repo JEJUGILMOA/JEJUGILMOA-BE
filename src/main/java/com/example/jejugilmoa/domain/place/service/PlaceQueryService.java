@@ -4,20 +4,33 @@ import com.example.jejugilmoa.domain.place.converter.PlaceConverter;
 import com.example.jejugilmoa.domain.place.dto.PlaceDetailDto;
 import com.example.jejugilmoa.domain.place.dto.PlaceSummaryDto;
 import com.example.jejugilmoa.domain.place.dto.PopularPlaceDto;
+import com.example.jejugilmoa.domain.place.entity.PlaceHashtag;
+import com.example.jejugilmoa.domain.place.entity.PlaceImage;
+import com.example.jejugilmoa.domain.place.entity.PopularPlace;
 import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
+import com.example.jejugilmoa.domain.place.repository.PlaceHashtagRepository;
+import com.example.jejugilmoa.domain.place.repository.PlaceImageRepository;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.place.repository.PopularPlaceRepository;
 import com.example.jejugilmoa.global.apiPayload.dto.PageResponse;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
+import com.example.jejugilmoa.global.external.tourapi.KorServiceClient;
+import com.example.jejugilmoa.global.external.tourapi.dto.DetailCommonItem;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -25,7 +38,11 @@ public class PlaceQueryService {
 
     private final PlaceRepository placeRepository;
     private final PopularPlaceRepository popularPlaceRepository;
+    private final PlaceHashtagRepository placeHashtagRepository;
+    private final PlaceImageRepository placeImageRepository;
     private final PlaceConverter placeConverter;
+    private final KorServiceClient korServiceClient;
+    private final PlacePersistService placePersistService;
 
     public PageResponse<PlaceSummaryDto> browse(String keyword, String categoryName, Pageable pageable) {
         String kw = (keyword == null || keyword.isBlank()) ? null : escapeLike(keyword.trim());
@@ -44,19 +61,91 @@ public class PlaceQueryService {
                     .replace("_", "!_");
     }
 
-    @Cacheable(value = "popularPlaces", key = "#limit")
-    public List<PopularPlaceDto> getPopular(int limit) {
-        return popularPlaceRepository
-            .findAllByOrderByVisitCountDesc(PageRequest.of(0, limit))
-            .stream()
-            .map(placeConverter::toPopular)
+    public PageResponse<PopularPlaceDto> getPopular(int page, int size, String category) {
+        Pageable pageable = PageRequest.of(page, size);
+        String cat = (category == null || category.isBlank()) ? null : category.trim();
+
+        Page<PopularPlace> ppPage = cat == null
+            ? popularPlaceRepository.findAllWithPlaceOrderByVisitCountDesc(pageable)
+            : popularPlaceRepository.findByCategoryNameWithPlaceOrderByVisitCountDesc(cat, pageable);
+
+        List<PopularPlace> pps = ppPage.getContent();
+        List<Long> placeIds = pps.stream().map(pp -> pp.getPlace().getId()).toList();
+
+        Map<Long, PlaceHashtag> hashtagMap = placeHashtagRepository.findByPlace_IdIn(placeIds)
+            .stream().collect(Collectors.toMap(ht -> ht.getPlace().getId(), ht -> ht));
+
+        Map<Long, List<PlaceImage>> imageMap = loadAndEnrichImages(pps, placeIds);
+
+        List<PopularPlaceDto> dtos = pps.stream()
+            .map(pp -> placeConverter.toPopular(
+                pp,
+                hashtagMap.get(pp.getPlace().getId()),
+                imageMap.get(pp.getPlace().getId())
+            ))
             .toList();
+
+        return new PageResponse<>(dtos, ppPage.getNumber(), ppPage.getSize(),
+            ppPage.getTotalElements(), ppPage.getTotalPages(), ppPage.isLast());
     }
 
     @Cacheable(value = "placeDetail", key = "#id")
     public PlaceDetailDto getDetail(Long id) {
         var place = placeRepository.findByIdAndPublishedTrue(id)
             .orElseThrow(() -> new GeneralException(PlaceErrorCode.PLACE_NOT_FOUND));
-        return placeConverter.toDetail(place);
+
+        List<PlaceImage> images = placeImageRepository.findByPlace_IdIn(List.of(id));
+
+        if (images.size() < 3 && !place.isImageEnriched() && place.getExternalId() != null) {
+            log.info("상세 조회 이미지 보강: placeId={}, contentId={}", id, place.getExternalId());
+            List<String> urls = korServiceClient.detailImage2(place.getExternalId());
+            placePersistService.applyImages(Map.of(place.getExternalId(), urls));
+            images = placeImageRepository.findByPlace_IdIn(List.of(id));
+        }
+
+        String description = place.getDescription();
+        if (description == null && place.getExternalId() != null) {
+            log.info("상세 조회 개요 보강: placeId={}, contentId={}", id, place.getExternalId());
+            DetailCommonItem common = korServiceClient.detailCommon2(place.getExternalId());
+            if (common != null && common.overview() != null && !common.overview().isBlank()) {
+                description = common.overview();
+                placePersistService.applyOverviews(Map.of(place.getExternalId(), description));
+            }
+        }
+
+        return placeConverter.toDetail(place, images, description);
+    }
+
+    private Map<Long, List<PlaceImage>> loadAndEnrichImages(List<PopularPlace> pps, List<Long> placeIds) {
+        Map<Long, List<PlaceImage>> imageMap = placeImageRepository.findByPlace_IdIn(placeIds)
+            .stream().collect(Collectors.groupingBy(img -> img.getPlace().getId()));
+
+        List<PopularPlace> needEnrichment = pps.stream()
+            .filter(pp -> {
+                List<PlaceImage> imgs = imageMap.getOrDefault(pp.getPlace().getId(), List.of());
+                return imgs.size() < 3 && !pp.getPlace().isImageEnriched()
+                        && pp.getPlace().getExternalId() != null;
+            })
+            .toList();
+
+        if (needEnrichment.isEmpty()) return imageMap;
+
+        log.info("인기 장소 이미지 보강 시작: {}건", needEnrichment.size());
+
+        List<CompletableFuture<Map.Entry<String, List<String>>>> futures = needEnrichment.stream()
+            .map(pp -> CompletableFuture.supplyAsync(() -> {
+                String externalId = pp.getPlace().getExternalId();
+                return Map.entry(externalId, korServiceClient.detailImage2(externalId));
+            }))
+            .toList();
+
+        Map<String, List<String>> fetchedMap = futures.stream()
+            .map(CompletableFuture::join)
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        placePersistService.applyImages(fetchedMap);
+
+        return placeImageRepository.findByPlace_IdIn(placeIds)
+            .stream().collect(Collectors.groupingBy(img -> img.getPlace().getId()));
     }
 }
