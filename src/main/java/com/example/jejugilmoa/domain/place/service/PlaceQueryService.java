@@ -98,8 +98,9 @@ public class PlaceQueryService {
 
         if (images.size() < 3 && !place.isImageEnriched() && place.getExternalId() != null) {
             log.info("상세 조회 이미지 보강: placeId={}, contentId={}", id, place.getExternalId());
-            List<String> urls = korServiceClient.detailImage2(place.getExternalId());
-            placePersistService.applyImages(Map.of(place.getExternalId(), urls));
+            korServiceClient.detailImage2(place.getExternalId()).ifPresent(urls -> {
+                placePersistService.applyImages(Map.of(place.getExternalId(), urls));
+            });
             images = placeImageRepository.findByPlace_IdIn(List.of(id));
         }
 
@@ -135,15 +136,20 @@ public class PlaceQueryService {
         List<CompletableFuture<Map.Entry<String, List<String>>>> futures = needEnrichment.stream()
             .map(pp -> CompletableFuture.supplyAsync(() -> {
                 String externalId = pp.getPlace().getExternalId();
-                return Map.entry(externalId, korServiceClient.detailImage2(externalId));
+                return korServiceClient.detailImage2(externalId)
+                    .map(urls -> Map.entry(externalId, urls))
+                    .orElse(null);
             }))
             .toList();
 
         Map<String, List<String>> fetchedMap = futures.stream()
             .map(CompletableFuture::join)
+            .filter(e -> e != null)
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        placePersistService.applyImages(fetchedMap);
+        if (!fetchedMap.isEmpty()) {
+            placePersistService.applyImages(fetchedMap);
+        }
 
         return placeImageRepository.findByPlace_IdIn(placeIds)
             .stream().collect(Collectors.groupingBy(img -> img.getPlace().getId()));
