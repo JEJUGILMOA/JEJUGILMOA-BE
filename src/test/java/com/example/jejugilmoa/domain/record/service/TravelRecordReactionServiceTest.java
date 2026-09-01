@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,7 +44,6 @@ class TravelRecordReactionServiceTest {
         author = User.builder().id(2L).nickname("작성자").build();
         publicRecord = TravelRecord.builder().id(10L).user(author)
                 .title("공개 기록").visibility(Visibility.PUBLIC).build();
-        given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(requester));
     }
 
     @Test
@@ -107,7 +107,8 @@ class TravelRecordReactionServiceTest {
     void rejectsSelfReactionForPostAndDelete() {
         TravelRecord ownRecord = TravelRecord.builder().id(10L).user(requester)
                 .title("내 기록").visibility(Visibility.PUBLIC).build();
-        given(travelRecordRepository.findActiveByIdWithUserAndPlan(10L)).willReturn(Optional.of(ownRecord));
+        given(travelRecordRepository.findActiveByIdForUpdate(10L)).willReturn(Optional.of(ownRecord));
+        given(userRepository.findAllByIdForUpdateOrderById(List.of(1L))).willReturn(List.of(requester));
 
         assertCode(() -> service.setReaction(1L, 10L, request(ReactionType.LIKE)),
                 RecordErrorCode.RECORD_SELF_REACTION_NOT_ALLOWED);
@@ -119,7 +120,8 @@ class TravelRecordReactionServiceTest {
     void hidesAnotherUsersPrivateRecord() {
         TravelRecord privateRecord = TravelRecord.builder().id(10L).user(author)
                 .title("비공개 기록").visibility(Visibility.PRIVATE).build();
-        given(travelRecordRepository.findActiveByIdWithUserAndPlan(10L)).willReturn(Optional.of(privateRecord));
+        given(travelRecordRepository.findActiveByIdForUpdate(10L)).willReturn(Optional.of(privateRecord));
+        givenActiveUsers();
 
         assertCode(() -> service.setReaction(1L, 10L, request(ReactionType.LIKE)),
                 RecordErrorCode.RECORD_NOT_FOUND);
@@ -164,13 +166,19 @@ class TravelRecordReactionServiceTest {
     }
 
     private void assertInactiveRecordIsNotFound() {
-        given(travelRecordRepository.findActiveByIdWithUserAndPlan(10L)).willReturn(Optional.empty());
+        given(travelRecordRepository.findActiveByIdForUpdate(10L)).willReturn(Optional.empty());
         assertCode(() -> service.setReaction(1L, 10L, request(ReactionType.LIKE)),
                 RecordErrorCode.RECORD_NOT_FOUND);
     }
 
     private void givenPublicTarget() {
-        given(travelRecordRepository.findActiveByIdWithUserAndPlan(10L)).willReturn(Optional.of(publicRecord));
+        given(travelRecordRepository.findActiveByIdForUpdate(10L)).willReturn(Optional.of(publicRecord));
+        givenActiveUsers();
+    }
+
+    private void givenActiveUsers() {
+        given(userRepository.findAllByIdForUpdateOrderById(List.of(1L, 2L)))
+                .willReturn(List.of(requester, author));
     }
 
     private TravelRecordReactionRequest request(ReactionType type) {
