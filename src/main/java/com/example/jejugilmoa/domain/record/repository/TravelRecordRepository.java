@@ -1,15 +1,21 @@
 package com.example.jejugilmoa.domain.record.repository;
 
 import com.example.jejugilmoa.domain.record.entity.TravelRecord;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
 public interface TravelRecordRepository extends JpaRepository<TravelRecord, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM TravelRecord r WHERE r.id = :recordId AND r.deletedAt IS NULL")
+    Optional<TravelRecord> findActiveByIdForUpdate(@Param("recordId") Long recordId);
+
     @Query("""
             SELECT r FROM TravelRecord r
             JOIN r.user u

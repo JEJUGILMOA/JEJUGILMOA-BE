@@ -5,12 +5,14 @@ import com.example.jejugilmoa.domain.record.controller.docs.TravelRecordControll
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateResponse;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordDetailResponse;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordReactionRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateResponse;
 import com.example.jejugilmoa.domain.record.enums.RecordView;
 import com.example.jejugilmoa.domain.record.exception.RecordErrorCode;
 import com.example.jejugilmoa.domain.record.service.TravelRecordService;
 import com.example.jejugilmoa.domain.record.service.TravelRecordQueryService;
+import com.example.jejugilmoa.domain.record.service.TravelRecordReactionService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import com.example.jejugilmoa.global.apiPayload.code.GeneralSuccessCode;
 import com.example.jejugilmoa.global.apiPayload.dto.PageResponse;
@@ -45,6 +47,7 @@ public class TravelRecordController implements TravelRecordControllerDocs {
 
     private final TravelRecordService travelRecordService;
     private final TravelRecordQueryService travelRecordQueryService;
+    private final TravelRecordReactionService travelRecordReactionService;
 
     @GetMapping
     public ApiResponse<PageResponse<?>> getRecords(
@@ -67,6 +70,23 @@ public class TravelRecordController implements TravelRecordControllerDocs {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.REQUEST_OK,
                 travelRecordQueryService.getDetail(recordId, principal.userId()));
+    }
+
+    @PostMapping("/{recordId}/reactions")
+    public ApiResponse<Void> setReaction(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long recordId,
+            @Valid @RequestBody TravelRecordReactionRequest request) {
+        travelRecordReactionService.setReaction(principal.userId(), recordId, request);
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, null);
+    }
+
+    @DeleteMapping("/{recordId}/reactions")
+    public ApiResponse<Void> deleteReaction(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long recordId) {
+        travelRecordReactionService.deleteReaction(principal.userId(), recordId);
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, null);
     }
 
     @PostMapping

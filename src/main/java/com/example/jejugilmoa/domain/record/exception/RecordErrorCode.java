@@ -17,6 +17,7 @@ public enum RecordErrorCode implements BaseCode {
     RECORD_PLACE_TARGET_MISMATCH(HttpStatus.BAD_REQUEST, "RECORD400_6", "수정 대상 장소가 해당 여행 기록에 포함되지 않습니다."),
     RECORD_NOT_FOUND(HttpStatus.NOT_FOUND, "RECORD404_1", "여행 기록을 찾을 수 없습니다."),
     RECORD_ACCESS_DENIED(HttpStatus.FORBIDDEN, "RECORD403_2", "본인의 여행 기록만 수정하거나 삭제할 수 있습니다."),
+    RECORD_SELF_REACTION_NOT_ALLOWED(HttpStatus.FORBIDDEN, "RECORD403_3", "본인의 여행 기록에는 반응할 수 없습니다."),
     RECORD_ALREADY_DELETED(HttpStatus.GONE, "RECORD410_1", "이미 삭제된 여행 기록입니다."),
     RECORD_ALREADY_EXISTS(HttpStatus.CONFLICT, "RECORD409_1", "이미 해당 여행의 기록이 존재합니다.");
 

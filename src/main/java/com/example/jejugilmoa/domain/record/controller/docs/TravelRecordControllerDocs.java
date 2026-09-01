@@ -4,6 +4,7 @@ import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateResponse;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordDetailResponse;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordReactionRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateResponse;
 import com.example.jejugilmoa.domain.record.enums.RecordView;
@@ -38,6 +39,23 @@ public interface TravelRecordControllerDocs {
             description = "본인 기록은 공개 범위와 무관하게, 타인 기록은 PUBLIC인 경우에만 조회합니다."
     )
     ApiResponse<TravelRecordDetailResponse> getDetail(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long recordId);
+
+    @Operation(
+            summary = "여행 기록 반응 설정",
+            description = "타인의 PUBLIC 기록에 대한 현재 반응을 LIKE 또는 DISLIKE로 멱등 설정합니다."
+    )
+    ApiResponse<Void> setReaction(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long recordId,
+            @Valid @org.springframework.web.bind.annotation.RequestBody TravelRecordReactionRequest request);
+
+    @Operation(
+            summary = "여행 기록 반응 취소",
+            description = "타인의 PUBLIC 기록에 대한 현재 반응을 멱등 취소합니다."
+    )
+    ApiResponse<Void> deleteReaction(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long recordId);
 

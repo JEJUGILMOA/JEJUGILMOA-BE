@@ -8,8 +8,47 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface TravelRecordReactionRepository extends JpaRepository<TravelRecordReaction, Long> {
+
+    @Query("""
+            SELECT r FROM TravelRecordReaction r
+            WHERE r.travelRecord.id = :recordId
+              AND r.user.id = :userId
+              AND r.travelRecord.deletedAt IS NULL
+              AND r.user.deletedAt IS NULL
+            """)
+    Optional<TravelRecordReaction> findActiveByTravelRecordIdAndUserId(
+            @Param("recordId") Long recordId,
+            @Param("userId") Long userId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            INSERT INTO record_reaction (travel_record_id, user_id, reaction_type)
+            VALUES (:recordId, :userId, :reactionType)
+            ON CONFLICT (travel_record_id, user_id)
+            DO UPDATE SET reaction_type = EXCLUDED.reaction_type
+            """, nativeQuery = true)
+    void upsertReaction(
+            @Param("recordId") Long recordId,
+            @Param("userId") Long userId,
+            @Param("reactionType") String reactionType);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            DELETE FROM record_reaction r
+            USING travel_record tr, "user" u
+            WHERE r.travel_record_id = :recordId
+              AND r.user_id = :userId
+              AND tr.id = r.travel_record_id
+              AND u.id = r.user_id
+              AND tr.deleted_at IS NULL
+              AND u.deleted_at IS NULL
+            """, nativeQuery = true)
+    int deleteActiveByTravelRecordIdAndUserId(
+            @Param("recordId") Long recordId,
+            @Param("userId") Long userId);
 
     interface ReactionCount {
         Long getRecordId();
