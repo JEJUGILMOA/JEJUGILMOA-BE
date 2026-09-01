@@ -8,6 +8,7 @@ import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateResponse;
 import com.example.jejugilmoa.domain.record.exception.RecordErrorCode;
 import com.example.jejugilmoa.domain.record.service.TravelRecordService;
 import com.example.jejugilmoa.domain.record.service.TravelRecordQueryService;
+import com.example.jejugilmoa.domain.record.service.TravelRecordReactionService;
 import com.example.jejugilmoa.domain.user.enums.Role;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import com.example.jejugilmoa.global.config.SecurityConfig;
@@ -46,6 +47,7 @@ class TravelRecordControllerTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean TravelRecordService travelRecordService;
     @MockitoBean TravelRecordQueryService travelRecordQueryService;
+    @MockitoBean TravelRecordReactionService travelRecordReactionService;
     @MockitoBean JwtProvider jwtProvider;
 
     @Test
@@ -87,6 +89,82 @@ class TravelRecordControllerTest {
         mockMvc.perform(get("/api/records/999").with(authentication(authenticationFor(42L))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RECORD404_1"));
+    }
+
+    @Test
+    void setsLikeReaction() throws Exception {
+        mockMvc.perform(post("/api/records/77/reactions")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"reactionType\":\"LIKE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("COMMON200"));
+
+        verify(travelRecordReactionService).setReaction(eq(42L), eq(77L), any());
+    }
+
+    @Test
+    void setsDislikeReaction() throws Exception {
+        mockMvc.perform(post("/api/records/77/reactions")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"reactionType\":\"DISLIKE\"}"))
+                .andExpect(status().isOk());
+
+        var captor = forClass(com.example.jejugilmoa.domain.record.dto.TravelRecordReactionRequest.class);
+        verify(travelRecordReactionService).setReaction(eq(42L), eq(77L), captor.capture());
+        assertThat(captor.getValue().reactionType()).isEqualTo(
+                com.example.jejugilmoa.domain.record.enums.ReactionType.DISLIKE);
+    }
+
+    @Test
+    void deletesReaction() throws Exception {
+        mockMvc.perform(delete("/api/records/77/reactions")
+                        .with(authentication(authenticationFor(42L))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("COMMON200"));
+
+        verify(travelRecordReactionService).deleteReaction(42L, 77L);
+    }
+
+    @Test
+    void reactionEndpointsRequireAuthentication() throws Exception {
+        mockMvc.perform(post("/api/records/77/reactions")
+                        .contentType("application/json")
+                        .content("{\"reactionType\":\"LIKE\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH401_1"));
+        mockMvc.perform(delete("/api/records/77/reactions"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH401_1"));
+    }
+
+    @Test
+    void reactionRejectsUnknownNullAndMissingType() throws Exception {
+        for (String body : List.of(
+                "{\"reactionType\":\"LOVE\"}",
+                "{\"reactionType\":null}",
+                "{}")) {
+            mockMvc.perform(post("/api/records/77/reactions")
+                            .with(authentication(authenticationFor(42L)))
+                            .contentType("application/json")
+                            .content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON400_1"));
+        }
+    }
+
+    @Test
+    void selfReactionErrorUsesForbiddenDomainCode() throws Exception {
+        org.mockito.Mockito.doThrow(new GeneralException(RecordErrorCode.RECORD_SELF_REACTION_NOT_ALLOWED))
+                .when(travelRecordReactionService).setReaction(eq(42L), eq(77L), any());
+
+        mockMvc.perform(post("/api/records/77/reactions")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"reactionType\":\"LIKE\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("RECORD403_3"));
     }
 
     @Test
