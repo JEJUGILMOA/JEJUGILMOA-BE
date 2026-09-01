@@ -144,6 +144,48 @@ class TravelRecordQueryRepositoryTest {
                 .isEmpty();
     }
 
+    @Test
+    void activeReactionLookupExcludesSoftDeletedRecordAndUser() {
+        User activeUser = userRepository.saveAndFlush(User.builder().nickname("활성 반응 사용자").build());
+        User deletedUser = userRepository.saveAndFlush(User.builder().nickname("탈퇴 반응 사용자").build());
+        Instant now = Instant.parse("2026-08-19T00:00:00Z");
+        Long activeRecordId = insertRecord(activeUser.getId(), "PUBLIC", null, now);
+        Long deletedRecordId = insertRecord(activeUser.getId(), "PUBLIC", now, now.plusSeconds(1));
+        insertReaction(activeRecordId, activeUser.getId(), "LIKE");
+        insertReaction(deletedRecordId, activeUser.getId(), "DISLIKE");
+        insertReaction(activeRecordId, deletedUser.getId(), "DISLIKE");
+        jdbcClient.sql("UPDATE \"user\" SET deleted_at = :deletedAt WHERE id = :userId")
+                .param("deletedAt", Timestamp.from(now))
+                .param("userId", deletedUser.getId())
+                .update();
+
+        assertThat(travelRecordReactionRepository.findActiveByTravelRecordIdAndUserId(
+                activeRecordId, activeUser.getId())).isPresent();
+        assertThat(travelRecordReactionRepository.findActiveByTravelRecordIdAndUserId(
+                deletedRecordId, activeUser.getId())).isEmpty();
+        assertThat(travelRecordReactionRepository.findActiveByTravelRecordIdAndUserId(
+                activeRecordId, deletedUser.getId())).isEmpty();
+    }
+
+    @Test
+    void directDeleteRemovesOnlyRequestedUsersReaction() {
+        User first = userRepository.saveAndFlush(User.builder().nickname("삭제 대상 사용자").build());
+        User second = userRepository.saveAndFlush(User.builder().nickname("삭제 비대상 사용자").build());
+        User author = userRepository.saveAndFlush(User.builder().nickname("삭제 테스트 작성자").build());
+        Long recordId = insertRecord(author.getId(), "PUBLIC", null, Instant.parse("2026-08-19T00:00:00Z"));
+        insertReaction(recordId, first.getId(), "LIKE");
+        insertReaction(recordId, second.getId(), "DISLIKE");
+
+        int deleted = travelRecordReactionRepository.deleteActiveByTravelRecordIdAndUserId(
+                recordId, first.getId());
+
+        assertThat(deleted).isOne();
+        assertThat(travelRecordReactionRepository.findActiveByTravelRecordIdAndUserId(
+                recordId, first.getId())).isEmpty();
+        assertThat(travelRecordReactionRepository.findActiveByTravelRecordIdAndUserId(
+                recordId, second.getId())).isPresent();
+    }
+
     private Long insertRecord(Long userId, String visibility, Instant deletedAt, Instant createdAt) {
         return jdbcClient.sql("""
                         INSERT INTO travel_record

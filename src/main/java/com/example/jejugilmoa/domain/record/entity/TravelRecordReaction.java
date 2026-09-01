@@ -42,7 +42,4 @@ public class TravelRecordReaction {
     @Column(nullable = false, length = 20)
     private ReactionType reactionType;  // LIKE, DISLIKE
 
-    public void changeReactionType(ReactionType reactionType) {
-        this.reactionType = reactionType;
-    }
 }

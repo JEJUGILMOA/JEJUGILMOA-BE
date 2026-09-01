@@ -3,7 +3,6 @@ package com.example.jejugilmoa.domain.record.service;
 import com.example.jejugilmoa.domain.plan.enums.Visibility;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordReactionRequest;
 import com.example.jejugilmoa.domain.record.entity.TravelRecord;
-import com.example.jejugilmoa.domain.record.entity.TravelRecordReaction;
 import com.example.jejugilmoa.domain.record.enums.ReactionType;
 import com.example.jejugilmoa.domain.record.exception.RecordErrorCode;
 import com.example.jejugilmoa.domain.record.repository.TravelRecordReactionRepository;
@@ -50,18 +49,15 @@ class TravelRecordReactionServiceTest {
     @Test
     void createsLikeForAnotherUsersPublicRecord() {
         givenPublicTarget();
-        given(reactionRepository.findByTravelRecordIdAndUserId(10L, 1L)).willReturn(Optional.empty());
-
         service.setReaction(1L, 10L, request(ReactionType.LIKE));
 
         verify(reactionRepository).upsertReaction(10L, 1L, "LIKE");
+        verify(reactionRepository, never()).findActiveByTravelRecordIdAndUserId(10L, 1L);
     }
 
     @Test
     void createsDislikeForAnotherUsersPublicRecord() {
         givenPublicTarget();
-        given(reactionRepository.findByTravelRecordIdAndUserId(10L, 1L)).willReturn(Optional.empty());
-
         service.setReaction(1L, 10L, request(ReactionType.DISLIKE));
 
         verify(reactionRepository).upsertReaction(10L, 1L, "DISLIKE");
@@ -79,12 +75,12 @@ class TravelRecordReactionServiceTest {
 
     @Test
     void changesLikeToDislikeOnExistingRow() {
-        assertChangesReaction(ReactionType.LIKE, ReactionType.DISLIKE);
+        assertChangesReaction(ReactionType.DISLIKE);
     }
 
     @Test
     void changesDislikeToLikeOnExistingRow() {
-        assertChangesReaction(ReactionType.DISLIKE, ReactionType.LIKE);
+        assertChangesReaction(ReactionType.LIKE);
     }
 
     @Test
@@ -100,11 +96,11 @@ class TravelRecordReactionServiceTest {
     @Test
     void deletingMissingReactionIsIdempotent() {
         givenPublicTarget();
-        given(reactionRepository.findByTravelRecordIdAndUserId(10L, 1L)).willReturn(Optional.empty());
-
+        given(reactionRepository.deleteActiveByTravelRecordIdAndUserId(10L, 1L)).willReturn(0);
         service.deleteReaction(1L, 10L);
 
-        verify(reactionRepository, never()).delete(org.mockito.ArgumentMatchers.any());
+        verify(reactionRepository).deleteActiveByTravelRecordIdAndUserId(10L, 1L);
+        verify(reactionRepository, never()).findActiveByTravelRecordIdAndUserId(10L, 1L);
     }
 
     @Test
@@ -140,35 +136,31 @@ class TravelRecordReactionServiceTest {
     }
 
     private void assertRepeatedReactionIsIdempotent(ReactionType type) {
-        TravelRecordReaction reaction = reaction(type);
         givenPublicTarget();
-        given(reactionRepository.findByTravelRecordIdAndUserId(10L, 1L)).willReturn(Optional.of(reaction));
 
         service.setReaction(1L, 10L, request(type));
 
-        assertThat(reaction.getReactionType()).isEqualTo(type);
-        verify(reactionRepository, never()).upsertReaction(10L, 1L, type.name());
+        verify(reactionRepository).upsertReaction(10L, 1L, type.name());
+        verify(reactionRepository, never()).findActiveByTravelRecordIdAndUserId(10L, 1L);
     }
 
-    private void assertChangesReaction(ReactionType before, ReactionType after) {
-        TravelRecordReaction reaction = reaction(before);
+    private void assertChangesReaction(ReactionType after) {
         givenPublicTarget();
-        given(reactionRepository.findByTravelRecordIdAndUserId(10L, 1L)).willReturn(Optional.of(reaction));
 
         service.setReaction(1L, 10L, request(after));
 
-        assertThat(reaction.getReactionType()).isEqualTo(after);
-        verify(reactionRepository, never()).upsertReaction(10L, 1L, after.name());
+        verify(reactionRepository).upsertReaction(10L, 1L, after.name());
+        verify(reactionRepository, never()).findActiveByTravelRecordIdAndUserId(10L, 1L);
     }
 
     private void assertDeletesReaction(ReactionType type) {
-        TravelRecordReaction reaction = reaction(type);
         givenPublicTarget();
-        given(reactionRepository.findByTravelRecordIdAndUserId(10L, 1L)).willReturn(Optional.of(reaction));
+        given(reactionRepository.deleteActiveByTravelRecordIdAndUserId(10L, 1L)).willReturn(1);
 
         service.deleteReaction(1L, 10L);
 
-        verify(reactionRepository).delete(reaction);
+        verify(reactionRepository).deleteActiveByTravelRecordIdAndUserId(10L, 1L);
+        verify(reactionRepository, never()).findActiveByTravelRecordIdAndUserId(10L, 1L);
     }
 
     private void assertInactiveRecordIsNotFound() {
@@ -179,11 +171,6 @@ class TravelRecordReactionServiceTest {
 
     private void givenPublicTarget() {
         given(travelRecordRepository.findActiveByIdWithUserAndPlan(10L)).willReturn(Optional.of(publicRecord));
-    }
-
-    private TravelRecordReaction reaction(ReactionType type) {
-        return TravelRecordReaction.builder().id(100L).travelRecord(publicRecord)
-                .user(requester).reactionType(type).build();
     }
 
     private TravelRecordReactionRequest request(ReactionType type) {

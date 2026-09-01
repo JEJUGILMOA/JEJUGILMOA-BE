@@ -12,9 +12,18 @@ import java.util.Optional;
 
 public interface TravelRecordReactionRepository extends JpaRepository<TravelRecordReaction, Long> {
 
-    Optional<TravelRecordReaction> findByTravelRecordIdAndUserId(Long recordId, Long userId);
+    @Query("""
+            SELECT r FROM TravelRecordReaction r
+            WHERE r.travelRecord.id = :recordId
+              AND r.user.id = :userId
+              AND r.travelRecord.deletedAt IS NULL
+              AND r.user.deletedAt IS NULL
+            """)
+    Optional<TravelRecordReaction> findActiveByTravelRecordIdAndUserId(
+            @Param("recordId") Long recordId,
+            @Param("userId") Long userId);
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             INSERT INTO record_reaction (travel_record_id, user_id, reaction_type)
             VALUES (:recordId, :userId, :reactionType)
@@ -25,6 +34,21 @@ public interface TravelRecordReactionRepository extends JpaRepository<TravelReco
             @Param("recordId") Long recordId,
             @Param("userId") Long userId,
             @Param("reactionType") String reactionType);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            DELETE FROM record_reaction r
+            USING travel_record tr, "user" u
+            WHERE r.travel_record_id = :recordId
+              AND r.user_id = :userId
+              AND tr.id = r.travel_record_id
+              AND u.id = r.user_id
+              AND tr.deleted_at IS NULL
+              AND u.deleted_at IS NULL
+            """, nativeQuery = true)
+    int deleteActiveByTravelRecordIdAndUserId(
+            @Param("recordId") Long recordId,
+            @Param("userId") Long userId);
 
     interface ReactionCount {
         Long getRecordId();

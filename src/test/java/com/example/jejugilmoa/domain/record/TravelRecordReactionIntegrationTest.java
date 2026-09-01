@@ -67,20 +67,20 @@ class TravelRecordReactionIntegrationTest {
 
         reactionService.setReaction(requester.getId(), record.getId(), request(ReactionType.LIKE));
 
-        assertThat(reactionRepository.findByTravelRecordIdAndUserId(record.getId(), requester.getId()))
+        assertThat(reactionRepository.findActiveByTravelRecordIdAndUserId(record.getId(), requester.getId()))
                 .get().extracting(reaction -> reaction.getReactionType()).isEqualTo(ReactionType.LIKE);
         assertReactionSummary(record.getId(), requester.getId(), 1, 0, ReactionType.LIKE);
 
         reactionService.setReaction(requester.getId(), record.getId(), request(ReactionType.DISLIKE));
 
         assertThat(reactionRepository.count()).isPositive();
-        assertThat(reactionRepository.findByTravelRecordIdAndUserId(record.getId(), requester.getId()))
+        assertThat(reactionRepository.findActiveByTravelRecordIdAndUserId(record.getId(), requester.getId()))
                 .get().extracting(reaction -> reaction.getReactionType()).isEqualTo(ReactionType.DISLIKE);
         assertReactionSummary(record.getId(), requester.getId(), 0, 1, ReactionType.DISLIKE);
 
         reactionService.deleteReaction(requester.getId(), record.getId());
 
-        assertThat(reactionRepository.findByTravelRecordIdAndUserId(record.getId(), requester.getId())).isEmpty();
+        assertThat(reactionRepository.findActiveByTravelRecordIdAndUserId(record.getId(), requester.getId())).isEmpty();
         assertReactionSummary(record.getId(), requester.getId(), 0, 0, null);
     }
 
@@ -114,7 +114,7 @@ class TravelRecordReactionIntegrationTest {
                     .query(Integer.class)
                     .single();
             assertThat(reactionCount).isOne();
-            assertThat(reactionRepository.findByTravelRecordIdAndUserId(record.getId(), requester.getId()))
+            assertThat(reactionRepository.findActiveByTravelRecordIdAndUserId(record.getId(), requester.getId()))
                     .get().extracting(reaction -> reaction.getReactionType()).isEqualTo(ReactionType.LIKE);
         } finally {
             jdbcClient.sql("DELETE FROM record_reaction WHERE travel_record_id = :recordId")
@@ -123,6 +123,45 @@ class TravelRecordReactionIntegrationTest {
                     .param("recordId", record.getId()).update();
             jdbcClient.sql("DELETE FROM \"user\" WHERE id IN (:requesterId, :authorId)")
                     .param("requesterId", requester.getId()).param("authorId", author.getId()).update();
+        }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void concurrentPostAndDeleteCompleteWithoutStaleEntityFailure() throws Exception {
+        User requester = userRepository.saveAndFlush(User.builder().nickname("경합 반응 요청자").build());
+        User author = userRepository.saveAndFlush(User.builder().nickname("경합 반응 작성자").build());
+        TravelRecord record = recordRepository.saveAndFlush(TravelRecord.builder()
+                .user(author)
+                .title("POST DELETE 경합 공개 기록")
+                .visibility(Visibility.PUBLIC)
+                .build());
+        reactionService.setReaction(requester.getId(), record.getId(), request(ReactionType.LIKE));
+        var ready = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var post = executor.submit(() -> runAfterStart(ready, start,
+                    () -> reactionService.setReaction(
+                            requester.getId(), record.getId(), request(ReactionType.DISLIKE))));
+            var delete = executor.submit(() -> runAfterStart(ready, start,
+                    () -> reactionService.deleteReaction(requester.getId(), record.getId())));
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            post.get(5, TimeUnit.SECONDS);
+            delete.get(5, TimeUnit.SECONDS);
+
+            Integer reactionCount = jdbcClient.sql("""
+                            SELECT COUNT(*) FROM record_reaction
+                            WHERE travel_record_id = :recordId AND user_id = :userId
+                            """)
+                    .param("recordId", record.getId())
+                    .param("userId", requester.getId())
+                    .query(Integer.class)
+                    .single();
+            assertThat(reactionCount).isBetween(0, 1);
+        } finally {
+            deleteFixtures(record.getId(), requester.getId(), author.getId());
         }
     }
 
@@ -151,15 +190,29 @@ class TravelRecordReactionIntegrationTest {
 
     private void setReactionAfterStart(
             Long userId, Long recordId, CountDownLatch ready, CountDownLatch start) {
+        runAfterStart(ready, start,
+                () -> reactionService.setReaction(userId, recordId, request(ReactionType.LIKE)));
+    }
+
+    private void runAfterStart(CountDownLatch ready, CountDownLatch start, Runnable operation) {
         try {
             ready.countDown();
             if (!start.await(5, TimeUnit.SECONDS)) {
                 throw new IllegalStateException("동시 요청 시작 대기 시간 초과");
             }
-            reactionService.setReaction(userId, recordId, request(ReactionType.LIKE));
+            operation.run();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(exception);
         }
+    }
+
+    private void deleteFixtures(Long recordId, Long requesterId, Long authorId) {
+        jdbcClient.sql("DELETE FROM record_reaction WHERE travel_record_id = :recordId")
+                .param("recordId", recordId).update();
+        jdbcClient.sql("DELETE FROM travel_record WHERE id = :recordId")
+                .param("recordId", recordId).update();
+        jdbcClient.sql("DELETE FROM \"user\" WHERE id IN (:requesterId, :authorId)")
+                .param("requesterId", requesterId).param("authorId", authorId).update();
     }
 }

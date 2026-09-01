@@ -25,18 +25,14 @@ public class TravelRecordReactionService {
     public void setReaction(Long userId, Long recordId, TravelRecordReactionRequest request) {
         validateReactionTarget(userId, recordId);
 
-        travelRecordReactionRepository.findByTravelRecordIdAndUserId(recordId, userId)
-                .ifPresentOrElse(
-                        reaction -> reaction.changeReactionType(request.reactionType()),
-                        () -> travelRecordReactionRepository.upsertReaction(
-                                recordId, userId, request.reactionType().name()));
+        travelRecordReactionRepository.upsertReaction(
+                recordId, userId, request.reactionType().name());
     }
 
     @Transactional
     public void deleteReaction(Long userId, Long recordId) {
         validateReactionTarget(userId, recordId);
-        travelRecordReactionRepository.findByTravelRecordIdAndUserId(recordId, userId)
-                .ifPresent(travelRecordReactionRepository::delete);
+        travelRecordReactionRepository.deleteActiveByTravelRecordIdAndUserId(recordId, userId);
     }
 
     private void validateReactionTarget(Long userId, Long recordId) {
