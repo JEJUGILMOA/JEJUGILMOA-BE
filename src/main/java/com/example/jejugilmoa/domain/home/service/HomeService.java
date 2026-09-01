@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class HomeService {
 
     private static final int HOME_PLACE_LIMIT = 5;
@@ -76,6 +75,7 @@ public class HomeService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<HomeCourseResponse> getHomeCourses() {
         List<RecommendedCourse> courses = recommendedCourseRepository
                 .findAllWithPathsOrderByCopyCountDesc()

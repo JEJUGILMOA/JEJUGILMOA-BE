@@ -24,10 +24,10 @@ public interface PopularPlaceRepository extends JpaRepository<PopularPlace, Long
     Page<PopularPlace> findByCategoryNameWithPlaceOrderByVisitCountDesc(@Param("categoryName") String categoryName, Pageable pageable);
     Optional<PopularPlace> findByPlace(Place place);
 
-    @Query("SELECT pp FROM PopularPlace pp JOIN FETCH pp.place WHERE pp.curationLabel = :label ORDER BY pp.visitCount DESC")
+    @Query("SELECT pp FROM PopularPlace pp JOIN FETCH pp.place pl JOIN FETCH pl.category WHERE pp.curationLabel = :label ORDER BY pp.visitCount DESC")
     List<PopularPlace> findByCurationLabelWithPlace(@Param("label") CurationLabel label, Pageable pageable);
 
-    @Query("SELECT pp FROM PopularPlace pp JOIN FETCH pp.place WHERE pp.curationLabel IS NULL ORDER BY pp.visitCount DESC")
+    @Query("SELECT pp FROM PopularPlace pp JOIN FETCH pp.place pl JOIN FETCH pl.category WHERE pp.curationLabel IS NULL ORDER BY pp.visitCount DESC")
     List<PopularPlace> findTopGeneralWithPlace(Pageable pageable);
 
     @Query("SELECT pp FROM PopularPlace pp WHERE pp.place.externalId = :externalId")
