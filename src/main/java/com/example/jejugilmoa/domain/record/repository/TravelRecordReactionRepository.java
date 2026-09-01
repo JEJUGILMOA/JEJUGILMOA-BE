@@ -8,8 +8,23 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface TravelRecordReactionRepository extends JpaRepository<TravelRecordReaction, Long> {
+
+    Optional<TravelRecordReaction> findByTravelRecordIdAndUserId(Long recordId, Long userId);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO record_reaction (travel_record_id, user_id, reaction_type)
+            VALUES (:recordId, :userId, :reactionType)
+            ON CONFLICT (travel_record_id, user_id)
+            DO UPDATE SET reaction_type = EXCLUDED.reaction_type
+            """, nativeQuery = true)
+    void upsertReaction(
+            @Param("recordId") Long recordId,
+            @Param("userId") Long userId,
+            @Param("reactionType") String reactionType);
 
     interface ReactionCount {
         Long getRecordId();
