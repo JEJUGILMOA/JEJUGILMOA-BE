@@ -17,8 +17,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @Tag(name = "장소", description = "관광지 탐색 및 인기 장소 조회")
 @RestController
 @RequestMapping("/api/places")
@@ -29,13 +27,15 @@ public class PlaceController implements PlaceControllerDocs {
     private final PlaceSyncService placeSyncService;
 
     private static final int MAX_SIZE = 100;
-    private static final int MAX_LIMIT = 100;
 
     @GetMapping("/popular")
-    public ApiResponse<List<PopularPlaceDto>> getPopular(
-            @RequestParam(defaultValue = "20") int limit) {
-        if (limit < 1 || limit > MAX_LIMIT) throw new GeneralException(PlaceErrorCode.INVALID_LIMIT);
-        return ApiResponse.onSuccess(GeneralSuccessCode.FOUND, placeQueryService.getPopular(limit));
+    public ApiResponse<PageResponse<PopularPlaceDto>> getPopular(
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        if (page < 0) throw new GeneralException(PlaceErrorCode.INVALID_PAGE);
+        if (size < 1 || size > MAX_SIZE) throw new GeneralException(PlaceErrorCode.INVALID_PAGE_SIZE);
+        return ApiResponse.onSuccess(GeneralSuccessCode.FOUND, placeQueryService.getPopular(page, size, category));
     }
 
     @GetMapping
