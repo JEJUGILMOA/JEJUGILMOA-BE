@@ -199,7 +199,9 @@ public interface PlaceControllerDocs {
 
             결과는 30분간 Redis에 캐싱됩니다. (캐시 키: `placeDetail::{id}`)
 
-            `images`는 추후 PlaceImage 테이블 연동 예정으로 현재 빈 배열입니다.
+            `images`에는 DB에 저장된 갤러리 이미지 URL 목록이 포함됩니다.
+            이미지가 없거나 3장 미만이면 TourAPI를 통해 자동 보강 후 반환합니다.
+            `overview`가 없으면 TourAPI detailCommon2를 호출해 실시간 보강합니다.
             """
     )
     @ApiResponses({
@@ -220,10 +222,13 @@ public interface PlaceControllerDocs {
                             "latitude": 33.4589,
                             "longitude": 126.9425,
                             "description": null,
-                            "imageUrl": null,
-                            "images": [],
+                            "imageUrl": "https://example.com/seongsan.jpg",
+                            "images": [
+                              "https://example.com/img1.jpg",
+                              "https://example.com/img2.jpg"
+                            ],
                             "categoryName": "자연",
-                            "overview": null
+                            "overview": "성산일출봉은 제주도 동쪽 끝..."
                           }
                         }
                         """
