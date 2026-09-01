@@ -3,6 +3,7 @@ package com.example.jejugilmoa.domain.place.repository;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.entity.PopularPlace;
 import com.example.jejugilmoa.domain.place.enums.CurationLabel;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -13,13 +14,20 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PopularPlaceRepository extends JpaRepository<PopularPlace, Long> {
-    List<PopularPlace> findAllByOrderByVisitCountDesc(Pageable pageable);
+
+    @Query(value = "SELECT pp FROM PopularPlace pp JOIN FETCH pp.place ORDER BY pp.visitCount DESC, pp.id ASC",
+           countQuery = "SELECT COUNT(pp) FROM PopularPlace pp")
+    Page<PopularPlace> findAllWithPlaceOrderByVisitCountDesc(Pageable pageable);
+
+    @Query(value = "SELECT pp FROM PopularPlace pp JOIN FETCH pp.place pl WHERE pl.category.name = :categoryName ORDER BY pp.visitCount DESC, pp.id ASC",
+           countQuery = "SELECT COUNT(pp) FROM PopularPlace pp JOIN pp.place pl WHERE pl.category.name = :categoryName")
+    Page<PopularPlace> findByCategoryNameWithPlaceOrderByVisitCountDesc(@Param("categoryName") String categoryName, Pageable pageable);
     Optional<PopularPlace> findByPlace(Place place);
 
-    @Query("SELECT pp FROM PopularPlace pp JOIN FETCH pp.place WHERE pp.curationLabel = :label ORDER BY pp.visitCount DESC")
+    @Query("SELECT pp FROM PopularPlace pp JOIN FETCH pp.place pl JOIN FETCH pl.category WHERE pp.curationLabel = :label ORDER BY pp.visitCount DESC, pp.id ASC")
     List<PopularPlace> findByCurationLabelWithPlace(@Param("label") CurationLabel label, Pageable pageable);
 
-    @Query("SELECT pp FROM PopularPlace pp JOIN FETCH pp.place WHERE pp.curationLabel IS NULL ORDER BY pp.visitCount DESC")
+    @Query("SELECT pp FROM PopularPlace pp JOIN FETCH pp.place pl JOIN FETCH pl.category WHERE pp.curationLabel IS NULL ORDER BY pp.visitCount DESC, pp.id ASC")
     List<PopularPlace> findTopGeneralWithPlace(Pageable pageable);
 
     @Query("SELECT pp FROM PopularPlace pp WHERE pp.place.externalId = :externalId")

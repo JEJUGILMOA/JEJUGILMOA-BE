@@ -2,22 +2,18 @@ package com.example.jejugilmoa.domain.place.service;
 
 import com.example.jejugilmoa.domain.place.dto.PlaceSyncResponse;
 import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
-import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import com.example.jejugilmoa.global.external.tourapi.KorServiceClient;
 import com.example.jejugilmoa.global.external.tourapi.TourApiClient;
 import com.example.jejugilmoa.global.external.tourapi.dto.AreaBasedItem;
-import com.example.jejugilmoa.global.external.tourapi.dto.DetailCommonItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.TourListItem;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Service
@@ -27,7 +23,6 @@ public class PlaceSyncService {
     private final TourApiClient tourApiClient;
     private final PlacePersistService placePersistService;
     private final KorServiceClient korServiceClient;
-    private final PlaceRepository placeRepository;
 
     public PlaceSyncResponse syncAllCategories() {
         List<String> signgus = List.of(TourApiClient.SIGNGU_JEJU_SI, TourApiClient.SIGNGU_SEOGWIPO);
@@ -59,58 +54,22 @@ public class PlaceSyncService {
         placePersistService.saveItems(signguCd, items);
     }
 
+    private static final int BATCH_SIZE = 500;
+
     public void syncFromKorService() {
-        List<AreaBasedItem> items = korServiceClient.areaBasedListByPopularity(1000);
+        List<AreaBasedItem> items = korServiceClient.areaBasedListByPopularity(1000, 1);
         log.info("KorService2 areaBasedList2 조회: {}건", items.size());
         placePersistService.saveKorServiceItems(items);
     }
 
-    private static final int ENRICH_BATCH_SIZE = 50;
-    private static final long ENRICH_CALL_DELAY_MS = 200; // 초당 5건 — KorService2 rate limit 대비
-
-    public void enrichPlaceDetails(int maxCalls) {
-        long remaining = placeRepository.countNeedingEnrichment();
-        List<String> target = placeRepository.findExternalIdsNeedingEnrichment(PageRequest.of(0, maxCalls));
-        log.info("상세 정보 보강 대상: {}건 중 오늘 {}건 처리", remaining, target.size());
-
-        int totalCount = 0;
-        int totalBatches = (target.size() + ENRICH_BATCH_SIZE - 1) / ENRICH_BATCH_SIZE;
-
-        outer:
-        for (int i = 0; i < target.size(); i += ENRICH_BATCH_SIZE) {
-            List<String> batch = target.subList(i, Math.min(i + ENRICH_BATCH_SIZE, target.size()));
-
-            Map<String, String> overviews = new HashMap<>();
-            for (String externalId : batch) {
-                try {
-                    DetailCommonItem common = korServiceClient.detailCommon2(externalId);
-                    if (common != null && common.overview() != null && !common.overview().isBlank()) {
-                        overviews.put(externalId, common.overview());
-                    }
-                } catch (Exception e) {
-                    log.warn("상세 정보 보강 실패: contentId={}", externalId, e);
-                }
-                try {
-                    Thread.sleep(ENRICH_CALL_DELAY_MS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    log.warn("enrichPlaceDetails 중단됨");
-                    break outer;
-                }
-            }
-
-            int batchNo = (i / ENRICH_BATCH_SIZE) + 1;
-            if (!overviews.isEmpty()) {
-                int saved = placePersistService.applyOverviews(overviews);
-                totalCount += saved;
-                log.info("상세 정보 보강 진행: 배치 {}/{}, 이번 {}건 저장 (누적 {}건)", batchNo, totalBatches, saved, totalCount);
-            } else {
-                log.debug("상세 정보 보강 배치 {}/{}: overview 없음, 저장 스킵", batchNo, totalBatches);
-            }
-        }
-
-        long leftover = remaining - target.size();
-        log.info("상세 정보 보강 완료: {}건 처리{}",
-                totalCount, leftover > 0 ? " (미완료 " + leftover + "건, 내일 이어서 처리)" : "");
+    /** KorService2 areaBasedList2 기준 페이지(1-based)를 지정해 500건씩 추가 동기화. */
+    public int syncBatch(int pageNo) {
+        Assert.isTrue(pageNo >= 1, "pageNo는 1 이상이어야 합니다");
+        log.info("장소 배치 동기화 시작: page={}, numOfRows={}", pageNo, BATCH_SIZE);
+        List<AreaBasedItem> items = korServiceClient.areaBasedListByPopularity(BATCH_SIZE, pageNo);
+        log.info("KorService2 areaBasedList2 조회: {}건 (page={})", items.size(), pageNo);
+        int saved = placePersistService.saveKorServiceItems(items);
+        log.info("장소 배치 동기화 완료: {}건 신규 저장 (중복 스킵 {}건)", saved, items.size() - saved);
+        return saved;
     }
 }

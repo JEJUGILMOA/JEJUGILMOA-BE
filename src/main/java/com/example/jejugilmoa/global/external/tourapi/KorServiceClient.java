@@ -3,6 +3,7 @@ package com.example.jejugilmoa.global.external.tourapi;
 import com.example.jejugilmoa.global.external.config.ExternalApiProperties;
 import com.example.jejugilmoa.global.external.tourapi.dto.AreaBasedItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.DetailCommonItem;
+import com.example.jejugilmoa.global.external.tourapi.dto.DetailImageItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.LocationBasedItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.TourApiResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +17,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -83,7 +85,7 @@ public class KorServiceClient {
      * 지역 기반 관광정보 조회 (areaBasedList2, 추천순)
      * areaCode=39(제주도), arrange=Q(추천순)
      */
-    public List<AreaBasedItem> areaBasedListByPopularity(int numOfRows) {
+    public List<AreaBasedItem> areaBasedListByPopularity(int numOfRows, int pageNo) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/areaBasedList2")
                 .queryParam("serviceKey", serviceKey)
                 .queryParam("MobileOS", MOBILE_OS)
@@ -92,7 +94,7 @@ public class KorServiceClient {
                 .queryParam("areaCode", 39)
                 .queryParam("arrange", "Q")
                 .queryParam("numOfRows", numOfRows)
-                .queryParam("pageNo", 1)
+                .queryParam("pageNo", pageNo)
                 .build().toUriString();
 
         TourApiResponse<AreaBasedItem> response;
@@ -160,5 +162,47 @@ public class KorServiceClient {
             }
         }
         return null;
+    }
+
+    /**
+     * 이미지 목록 조회 (detailImage2) — originimgurl 최대 3건 반환.
+     * Optional.empty() = API 호출/파싱 실패 (일시적 오류 — imageEnriched 설정 금지)
+     * Optional.of(empty) = API 성공이나 이미지 없음 (imageEnriched 설정 가능)
+     */
+    public Optional<List<String>> detailImage2(String contentId) {
+        String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/detailImage2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("MobileOS", MOBILE_OS)
+                .queryParam("MobileApp", MOBILE_APP)
+                .queryParam("_type", "json")
+                .queryParam("contentId", contentId)
+                .queryParam("imageYN", "Y")
+                .build().toUriString();
+
+        try {
+            String rawBody = restClient.get().uri(uri).retrieve().body(String.class);
+            if (rawBody == null || rawBody.isBlank()) {
+                log.warn("detailImage2 응답 빈 바디: contentId={}", contentId);
+                return Optional.empty();
+            }
+
+            TourApiResponse<DetailImageItem> response = objectMapper.readValue(rawBody,
+                    objectMapper.getTypeFactory().constructParametricType(TourApiResponse.class, DetailImageItem.class));
+
+            if (response == null || !response.isSuccess()) {
+                log.warn("detailImage2 응답 실패: contentId={}, body={}", contentId, rawBody.length() > 200 ? rawBody.substring(0, 200) : rawBody);
+                return Optional.empty();
+            }
+            List<String> urls = response.items().stream()
+                    .map(DetailImageItem::originimgurl)
+                    .filter(url -> url != null && !url.isBlank())
+                    .limit(3)
+                    .toList();
+            log.info("detailImage2 결과: contentId={}, 이미지 {}건", contentId, urls.size());
+            return Optional.of(urls);
+        } catch (Exception e) {
+            log.warn("detailImage2 호출 오류: contentId={}", contentId, e);
+            return Optional.empty();
+        }
     }
 }

@@ -6,9 +6,12 @@ import com.example.jejugilmoa.domain.place.dto.PopularPlaceDto;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.entity.PopularPlace;
 import com.example.jejugilmoa.domain.place.exception.PlaceErrorCode;
+import com.example.jejugilmoa.domain.place.repository.PlaceHashtagRepository;
+import com.example.jejugilmoa.domain.place.repository.PlaceImageRepository;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.place.repository.PopularPlaceRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
+import com.example.jejugilmoa.global.external.tourapi.KorServiceClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
@@ -35,7 +39,11 @@ class PlaceQueryServiceTest {
 
     @Mock PlaceRepository placeRepository;
     @Mock PopularPlaceRepository popularPlaceRepository;
+    @Mock PlaceHashtagRepository placeHashtagRepository;
+    @Mock PlaceImageRepository placeImageRepository;
     @Mock PlaceConverter placeConverter;
+    @Mock KorServiceClient korServiceClient;
+    @Mock PlacePersistService placePersistService;
     @InjectMocks PlaceQueryService placeQueryService;
 
     @Test
@@ -43,15 +51,18 @@ class PlaceQueryServiceTest {
         var place = Place.builder().id(1L).name("한라산").imageUrl("img.jpg")
             .externalId("c1").address("").latitude(BigDecimal.ZERO).longitude(BigDecimal.ZERO).build();
         var popular = PopularPlace.builder().place(place).visitCount(1000).build();
-        given(popularPlaceRepository.findAllByOrderByVisitCountDesc(any()))
-            .willReturn(List.of(popular));
-        given(placeConverter.toPopular(popular))
-            .willReturn(new PopularPlaceDto(1L, "한라산", "img.jpg", 1000));
+        var ppPage = new PageImpl<>(List.of(popular), PageRequest.of(0, 3), 1);
+        given(popularPlaceRepository.findAllWithPlaceOrderByVisitCountDesc(any()))
+            .willReturn(ppPage);
+        given(placeHashtagRepository.findByPlace_IdIn(any())).willReturn(List.of());
+        given(placeImageRepository.findByPlace_IdIn(any())).willReturn(List.of());
+        given(placeConverter.toPopular(eq(popular), isNull(), any()))
+            .willReturn(new PopularPlaceDto(1L, "한라산", "img.jpg", 1000, null, null, null));
 
-        var result = placeQueryService.getPopular(3);
+        var result = placeQueryService.getPopular(0, 3, null);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).name()).isEqualTo("한라산");
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.content().get(0).name()).isEqualTo("한라산");
     }
 
     @Test
@@ -100,7 +111,8 @@ class PlaceQueryServiceTest {
             null, "img.jpg", List.of(), "자연", null);
 
         given(placeRepository.findByIdAndPublishedTrue(1L)).willReturn(Optional.of(place));
-        given(placeConverter.toDetail(place)).willReturn(expected);
+        given(placeImageRepository.findByPlace_IdIn(List.of(1L))).willReturn(List.of());
+        given(placeConverter.toDetail(eq(place), any(), any())).willReturn(expected);
 
         var result = placeQueryService.getDetail(1L);
 

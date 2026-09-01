@@ -3,6 +3,7 @@ package com.example.jejugilmoa.domain.home.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record HomePlaceResponse(
 
@@ -15,7 +16,7 @@ public record HomePlaceResponse(
         @Schema(description = "카테고리")
         String categoryName,
 
-        @Schema(description = "지역 (시군구)")
+        @Schema(description = "지역 (시군구 이하 주소, '제주특별자치도' 제외)")
         String region,
 
         @Schema(description = "대표 이미지 URL")
@@ -28,6 +29,9 @@ public record HomePlaceResponse(
         String curationLabel,
 
         @Schema(description = "평점")
-        BigDecimal rating
+        BigDecimal rating,
+
+        @Schema(description = "해시태그 [중분류명, 소분류명] 순, null 제외")
+        List<String> hashtags
 
 ) {}

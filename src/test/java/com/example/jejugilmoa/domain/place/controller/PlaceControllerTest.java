@@ -31,15 +31,15 @@ class PlaceControllerTest {
 
     @Test
     void getPopular_returns200WithTop3() throws Exception {
-        given(placeQueryService.getPopular(3)).willReturn(List.of(
-            new PopularPlaceDto(1L, "한라산", "img.jpg", 1000)
-        ));
+        var dto = new PopularPlaceDto(1L, "한라산", "img.jpg", 1000, null, null, null);
+        given(placeQueryService.getPopular(anyInt(), anyInt(), any()))
+            .willReturn(new PageResponse<>(List.of(dto), 0, 20, 1L, 1, true));
 
-        mockMvc.perform(get("/api/places/popular?limit=3"))
+        mockMvc.perform(get("/api/places/popular?size=3"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.isSuccess").value(true))
-            .andExpect(jsonPath("$.result[0].name").value("한라산"))
-            .andExpect(jsonPath("$.result[0].placeId").value(1));
+            .andExpect(jsonPath("$.result.content[0].name").value("한라산"))
+            .andExpect(jsonPath("$.result.content[0].placeId").value(1));
     }
 
     @Test

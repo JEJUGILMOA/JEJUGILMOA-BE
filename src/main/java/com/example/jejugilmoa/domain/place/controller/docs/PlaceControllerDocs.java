@@ -14,19 +14,17 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.List;
-
 public interface PlaceControllerDocs {
 
     @Operation(
         summary = "인기 관광지 목록",
         description = """
-            방문 수 기준으로 상위 관광지를 반환합니다.
+            방문 수 기준으로 상위 관광지를 페이지네이션으로 반환합니다.
 
-            - 홈 화면 TOP3: `limit=3`
-            - 인기 장소 전체 페이지: `limit=20` (기본값)
+            - 카테고리 미입력 시 전체 인기 장소 조회
+            - 카테고리 입력 시 해당 카테고리 내 인기 장소 조회
 
-            결과는 30분간 Redis에 캐싱됩니다. (캐시 키: `popularPlaces::{limit}`)
+            **사용 가능한 카테고리**: `자연`, `음식`, `카페`, `전통시장`, `역사`, `체험`
             """
     )
     @ApiResponses({
@@ -40,29 +38,48 @@ public interface PlaceControllerDocs {
                           "isSuccess": true,
                           "code": "FOUND200",
                           "message": "조회에 성공했습니다.",
-                          "result": [
-                            {
-                              "placeId": 1,
-                              "name": "성산일출봉",
-                              "imageUrl": "https://example.com/seongsan.jpg",
-                              "visitCount": 500
-                            },
-                            {
-                              "placeId": 2,
-                              "name": "한라산",
-                              "imageUrl": "https://example.com/hallasan.jpg",
-                              "visitCount": 480
-                            }
-                          ]
+                          "result": {
+                            "content": [
+                              {
+                                "placeId": 1,
+                                "name": "성산일출봉",
+                                "imageUrl": "https://example.com/seongsan.jpg",
+                                "visitCount": 500,
+                                "region": "서귀포시 성산읍",
+                                "hashtags": ["자연"],
+                                "imageUrls": ["https://example.com/img1.jpg"]
+                              }
+                            ],
+                            "page": 0,
+                            "size": 20,
+                            "totalElements": 120,
+                            "totalPages": 6,
+                            "last": false
+                          }
                         }
                         """
                 )
             )
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "잘못된 페이지 파라미터",
+            content = @Content(
+                examples = @ExampleObject(value = """
+                    {"isSuccess":false,"code":"PLACE400_2","message":"페이지 번호는 0 이상이어야 합니다.","result":null}
+                    """)
+            )
         )
     })
-    ApiResponse<List<PopularPlaceDto>> getPopular(
-        @Parameter(description = "반환할 최대 개수 (홈 화면: 3, 인기 장소 페이지: 20)", example = "3")
-        @RequestParam(defaultValue = "20") int limit
+    ApiResponse<PageResponse<PopularPlaceDto>> getPopular(
+        @Parameter(description = "카테고리 필터 (미입력 시 전체 조회, 예: 자연·음식·카페·전통시장·역사·체험)", example = "자연")
+        @RequestParam(required = false) String category,
+
+        @Parameter(description = "페이지 번호 (0부터 시작)", example = "0")
+        @RequestParam(defaultValue = "0") int page,
+
+        @Parameter(description = "페이지 크기 (1~100)", example = "20")
+        @RequestParam(defaultValue = "20") int size
     );
 
     @Operation(
@@ -182,7 +199,9 @@ public interface PlaceControllerDocs {
 
             결과는 30분간 Redis에 캐싱됩니다. (캐시 키: `placeDetail::{id}`)
 
-            `images`는 추후 PlaceImage 테이블 연동 예정으로 현재 빈 배열입니다.
+            `images`에는 DB에 저장된 갤러리 이미지 URL 목록이 포함됩니다.
+            이미지가 없거나 3장 미만이면 TourAPI를 통해 자동 보강 후 반환합니다.
+            `overview`가 없으면 TourAPI detailCommon2를 호출해 실시간 보강합니다.
             """
     )
     @ApiResponses({
@@ -203,10 +222,13 @@ public interface PlaceControllerDocs {
                             "latitude": 33.4589,
                             "longitude": 126.9425,
                             "description": null,
-                            "imageUrl": null,
-                            "images": [],
+                            "imageUrl": "https://example.com/seongsan.jpg",
+                            "images": [
+                              "https://example.com/img1.jpg",
+                              "https://example.com/img2.jpg"
+                            ],
                             "categoryName": "자연",
-                            "overview": null
+                            "overview": "성산일출봉은 제주도 동쪽 끝..."
                           }
                         }
                         """

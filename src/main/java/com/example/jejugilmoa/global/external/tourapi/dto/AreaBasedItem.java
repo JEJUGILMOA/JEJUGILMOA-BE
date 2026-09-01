@@ -12,5 +12,7 @@ public record AreaBasedItem(
         String mapy,
         String firstimage,
         String areacode,
-        String sigungucode
+        String sigungucode,
+        String cat2,  // 중분류코드 (clsSystem2)
+        String cat3   // 소분류코드 (clsSystem3)
 ) {}

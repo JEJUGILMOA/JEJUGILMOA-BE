@@ -55,7 +55,7 @@ public class PopularPlaceSyncScheduler {
      * 순위 1위 = 100점, 이후 1씩 감소 (최소 1점)
      */
     private void syncKorServicePopularity() {
-        List<AreaBasedItem> items = korServiceClient.areaBasedListByPopularity(POPULARITY_FETCH_SIZE);
+        List<AreaBasedItem> items = korServiceClient.areaBasedListByPopularity(POPULARITY_FETCH_SIZE, 1);
         log.info("KorService2 인기 장소 조회: {}건", items.size());
 
         for (int i = 0; i < items.size(); i++) {
