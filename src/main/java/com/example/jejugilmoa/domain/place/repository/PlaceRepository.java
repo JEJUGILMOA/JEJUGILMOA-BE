@@ -4,6 +4,7 @@ import com.example.jejugilmoa.domain.place.entity.Place;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,6 +17,11 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
     Page<Place> findByPublishedTrue(Pageable pageable);
     Page<Place> findByCategoryNameAndPublishedTrue(String categoryName, Pageable pageable);
     boolean existsByExternalId(String externalId);
+
+    /** image_enriched=false인 경우에만 true로 변경. 반환값 1=이 TX가 선점, 0=이미 다른 TX가 처리 중. */
+    @Modifying
+    @Query("UPDATE Place p SET p.imageEnriched = true WHERE p.id = :id AND p.imageEnriched = false")
+    int claimImageEnrichment(@Param("id") Long id);
     List<Place> findByExternalIdIn(List<String> externalIds);
     Optional<Place> findByNameIgnoreCase(String name);
 

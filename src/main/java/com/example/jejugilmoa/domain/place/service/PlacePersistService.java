@@ -3,7 +3,6 @@ package com.example.jejugilmoa.domain.place.service;
 import com.example.jejugilmoa.domain.place.entity.Category;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.entity.PlaceHashtag;
-import com.example.jejugilmoa.domain.place.entity.PlaceImage;
 import com.example.jejugilmoa.domain.place.entity.PopularPlace;
 import com.example.jejugilmoa.domain.place.repository.CategoryRepository;
 import com.example.jejugilmoa.domain.place.repository.PlaceHashtagRepository;
@@ -187,11 +186,7 @@ public class PlacePersistService {
             var saved = placeRepository.save(place);
             if (item.firstimage() != null && !item.firstimage().isBlank()) {
                 saved.updateImageUrl(item.firstimage());
-                placeImageRepository.save(PlaceImage.builder()
-                    .place(saved)
-                    .imageUrl(item.firstimage())
-                    .sequenceOrder(1)
-                    .build());
+                placeImageRepository.insertIgnore(saved.getId(), item.firstimage(), 1);
             }
             popularPlaceRepository.findByPlace(saved).ifPresentOrElse(
                 pp -> { /* 이미 있으면 유지 */ },
@@ -231,22 +226,17 @@ public class PlacePersistService {
         log.info("applyImages: 요청 {}건 externalId → DB 조회 {}건 place", imageUrlMap.size(), places.size());
         int count = 0;
         for (Place place : places) {
-            if (place.isImageEnriched()) continue;
+            if (placeRepository.claimImageEnrichment(place.getId()) == 0) continue;
             List<String> urls = imageUrlMap.get(place.getExternalId());
             if (urls != null && !urls.isEmpty()) {
                 placeImageRepository.deleteByPlace(place);
                 for (int i = 0; i < Math.min(urls.size(), 3); i++) {
-                    placeImageRepository.save(PlaceImage.builder()
-                            .place(place)
-                            .imageUrl(urls.get(i))
-                            .sequenceOrder(i + 1)
-                            .build());
+                    placeImageRepository.insertIgnore(place.getId(), urls.get(i), i + 1);
                 }
                 log.info("이미지 저장: placeId={}, externalId={}, {}건", place.getId(), place.getExternalId(), Math.min(urls.size(), 3));
             } else {
                 log.info("이미지 없음(API 반환 0건): placeId={}, externalId={}", place.getId(), place.getExternalId());
             }
-            place.markImageEnriched();
             count++;
         }
         return count;

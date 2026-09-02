@@ -41,8 +41,7 @@ public class PlaceConverter {
             description,
             p.getImageUrl(),
             imageUrls,
-            p.getCategory() != null ? p.getCategory().getName() : null,
-            description
+            p.getCategory() != null ? p.getCategory().getName() : null
         );
     }
 
