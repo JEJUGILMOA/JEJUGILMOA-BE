@@ -221,7 +221,7 @@ public class BadgeService {
         long totalDistinctVisited = needsTotal ? travelCourseRepository.countDistinctVisitedPlacesByUser(userId) : 0L;
         long distinctCategoryCount = needsDiversity ? travelCourseRepository.countDistinctVisitedCategoriesByUser(userId) : 0L;
         long completedTripCount = needsTripCount
-                ? travelPlanRepository.countByUserIdAndStatus(userId, TravelPlanStatus.COMPLETED) : 0L;
+                ? travelPlanRepository.countCompletedTripsWithGpsVisit(userId, TravelPlanStatus.COMPLETED) : 0L;
 
         return new ProgressLookup(visitCountByPlaceId, visitTimesByPlaceId, distinctPlaceCountByCategoryId,
                 distinctPlaceCountByRegion, totalDistinctVisited, distinctCategoryCount, completedTripCount,

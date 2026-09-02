@@ -144,6 +144,15 @@ public interface TravelCourseRepository extends JpaRepository<TravelCourse, Long
     Optional<TravelCourse> findFirstByTravelPlanIdAndVisitedTrueWithPlaceOrderByVisitDateDescSequenceOrderDesc(
             @Param("planId") Long planId);
 
+    // 속도 타당성 검사용 — GPS 인증(skipped=false)된 가장 최근 방문 경유지
+    @Query("""
+            SELECT c FROM TravelCourse c
+            JOIN FETCH c.place
+            WHERE c.travelPlan.id = :planId AND c.visited = true AND c.skipped = false
+            ORDER BY c.visitedAt DESC
+            """)
+    Optional<TravelCourse> findLastGpsVerifiedWithPlace(@Param("planId") Long planId);
+
     // 특정 Day의 경유지만 조회 — 재정렬 유효성 검사용
     List<TravelCourse> findAllByTravelPlanIdAndVisitDateOrderBySequenceOrderAsc(Long planId, LocalDate visitDate);
 

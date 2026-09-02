@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -120,15 +121,21 @@ public class BadgeDataInitializer implements ApplicationRunner {
                     });
 
             List<BadgeCondition> existing = badgeConditionRepository.findAllByBadgeId(badge.getId());
+            // PLACE 조건은 ConditionSpec마다 다른 키워드로 같은 장소를 매칭할 수 있으므로,
+            // 이번 부팅에서 이미 저장한 장소 ID를 mutable Set으로 추적해 중복 저장을 막는다.
+            Set<Long> seenPlaceIds = existing.stream()
+                    .filter(c -> c.getConditionType() == BadgeConditionType.PLACE && c.getPlace() != null)
+                    .map(c -> c.getPlace().getId())
+                    .collect(Collectors.toCollection(HashSet::new));
             for (ConditionSpec conditionSpec : spec.conditions()) {
-                seedCondition(badge, conditionSpec, existing);
+                seedCondition(badge, conditionSpec, existing, seenPlaceIds);
             }
         }
     }
 
-    private void seedCondition(Badge badge, ConditionSpec spec, List<BadgeCondition> existing) {
+    private void seedCondition(Badge badge, ConditionSpec spec, List<BadgeCondition> existing, Set<Long> seenPlaceIds) {
         switch (spec.type()) {
-            case PLACE -> seedPlaceConditions(badge, spec, existing);
+            case PLACE -> seedPlaceConditions(badge, spec, seenPlaceIds);
             case CATEGORY -> seedCategoryCondition(badge, spec, existing);
             case COURSE -> seedCourseCondition(badge, spec, existing);
             // 단순 카운트형 — 같은 유형의 조건이 없으면 하나 추가
@@ -145,7 +152,8 @@ public class BadgeDataInitializer implements ApplicationRunner {
     }
 
     // 장소명(정확 일치 목록 또는 부분 일치 키워드)으로 place를 해석해 장소당 조건 1건씩 추가한다 (OR 판정)
-    private void seedPlaceConditions(Badge badge, ConditionSpec spec, List<BadgeCondition> existing) {
+    // seenPlaceIds는 이 뱃지의 이번 부팅에서 이미 처리한 장소 ID를 추적한다 — 여러 키워드에 중복 매칭된 장소의 이중 저장을 막는다.
+    private void seedPlaceConditions(Badge badge, ConditionSpec spec, Set<Long> seenPlaceIds) {
         List<Place> places;
         if (spec.placeNameKeyword() != null) {
             places = placeRepository.findAllByNameContaining(spec.placeNameKeyword());
@@ -160,12 +168,8 @@ public class BadgeDataInitializer implements ApplicationRunner {
             }
         }
 
-        Set<Long> existingPlaceIds = existing.stream()
-                .filter(c -> c.getConditionType() == BadgeConditionType.PLACE)
-                .map(c -> c.getPlace().getId())
-                .collect(Collectors.toSet());
         for (Place place : places) {
-            if (existingPlaceIds.contains(place.getId())) {
+            if (!seenPlaceIds.add(place.getId())) {
                 continue;
             }
             badgeConditionRepository.save(BadgeCondition.builder()

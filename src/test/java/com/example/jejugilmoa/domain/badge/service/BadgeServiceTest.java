@@ -220,12 +220,30 @@ class BadgeServiceTest {
         given(badgeRepository.findAll()).willReturn(List.of(badge));
         given(badgeConditionRepository.findAllByBadgeIdIn(List.of(1L))).willReturn(List.of(condition));
         given(userBadgeRepository.findByUserIdAndUserDeletedAtIsNull(USER_ID)).willReturn(List.of());
-        given(travelPlanRepository.countByUserIdAndStatus(USER_ID, TravelPlanStatus.COMPLETED)).willReturn(2L);
+        given(travelPlanRepository.countCompletedTripsWithGpsVisit(USER_ID, TravelPlanStatus.COMPLETED)).willReturn(2L);
         given(userRepository.getReferenceById(USER_ID)).willReturn(userRef);
 
         List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
 
         assertThat(result).containsExactly(badge);
+    }
+
+    @Test
+    void grantEarnedBadges_doesNotGrantTripCountBadge_whenAllWaypointsSkipped() {
+        Badge badge = badge(1L, "제주 사랑꾼");
+        BadgeCondition condition = BadgeCondition.builder().id(1L).badge(badge)
+                .conditionType(BadgeConditionType.TRIP_COUNT).visitCount(1).build();
+
+        given(badgeRepository.findAll()).willReturn(List.of(badge));
+        given(badgeConditionRepository.findAllByBadgeIdIn(List.of(1L))).willReturn(List.of(condition));
+        given(userBadgeRepository.findByUserIdAndUserDeletedAtIsNull(USER_ID)).willReturn(List.of());
+        // 모든 경유지를 건너뛰어 완료한 여행 — GPS 인증 방문 없으므로 0으로 집계
+        given(travelPlanRepository.countCompletedTripsWithGpsVisit(USER_ID, TravelPlanStatus.COMPLETED)).willReturn(0L);
+
+        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+
+        assertThat(result).isEmpty();
+        verify(userBadgeRepository, never()).saveAll(anyCollection());
     }
 
     @Test

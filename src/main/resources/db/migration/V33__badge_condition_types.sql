@@ -40,3 +40,5 @@ CREATE TABLE public.badge_condition_course_stop (
     CONSTRAINT fk_course_stop_place FOREIGN KEY (place_id) REFERENCES public.place (id),
     CONSTRAINT uk_course_stop_condition_order UNIQUE (badge_condition_id, step_order)
 );
+
+CREATE INDEX idx_course_stop_place ON public.badge_condition_course_stop (place_id);

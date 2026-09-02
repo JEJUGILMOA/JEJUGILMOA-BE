@@ -27,9 +27,17 @@ public interface TravelPlanRepository extends JpaRepository<TravelPlan, Long> {
     @Query("SELECT p.id, COUNT(c) FROM TravelPlan p LEFT JOIN p.travelCourses c WHERE p.id IN :planIds GROUP BY p.id")
     List<Object[]> countCoursesByPlanIds(@Param("planIds") List<Long> planIds);
 
-    // 재방문형 뱃지(완료한 여행 N회) 판정용
-    @Query("SELECT COUNT(p) FROM TravelPlan p WHERE p.user.id = :userId AND p.user.deletedAt IS NULL AND p.status = :status")
-    long countByUserIdAndStatus(@Param("userId") Long userId, @Param("status") TravelPlanStatus status);
+    // 재방문형 뱃지(완료한 여행 N회) 판정용 — GPS 인증 방문(skipped=false)이 하나 이상인 완료 여행만 집계
+    @Query("""
+            SELECT COUNT(DISTINCT p) FROM TravelPlan p
+            JOIN p.travelCourses c
+            WHERE p.user.id = :userId
+            AND p.user.deletedAt IS NULL
+            AND p.status = :status
+            AND c.visited = true
+            AND c.skipped = false
+            """)
+    long countCompletedTripsWithGpsVisit(@Param("userId") Long userId, @Param("status") TravelPlanStatus status);
 
     // 경유지 추가/삭제 시 순번 충돌 방지용 — 같은 plan에 대한 쓰기 요청을 직렬화
     @Lock(LockModeType.PESSIMISTIC_WRITE)

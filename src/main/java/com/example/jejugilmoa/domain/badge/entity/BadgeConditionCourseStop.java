@@ -14,6 +14,9 @@ import jakarta.persistence.*;
         name = "badge_condition_course_stop",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_course_stop_condition_order", columnNames = {"badge_condition_id", "step_order"})
+        },
+        indexes = {
+                @Index(name = "idx_course_stop_place", columnList = "place_id")
         }
 )
 @Getter

@@ -35,6 +35,8 @@ public class TripService {
     // 방문 인증 허용 반경 — 일반적인 GPS 오차(약 10~50m)를 감안한 값
     private static final double VISIT_RADIUS_METERS = 100.0;
     private static final double EARTH_RADIUS_KM = 6371.0;
+    // 연속 방문 간 이동 속도 상한 — 직선 거리 기준 120 km/h 초과 시 물리적으로 불가능한 이동으로 판정
+    private static final double MAX_TRAVEL_SPEED_KMH = 120.0;
 
     private final TravelPlanRepository travelPlanRepository;
     private final TravelCourseRepository travelCourseRepository;
@@ -126,7 +128,9 @@ public class TripService {
             throw new GeneralException(PlanErrorCode.WAYPOINT_LOCATION_MISMATCH);
         }
 
-        target.checkVisit(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        checkTravelSpeed(tripId, target, now);
+        target.checkVisit(now);
         badgeService.grantEarnedBadges(userId);
 
         return waypointService.listWaypoints(tripId);
@@ -266,6 +270,23 @@ public class TripService {
                     to.getLatitude().doubleValue(), to.getLongitude().doubleValue());
         }
         return totalKm;
+    }
+
+    // 이전 GPS 인증 방문 경유지와의 이동 속도를 검사합니다.
+    // 직선 거리 기준으로도 MAX_TRAVEL_SPEED_KMH를 초과하면 물리적으로 불가능한 이동으로 판정합니다.
+    private void checkTravelSpeed(Long tripId, TravelCourse target, LocalDateTime now) {
+        travelCourseRepository.findLastGpsVerifiedWithPlace(tripId).ifPresent(previous -> {
+            if (previous.getId().equals(target.getId())) return;
+            double distanceKm = haversineKm(
+                    previous.getPlace().getLatitude().doubleValue(),
+                    previous.getPlace().getLongitude().doubleValue(),
+                    target.getPlace().getLatitude().doubleValue(),
+                    target.getPlace().getLongitude().doubleValue());
+            long elapsedSeconds = java.time.Duration.between(previous.getVisitedAt(), now).toSeconds();
+            if (elapsedSeconds > 0 && distanceKm / (elapsedSeconds / 3600.0) > MAX_TRAVEL_SPEED_KMH) {
+                throw new GeneralException(PlanErrorCode.WAYPOINT_VISIT_TOO_FAST);
+            }
+        });
     }
 
     private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
