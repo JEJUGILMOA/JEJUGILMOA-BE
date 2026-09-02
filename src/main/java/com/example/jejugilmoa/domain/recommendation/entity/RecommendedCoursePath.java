@@ -41,4 +41,10 @@ public class RecommendedCoursePath extends BaseEntity {
 
     @Column(name = "recommended_duration")
     private Integer recommendedDuration;
+
+    @Column(name = "travel_time_to_next")
+    private Integer travelTimeToNext;
+
+    @Column(name = "travel_mode_to_next", length = 20)
+    private String travelModeToNext;
 }
