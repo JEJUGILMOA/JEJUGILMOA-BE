@@ -1,5 +1,6 @@
 package com.example.jejugilmoa.domain.plan.service;
 
+import com.example.jejugilmoa.domain.badge.service.BadgeService;
 import com.example.jejugilmoa.domain.locationusage.service.LocationUsageLogService;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
@@ -44,6 +45,7 @@ class TripServiceLocationUsageTest {
     @Mock PlaceRepository placeRepository;
     @Mock WaypointService waypointService;
     @Mock LocationUsageLogService locationUsageLogService;
+    @Mock BadgeService badgeService;
     @InjectMocks TripService tripService;
 
     @Test
@@ -70,6 +72,7 @@ class TripServiceLocationUsageTest {
         order.verify(travelPlanRepository).findByIdForUpdate(TRIP_ID);
         verify(placeRepository).existsWithinDistance(
                 place.getId(), REQUEST.longitude(), REQUEST.latitude(), 100.0);
+        verify(badgeService).grantEarnedBadges(USER_ID);
     }
 
     @Test
