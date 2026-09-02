@@ -23,6 +23,8 @@ import java.util.Optional;
 @Component
 public class KorServiceClient {
 
+    public record KeywordSearchPage(List<AreaBasedItem> items, long totalCount) {}
+
     private static final String BASE_URL = "https://apis.data.go.kr/B551011/KorService2";
     private static final String MOBILE_OS = "AND";
     private static final String MOBILE_APP = "JejuGilmoa";
@@ -83,7 +85,7 @@ public class KorServiceClient {
 
     /**
      * 지역 기반 관광정보 조회 (areaBasedList2, 추천순)
-     * areaCode=39(제주도), arrange=Q(추천순)
+     * lDongRegnCd=50(제주도), arrange=Q(추천순)
      */
     public List<AreaBasedItem> areaBasedListByPopularity(int numOfRows, int pageNo) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/areaBasedList2")
@@ -91,7 +93,7 @@ public class KorServiceClient {
                 .queryParam("MobileOS", MOBILE_OS)
                 .queryParam("MobileApp", MOBILE_APP)
                 .queryParam("_type", "json")
-                .queryParam("areaCode", 39)
+                .queryParam("lDongRegnCd", 50)
                 .queryParam("arrange", "Q")
                 .queryParam("numOfRows", numOfRows)
                 .queryParam("pageNo", pageNo)
@@ -162,6 +164,41 @@ public class KorServiceClient {
             }
         }
         return null;
+    }
+
+    /**
+     * 키워드 검색 (searchKeyword2) — 제주도(lDongRegnCd=50), 추천순(arrange=Q).
+     * API 호출/응답 실패 시 TourApiException 발생 → 호출자가 DB 폴백 처리.
+     */
+    public KeywordSearchPage searchKeyword2(String keyword, int pageNo, int numOfRows) {
+        String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/searchKeyword2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("MobileOS", MOBILE_OS)
+                .queryParam("MobileApp", MOBILE_APP)
+                .queryParam("_type", "json")
+                .queryParam("keyword", keyword)
+                .queryParam("lDongRegnCd", 50)
+                .queryParam("arrange", "Q")
+                .queryParam("numOfRows", numOfRows)
+                .queryParam("pageNo", pageNo)
+                .build()
+                .toUriString();
+        TourApiResponse<AreaBasedItem> response;
+        try {
+            response = restClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            throw new TourApiException("searchKeyword2 호출 오류: keyword=" + keyword, e);
+        }
+        if (response == null || !response.isSuccess()) {
+            throw new TourApiException("searchKeyword2 응답 실패: keyword=" + keyword);
+        }
+        long total = (response.response() != null && response.response().body() != null)
+                ? response.response().body().totalCount()
+                : response.items().size();
+        return new KeywordSearchPage(response.items(), total);
     }
 
     /**

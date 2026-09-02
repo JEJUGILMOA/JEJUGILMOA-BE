@@ -36,7 +36,7 @@ jobs:
           --health-retries 10
 
     env:
-      SPRING_PROFILES_ACTIVE: dev
+      SPRING_PROFILES_ACTIVE: dev,test
       DB_HOST: localhost
       DB_PORT: "5432"
       DB_NAME: jejugilmoa

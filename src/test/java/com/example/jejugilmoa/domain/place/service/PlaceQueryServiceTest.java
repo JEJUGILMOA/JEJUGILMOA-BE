@@ -29,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
@@ -87,6 +88,8 @@ class PlaceQueryServiceTest {
 
     @Test
     void browse_escapesLikeWildcardsInKeyword() {
+        given(korServiceClient.searchKeyword2(any(), anyInt(), anyInt()))
+            .willThrow(new RuntimeException("TourAPI failure"));
         given(placeRepository.search(any(), any(), any())).willReturn(Page.empty());
 
         placeQueryService.browse("%카페_", null, PageRequest.of(0, 10));
@@ -96,6 +99,8 @@ class PlaceQueryServiceTest {
 
     @Test
     void browse_escapesExclamationMark() {
+        given(korServiceClient.searchKeyword2(any(), anyInt(), anyInt()))
+            .willThrow(new RuntimeException("TourAPI failure"));
         given(placeRepository.search(any(), any(), any())).willReturn(Page.empty());
 
         placeQueryService.browse("!test", null, PageRequest.of(0, 10));

@@ -6,6 +6,8 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
 app:
+  sync:
+    run-on-startup: false
   location-usage:
     retention:
       enabled: false
