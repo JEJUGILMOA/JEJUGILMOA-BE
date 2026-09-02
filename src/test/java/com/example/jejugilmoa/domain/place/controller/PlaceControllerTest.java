@@ -62,13 +62,13 @@ class PlaceControllerTest {
     void getDetail_returns200() throws Exception {
         given(placeQueryService.getDetail(1L)).willReturn(
             new PlaceDetailDto(1L, "한라산", "제주시", new BigDecimal("33.36"), new BigDecimal("126.53"),
-                null, "img.jpg", List.of(), "자연", "한국 최고봉")
+                null, "img.jpg", List.of(), "자연")
         );
 
         mockMvc.perform(get("/api/places/1"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.name").value("한라산"))
-            .andExpect(jsonPath("$.result.overview").value("한국 최고봉"));
+            .andExpect(jsonPath("$.result.categoryName").value("자연"));
     }
 
     @Test
