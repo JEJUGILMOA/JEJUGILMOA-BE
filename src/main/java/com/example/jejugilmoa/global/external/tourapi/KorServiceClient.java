@@ -168,7 +168,7 @@ public class KorServiceClient {
 
     /**
      * 키워드 검색 (searchKeyword2) — 제주도(lDongRegnCd=50), 추천순(arrange=Q).
-     * 결과 없거나 API 오류 시 빈 목록 반환.
+     * API 호출/응답 실패 시 TourApiException 발생 → 호출자가 DB 폴백 처리.
      */
     public KeywordSearchPage searchKeyword2(String keyword, int pageNo, int numOfRows) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/searchKeyword2")
@@ -183,23 +183,22 @@ public class KorServiceClient {
                 .queryParam("pageNo", pageNo)
                 .build()
                 .toUriString();
+        TourApiResponse<AreaBasedItem> response;
         try {
-            TourApiResponse<AreaBasedItem> response = restClient.get()
+            response = restClient.get()
                     .uri(uri)
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {});
-            if (response == null || !response.isSuccess()) {
-                log.warn("searchKeyword2 응답 실패: keyword={}", keyword);
-                return new KeywordSearchPage(List.of(), 0);
-            }
-            long total = (response.response() != null && response.response().body() != null)
-                    ? response.response().body().totalCount()
-                    : response.items().size();
-            return new KeywordSearchPage(response.items(), total);
         } catch (Exception e) {
-            log.warn("searchKeyword2 호출 오류: keyword={}", keyword, e);
-            return new KeywordSearchPage(List.of(), 0);
+            throw new TourApiException("searchKeyword2 호출 오류: keyword=" + keyword, e);
         }
+        if (response == null || !response.isSuccess()) {
+            throw new TourApiException("searchKeyword2 응답 실패: keyword=" + keyword);
+        }
+        long total = (response.response() != null && response.response().body() != null)
+                ? response.response().body().totalCount()
+                : response.items().size();
+        return new KeywordSearchPage(response.items(), total);
     }
 
     /**
