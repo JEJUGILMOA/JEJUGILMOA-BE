@@ -64,6 +64,13 @@ public class TravelCourse extends BaseEntity {
     @Column
     private LocalDateTime visitedAt;
 
+    @Builder.Default
+    @Column(name = "is_skipped", nullable = false)
+    private boolean skipped = false;
+
+    @Column
+    private LocalDateTime skippedAt;
+
     private int sequenceOrder;
 
     private int recommendedDuration;
@@ -75,6 +82,14 @@ public class TravelCourse extends BaseEntity {
     public void checkVisit(LocalDateTime visitedAt) {
         this.visited = true;
         this.visitedAt = visitedAt;
+    }
+
+    // 뱃지 집계에서 제외할 수 있도록 방문 인증과 별도로 건너뛴 시각도 기록한다
+    public void skip(LocalDateTime skippedAt) {
+        this.visited = true;
+        this.visitedAt = skippedAt;
+        this.skipped = true;
+        this.skippedAt = skippedAt;
     }
 
     public void updateStartDestination(boolean start, boolean destination) {

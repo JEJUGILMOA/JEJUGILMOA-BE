@@ -37,7 +37,8 @@ public enum PlanErrorCode implements BaseCode {
     PLAN_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "PLAN400_17", "계획 중 상태의 여행만 수정할 수 있습니다."),
     DUPLICATE_VISIT_DATE(HttpStatus.BAD_REQUEST, "PLAN400_18", "같은 날짜가 중복으로 입력되었습니다."),
     DUPLICATE_THEME(HttpStatus.BAD_REQUEST, "PLAN400_19", "중복된 여행 테마가 포함되어 있습니다."),
-    PLAN_DATE_NOT_MODIFIABLE(HttpStatus.BAD_REQUEST, "PLAN400_20", "여행 날짜는 수정할 수 없습니다.");
+    PLAN_DATE_NOT_MODIFIABLE(HttpStatus.BAD_REQUEST, "PLAN400_20", "여행 날짜는 수정할 수 없습니다."),
+    WAYPOINT_VISIT_TOO_FAST(HttpStatus.BAD_REQUEST, "PLAN400_21", "이전 방문 인증 장소와의 거리에 비해 이동 시간이 너무 짧습니다.");
 
 
     private final HttpStatus status;

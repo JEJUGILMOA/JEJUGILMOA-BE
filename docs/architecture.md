@@ -65,6 +65,13 @@ erDiagram
     USER ||--o{ USER_RESTRICTION : "restricted by"
     BADGE ||--o{ USER_BADGE : "granted as"
     BADGE ||--o{ BADGE_CONDITION : "unlocked by"
+    BADGE_CONDITION ||--o{ BADGE_CONDITION_COURSE_STOP : "ordered course stops"
+    PLACE ||--o{ BADGE_CONDITION_COURSE_STOP : "step of"
+    BADGE_CONDITION {
+        string condition_type "PLACE/CATEGORY/REGION/TOTAL_PLACES/CATEGORY_DIVERSITY/TRIP_COUNT/COURSE/ALL_BADGES"
+        time time_start "시간조건형(일출/일몰/별빛) 인증 시간대; start>end면 자정 넘김"
+        time time_end
+    }
 
     USER ||--o{ TRAVEL_PLAN : creates
     TRAVEL_PLAN ||--o{ TRAVEL_COURSE : "ordered stops"

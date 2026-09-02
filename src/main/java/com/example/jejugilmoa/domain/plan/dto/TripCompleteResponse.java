@@ -1,10 +1,12 @@
 package com.example.jejugilmoa.domain.plan.dto;
 
+import com.example.jejugilmoa.domain.badge.dto.BadgeEarnedResponse;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record TripCompleteResponse(
 
@@ -33,6 +35,8 @@ public record TripCompleteResponse(
 
         @Schema(description = "실제 여행 시작 시각") LocalDateTime actualStartedAt,
 
-        @Schema(description = "실제 여행 완료 시각") LocalDateTime actualCompletedAt
+        @Schema(description = "실제 여행 완료 시각") LocalDateTime actualCompletedAt,
+
+        @Schema(description = "이번 여행에서 새로 획득한 뱃지 목록") List<BadgeEarnedResponse> earnedBadges
 
 ) {}

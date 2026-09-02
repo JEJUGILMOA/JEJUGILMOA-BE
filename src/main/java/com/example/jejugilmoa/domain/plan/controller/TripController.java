@@ -54,6 +54,16 @@ public class TripController implements TripControllerDocs {
                 tripService.checkVisit(tripId, principal.userId(), request));
     }
 
+    @PostMapping("/{tripId}/waypoints/{waypointId}/skip")
+    public ApiResponse<List<WaypointResponse>> skipWaypoint(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long tripId,
+            @PathVariable Long waypointId) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                tripService.skipWaypoint(tripId, principal.userId(), waypointId));
+    }
+
     @PostMapping("/{tripId}/waypoints")
     public ApiResponse<List<WaypointResponse>> addWaypoint(
             @AuthenticationPrincipal UserPrincipal principal,

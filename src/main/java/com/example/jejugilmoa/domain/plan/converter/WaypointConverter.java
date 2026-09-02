@@ -22,6 +22,8 @@ public class WaypointConverter {
             place.getAddress(),
             course.isVisited(),
             course.getVisitedAt(),
+            course.isSkipped(),
+            course.getSkippedAt(),
             course.isStart(),
             course.isDestination(),
             course.isPreferred()

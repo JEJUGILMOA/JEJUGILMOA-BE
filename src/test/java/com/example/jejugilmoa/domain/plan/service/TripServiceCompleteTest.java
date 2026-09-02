@@ -1,5 +1,9 @@
 package com.example.jejugilmoa.domain.plan.service;
 
+import com.example.jejugilmoa.domain.badge.entity.Badge;
+import com.example.jejugilmoa.domain.badge.enums.BadgeGroup;
+import com.example.jejugilmoa.domain.badge.enums.BadgeType;
+import com.example.jejugilmoa.domain.badge.service.BadgeService;
 import com.example.jejugilmoa.domain.locationusage.service.LocationUsageLogService;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
@@ -11,6 +15,7 @@ import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
+import com.example.jejugilmoa.domain.user.entity.UserBadge;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class TripServiceCompleteTest {
@@ -39,6 +45,7 @@ class TripServiceCompleteTest {
     @Mock PlaceRepository placeRepository;
     @Mock WaypointService waypointService;
     @Mock LocationUsageLogService locationUsageLogService;
+    @Mock BadgeService badgeService;
     @InjectMocks TripService tripService;
 
     @Test
@@ -60,6 +67,7 @@ class TripServiceCompleteTest {
         given(travelPlanRepository.findByIdForUpdate(TRIP_ID)).willReturn(Optional.of(plan));
         given(travelCourseRepository.findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(TRIP_ID))
                 .willReturn(List.of(courseA, courseB));
+        given(badgeService.getBadgesEarnedSince(USER_ID, plan.getActualStartedAt())).willReturn(List.of());
 
         TripCompleteResponse response = tripService.complete(TRIP_ID, USER_ID);
 
@@ -69,6 +77,36 @@ class TripServiceCompleteTest {
         assertThat(response.placeCount()).isEqualTo(2);
         assertThat(response.totalDistanceKm()).isCloseTo(57.8, within(1.0));
         assertThat(response.actualCompletedAt()).isNotNull();
+        assertThat(response.earnedBadges()).isEmpty();
+    }
+
+    @Test
+    void complete_success_returnsEarnedBadges() {
+        User user = User.builder().id(USER_ID).nickname("테스트").build();
+        LocalDate startedAtDate = LocalDate.of(2026, 7, 20);
+        TravelPlan plan = TravelPlan.builder()
+                .id(TRIP_ID).user(user).title("제주 3박4일")
+                .startDate(startedAtDate).endDate(LocalDate.of(2026, 7, 20))
+                .actualStartedAt(startedAtDate.atStartOfDay())
+                .status(TravelPlanStatus.IN_PROGRESS).build();
+        Place place = Place.builder().id(1L)
+                .latitude(BigDecimal.ZERO).longitude(BigDecimal.ZERO).build();
+        TravelCourse course = TravelCourse.builder().id(101L).travelPlan(plan).place(place).visited(true).build();
+        Badge badge = Badge.builder().id(5L).name("애월 단골")
+                .badgeType(BadgeType.PLACE).displayGroup(BadgeGroup.EXPLORATION).build();
+        UserBadge earned = UserBadge.builder().id(1L).user(user).badge(badge).build();
+
+        given(travelPlanRepository.findByIdForUpdate(TRIP_ID)).willReturn(Optional.of(plan));
+        given(travelCourseRepository.findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(TRIP_ID))
+                .willReturn(List.of(course));
+        given(badgeService.getBadgesEarnedSince(USER_ID, plan.getActualStartedAt())).willReturn(List.of(earned));
+
+        TripCompleteResponse response = tripService.complete(TRIP_ID, USER_ID);
+
+        verify(badgeService).grantEarnedBadges(USER_ID);
+        assertThat(response.earnedBadges()).hasSize(1);
+        assertThat(response.earnedBadges().get(0).badgeId()).isEqualTo(5L);
+        assertThat(response.earnedBadges().get(0).name()).isEqualTo("애월 단골");
     }
 
     @Test
