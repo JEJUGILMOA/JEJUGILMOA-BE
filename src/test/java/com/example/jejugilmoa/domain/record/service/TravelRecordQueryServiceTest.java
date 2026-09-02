@@ -158,13 +158,13 @@ class TravelRecordQueryServiceTest {
                 .visitDate(LocalDate.of(2026, 8, 2)).sequenceOrder(1).visited(true).memo("메모").build();
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(30L)).willReturn(List.of(place));
         TravelRecordImage recordImage = TravelRecordImage.builder().id(401L).travelRecord(record)
-                .objectKey("records/1/general.jpg").sequenceOrder(1).build();
+                .objectKey("records/1/general.jpg").sequenceOrder(3).build();
         TravelRecordImage placeImage = TravelRecordImage.builder().id(402L).travelRecord(record)
-                .travelRecordPlace(place).objectKey("records/1/place-1.jpg").sequenceOrder(2).build();
+                .travelRecordPlace(place).objectKey("records/1/place-1.jpg").sequenceOrder(1).build();
         TravelRecordImage secondPlaceImage = TravelRecordImage.builder().id(403L).travelRecord(record)
-                .travelRecordPlace(place).objectKey("records/1/place-2.jpg").sequenceOrder(3).build();
+                .travelRecordPlace(place).objectKey("records/1/place-2.jpg").sequenceOrder(2).build();
         given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(30L))
-                .willReturn(List.of(recordImage, placeImage, secondPlaceImage));
+                .willReturn(List.of(placeImage, recordImage, secondPlaceImage));
         given(imageUrlResolver.resolve("records/1/general.jpg")).willReturn("https://signed/general");
         given(imageUrlResolver.resolve("records/1/place-1.jpg")).willReturn("https://signed/place-1");
         given(imageUrlResolver.resolve("records/1/place-2.jpg")).willReturn("https://signed/place-2");
@@ -176,6 +176,13 @@ class TravelRecordQueryServiceTest {
         assertThat(result.plan()).isNull();
         assertThat(result.images()).singleElement().satisfies(image ->
                 assertThat(image.imageUrl()).isEqualTo("https://signed/general"));
+        assertThat(result.imageCount()).isEqualTo(3);
+        assertThat(result.allImages())
+                .extracting(image -> image.imageId(), image -> image.sequenceOrder())
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(402L, 1),
+                        org.assertj.core.groups.Tuple.tuple(403L, 2),
+                        org.assertj.core.groups.Tuple.tuple(401L, 3));
         assertThat(result.places()).singleElement().satisfies(response -> {
             assertThat(response.placeName()).isEqualTo("snapshot");
             assertThat(response.images()).extracting(image -> image.imageUrl())
@@ -199,6 +206,8 @@ class TravelRecordQueryServiceTest {
 
         assertThat(result.plan().planId()).isEqualTo(50L);
         assertThat(result.plan().title()).isEqualTo("원본 계획");
+        assertThat(result.imageCount()).isZero();
+        assertThat(result.allImages()).isEmpty();
     }
 
     @Test
