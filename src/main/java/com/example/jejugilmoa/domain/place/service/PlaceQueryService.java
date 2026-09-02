@@ -4,6 +4,7 @@ import com.example.jejugilmoa.domain.place.converter.PlaceConverter;
 import com.example.jejugilmoa.domain.place.dto.PlaceDetailDto;
 import com.example.jejugilmoa.domain.place.dto.PlaceSummaryDto;
 import com.example.jejugilmoa.domain.place.dto.PopularPlaceDto;
+import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.entity.PlaceHashtag;
 import com.example.jejugilmoa.domain.place.entity.PlaceImage;
 import com.example.jejugilmoa.domain.place.entity.PopularPlace;
@@ -15,6 +16,7 @@ import com.example.jejugilmoa.domain.place.repository.PopularPlaceRepository;
 import com.example.jejugilmoa.global.apiPayload.dto.PageResponse;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import com.example.jejugilmoa.global.external.tourapi.KorServiceClient;
+import com.example.jejugilmoa.global.external.tourapi.dto.AreaBasedItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.DetailCommonItem;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -45,14 +48,58 @@ public class PlaceQueryService {
     private final PlacePersistService placePersistService;
 
     public PageResponse<PlaceSummaryDto> browse(String keyword, String categoryName, Pageable pageable) {
-        String kw = (keyword == null || keyword.isBlank()) ? null : escapeLike(keyword.trim());
+        if (keyword != null && !keyword.isBlank()) {
+            return searchByKeyword(keyword.trim(), pageable);
+        }
         String cat = (categoryName == null || categoryName.isBlank()) ? null : categoryName.trim();
-        var places = kw == null
-            ? (cat == null
-                ? placeRepository.findByPublishedTrue(pageable)
-                : placeRepository.findByCategoryNameAndPublishedTrue(cat, pageable))
-            : placeRepository.search(kw, cat, pageable);
+        Page<Place> places = cat == null
+            ? placeRepository.findByPublishedTrue(pageable)
+            : placeRepository.findByCategoryNameAndPublishedTrue(cat, pageable);
         return PageResponse.of(places.map(placeConverter::toSummary));
+    }
+
+    private PageResponse<PlaceSummaryDto> searchByKeyword(String keyword, Pageable pageable) {
+        int pageNo = pageable.getPageNumber() + 1;
+        int numOfRows = pageable.getPageSize();
+
+        KorServiceClient.KeywordSearchPage searchPage;
+        try {
+            searchPage = korServiceClient.searchKeyword2(keyword, pageNo, numOfRows);
+        } catch (Exception e) {
+            log.warn("searchKeyword2 TourAPI 실패, DB 검색으로 대체: keyword={}", keyword, e);
+            return PageResponse.of(
+                placeRepository.search(escapeLike(keyword), null, pageable).map(placeConverter::toSummary)
+            );
+        }
+
+        List<AreaBasedItem> apiItems = searchPage.items();
+        if (!apiItems.isEmpty()) {
+            placePersistService.saveKorServiceItems(apiItems);
+        }
+
+        List<String> externalIds = apiItems.stream()
+            .map(AreaBasedItem::contentid)
+            .filter(id -> id != null && !id.isBlank())
+            .toList();
+
+        long total = searchPage.totalCount();
+        int totalPages = numOfRows > 0 ? (int) Math.ceil((double) total / numOfRows) : 0;
+
+        if (externalIds.isEmpty()) {
+            return new PageResponse<>(List.of(), pageable.getPageNumber(), numOfRows, total, totalPages, true);
+        }
+
+        List<Place> places = placeRepository.findByExternalIdIn(externalIds);
+        Map<String, Place> byExId = places.stream()
+            .collect(Collectors.toMap(Place::getExternalId, p -> p));
+        List<PlaceSummaryDto> dtos = externalIds.stream()
+            .map(byExId::get)
+            .filter(Objects::nonNull)
+            .map(placeConverter::toSummary)
+            .toList();
+
+        boolean isLast = pageNo >= totalPages;
+        return new PageResponse<>(dtos, pageable.getPageNumber(), numOfRows, total, totalPages, isLast);
     }
 
     private static String escapeLike(String value) {
