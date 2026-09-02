@@ -19,6 +19,8 @@ public record TravelRecordDetailResponse(
         TravelRecordAuthorResponse author,
         TravelRecordPlanLinkResponse plan,
         List<TravelRecordImageResponse> images,
+        int imageCount,
+        List<TravelRecordImageResponse> allImages,
         List<TravelRecordPlaceResponse> places,
         long likeCount,
         long dislikeCount,

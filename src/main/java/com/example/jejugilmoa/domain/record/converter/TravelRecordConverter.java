@@ -133,6 +133,7 @@ public final class TravelRecordConverter {
     public static TravelRecordDetailResponse toDetailResponse(
             TravelRecord record,
             List<TravelRecordImageResponse> recordImages,
+            List<TravelRecordImageResponse> allImages,
             List<TravelRecordPlaceResponse> places,
             long likeCount,
             long dislikeCount,
@@ -144,7 +145,8 @@ public final class TravelRecordConverter {
         return new TravelRecordDetailResponse(
                 record.getId(), record.getTitle(), record.getDescription(), record.getVisibility(),
                 record.getActualStartDate(), record.getActualEndDate(), record.getCreatedAt(),
-                record.getUpdatedAt(), toAuthorResponse(record.getUser()), plan, recordImages, places,
+                record.getUpdatedAt(), toAuthorResponse(record.getUser()), plan, recordImages,
+                allImages.size(), allImages, places,
                 likeCount, dislikeCount, myReaction);
     }
 }

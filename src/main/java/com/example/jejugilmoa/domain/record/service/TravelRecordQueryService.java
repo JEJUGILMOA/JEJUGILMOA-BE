@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -66,9 +67,11 @@ public class TravelRecordQueryService {
 
         Map<Long, List<TravelRecordImageResponse>> placeImages = new HashMap<>();
         List<TravelRecordImageResponse> recordImages = new ArrayList<>();
+        List<TravelRecordImageResponse> allImages = new ArrayList<>();
         for (TravelRecordImage image : images) {
             TravelRecordImageResponse response = TravelRecordConverter.toImageResponse(
                     image, imageUrlResolver.resolve(image.getObjectKey()));
+            allImages.add(response);
             if (image.getTravelRecordPlace() == null) {
                 recordImages.add(response);
             } else {
@@ -76,6 +79,7 @@ public class TravelRecordQueryService {
                         .add(response);
             }
         }
+        allImages.sort(Comparator.comparingInt(TravelRecordImageResponse::sequenceOrder));
 
         List<TravelRecordPlaceResponse> placeResponses = places.stream()
                 .map(place -> TravelRecordConverter.toPlaceResponse(
@@ -86,7 +90,8 @@ public class TravelRecordQueryService {
         ReactionType myReaction = loadMyReactions(List.of(recordId), userId).get(recordId);
 
         return TravelRecordConverter.toDetailResponse(
-                record, recordImages, placeResponses, reactions.likeCount(), reactions.dislikeCount(), myReaction);
+                record, recordImages, allImages, placeResponses,
+                reactions.likeCount(), reactions.dislikeCount(), myReaction);
     }
 
     private PageResponse<TravelRecordCardResponse> toCardPage(Page<TravelRecord> records, Long userId) {
