@@ -6,8 +6,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface RecommendedCourseRepository extends JpaRepository<RecommendedCourse, Long> {
+
+    @Query("""
+            SELECT DISTINCT c FROM RecommendedCourse c
+            LEFT JOIN FETCH c.paths p
+            LEFT JOIN FETCH p.place
+            WHERE c.id = :courseId
+            """)
+    Optional<RecommendedCourse> findByIdWithPaths(@Param("courseId") Long courseId);
 
     @Query("""
             SELECT DISTINCT c FROM RecommendedCourse c

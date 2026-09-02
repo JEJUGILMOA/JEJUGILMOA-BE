@@ -1,6 +1,7 @@
 package com.example.jejugilmoa.domain.recommendation.controller;
 
 import com.example.jejugilmoa.domain.plan.enums.TravelTheme;
+import com.example.jejugilmoa.domain.recommendation.dto.RecommendedCourseDetailResponse;
 import com.example.jejugilmoa.domain.recommendation.dto.RecommendedCourseResponse;
 import com.example.jejugilmoa.domain.recommendation.service.RecommendedCourseService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,5 +41,18 @@ public class RecommendedCourseController {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.REQUEST_OK,
                 recommendedCourseService.getRecommendedCourses(themes));
+    }
+
+    @Operation(
+            summary = "추천 코스 상세 조회",
+            description = "코스 ID로 상세 정보를 조회합니다. 코스 순서 목록과 각 장소 간 이동 시간을 포함합니다."
+    )
+    @GetMapping("/recommended/{courseId}")
+    public ApiResponse<RecommendedCourseDetailResponse> getCourseDetail(
+            @Parameter(description = "추천 코스 ID") @PathVariable Long courseId,
+            @AuthenticationPrincipal UserDetails principal) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                recommendedCourseService.getCourseDetail(courseId));
     }
 }
