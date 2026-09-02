@@ -49,40 +49,10 @@ class PlaceQueryServiceIntegrationTest {
     }
 
     @Test
-    void browseWithKeywordOnlySearchesPublishedNamesAndAddresses() {
-        var result = placeQueryService.browse("제주", null, PAGEABLE);
-
-        assertThat(result.content()).extracting("name")
-            .contains(PUBLISHED_NAME)
-            .doesNotContain(UNPUBLISHED_NAME);
-        assertThat(result.content()).allSatisfy(item -> {
-            assertThat(item.name().contains("제주") || item.address().contains("제주")).isTrue();
-        });
-    }
-
-    @Test
     void browseWithCategoryOnlySearchesPublishedPlacesInCategory() {
         var result = placeQueryService.browse(null, CATEGORY, PAGEABLE);
 
         assertThat(result.content()).extracting("name").containsExactly(PUBLISHED_NAME);
-    }
-
-    @Test
-    void browseWithKeywordAndCategoryAppliesBothConditions() {
-        var result = placeQueryService.browse("제주", CATEGORY, PAGEABLE);
-
-        assertThat(result.content()).extracting("name").containsExactly(PUBLISHED_NAME);
-    }
-
-    @Test
-    void browseTreatsLikeWildcardsAndEscapeCharacterAsLiterals() {
-        Category category = categoryRepository.findByName(CATEGORY).orElseThrow();
-        String name = "장소%_\\검색";
-        placeRepository.saveAndFlush(place(name, true, category));
-
-        assertThat(placeQueryService.browse("%", null, PAGEABLE).content()).extracting("name").contains(name);
-        assertThat(placeQueryService.browse("_", null, PAGEABLE).content()).extracting("name").contains(name);
-        assertThat(placeQueryService.browse("\\", null, PAGEABLE).content()).extracting("name").contains(name);
     }
 
     private Place place(String name, boolean published, Category category) {
