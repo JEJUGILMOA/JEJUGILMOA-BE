@@ -1,5 +1,6 @@
 package com.example.jejugilmoa.domain.plan.service;
 
+import com.example.jejugilmoa.domain.badge.service.BadgeService;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.locationusage.service.LocationUsageLogService;
@@ -16,6 +17,7 @@ import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
+import com.example.jejugilmoa.domain.user.entity.UserBadge;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,12 +35,15 @@ public class TripService {
     // 방문 인증 허용 반경 — 일반적인 GPS 오차(약 10~50m)를 감안한 값
     private static final double VISIT_RADIUS_METERS = 100.0;
     private static final double EARTH_RADIUS_KM = 6371.0;
+    // 연속 방문 간 이동 속도 상한 — 직선 거리 기준 120 km/h 초과 시 물리적으로 불가능한 이동으로 판정
+    private static final double MAX_TRAVEL_SPEED_KMH = 120.0;
 
     private final TravelPlanRepository travelPlanRepository;
     private final TravelCourseRepository travelCourseRepository;
     private final PlaceRepository placeRepository;
     private final WaypointService waypointService;
     private final LocationUsageLogService locationUsageLogService;
+    private final BadgeService badgeService;
 
     /**
      * 여행 계획(DRAFT)을 시작해 진행중(IN_PROGRESS) 상태로 전환합니다.
@@ -87,6 +92,9 @@ public class TripService {
      * {@value #VISIT_RADIUS_METERS}m 이내가 아니면 {@code WAYPOINT_LOCATION_MISMATCH}
      * 예외가 발생해 실제 방문하지 않은 인증을 막습니다.</p>
      *
+     * <p>방문 인증에 성공하면 {@link BadgeService#grantEarnedBadges}로 이번 방문으로 새로
+     * 조건을 충족한 뱃지를 즉시 지급합니다.</p>
+     *
      * @return 방문 인증 후 갱신된 전체 경유지 목록 (순서 오름차순)
      */
     @Transactional
@@ -120,7 +128,50 @@ public class TripService {
             throw new GeneralException(PlanErrorCode.WAYPOINT_LOCATION_MISMATCH);
         }
 
-        target.checkVisit(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        checkTravelSpeed(tripId, target, now);
+        target.checkVisit(now);
+        badgeService.grantEarnedBadges(userId);
+
+        return waypointService.listWaypoints(tripId);
+    }
+
+    /**
+     * 진행중인 여행의 경유지를 GPS 방문 인증 없이 건너뜁니다.
+     *
+     * <p>{@link #checkVisit}과 동일하게 {@code sequenceOrder} 순서상 다음 차례인 경유지만
+     * 건너뛸 수 있습니다({@code WAYPOINT_OUT_OF_ORDER}). 위치 인증({@code
+     * VISIT_RADIUS_METERS} 반경 검사)과 위치 사용 로그 기록은 거치지 않고 곧바로
+     * {@code visited}를 true로 처리해, 다음 경유지를 인증할 수 있도록 순번을 넘깁니다.
+     * 다만 {@code skipped} 플래그를 함께 남겨, 실제 GPS 방문 인증과 구분해 뱃지 집계
+     * ({@link com.example.jejugilmoa.domain.badge.service.BadgeService})에서는 제외됩니다.</p>
+     *
+     * @return 건너뛴 후 갱신된 전체 경유지 목록 (순서 오름차순)
+     */
+    @Transactional
+    public List<WaypointResponse> skipWaypoint(Long tripId, Long userId, Long waypointId) {
+        TravelPlan plan = findPlanAndVerifyOwner(tripId, userId);
+
+        if (plan.getStatus() != TravelPlanStatus.IN_PROGRESS) {
+            throw new GeneralException(PlanErrorCode.TRIP_NOT_IN_PROGRESS);
+        }
+
+        TravelCourse target = travelCourseRepository.findById(waypointId)
+                .filter(c -> c.getTravelPlan().getId().equals(tripId))
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.WAYPOINT_NOT_FOUND));
+
+        if (target.isVisited()) {
+            throw new GeneralException(PlanErrorCode.WAYPOINT_ALREADY_VISITED);
+        }
+
+        TravelCourse nextUnvisited = travelCourseRepository
+                .findFirstByTravelPlanIdAndVisitedFalseOrderByVisitDateAscSequenceOrderAsc(tripId)
+                .orElseThrow(() -> new GeneralException(PlanErrorCode.WAYPOINT_NOT_FOUND));
+        if (!nextUnvisited.getId().equals(target.getId())) {
+            throw new GeneralException(PlanErrorCode.WAYPOINT_OUT_OF_ORDER);
+        }
+
+        target.skip(LocalDateTime.now());
 
         return waypointService.listWaypoints(tripId);
     }
@@ -180,6 +231,10 @@ public class TripService {
      *
      * <p>모든 경유지가 방문 인증되어 있어야 하며, 하나라도 미방문이면
      * {@code TRIP_NOT_COMPLETABLE} 예외가 발생합니다.</p>
+     *
+     * <p>응답의 {@code earnedBadges}는 이번 여행 시작({@code actualStartedAt}) 이후 획득한
+     * 뱃지 전체 목록입니다 — 여행 중 방문 인증마다 즉시 지급되므로, 완료 시점에는 그동안
+     * 쌓인 뱃지를 모아 보여주는 역할만 합니다.</p>
      */
     @Transactional
     public TripCompleteResponse complete(Long tripId, Long userId) {
@@ -195,9 +250,13 @@ public class TripService {
             throw new GeneralException(PlanErrorCode.TRIP_NOT_COMPLETABLE);
         }
 
+        LocalDateTime actualStartedAt = plan.getActualStartedAt();
         plan.complete(LocalDateTime.now());
+        badgeService.grantEarnedBadges(userId);
+        List<UserBadge> earnedBadges = badgeService.getBadgesEarnedSince(userId, actualStartedAt);
 
-        return TripConverter.toCompleteResponse(plan, courses.size(), calculateTotalDistanceKm(courses));
+        return TripConverter.toCompleteResponse(
+                plan, courses.size(), calculateTotalDistanceKm(courses), earnedBadges);
     }
 
     // 방문 순서(visitDate, sequenceOrder)를 그대로 따라 인접 장소 간 직선거리를 합산 (Haversine)
@@ -211,6 +270,23 @@ public class TripService {
                     to.getLatitude().doubleValue(), to.getLongitude().doubleValue());
         }
         return totalKm;
+    }
+
+    // 이전 GPS 인증 방문 경유지와의 이동 속도를 검사합니다.
+    // 직선 거리 기준으로도 MAX_TRAVEL_SPEED_KMH를 초과하면 물리적으로 불가능한 이동으로 판정합니다.
+    private void checkTravelSpeed(Long tripId, TravelCourse target, LocalDateTime now) {
+        travelCourseRepository.findLastGpsVerifiedWithPlace(tripId).ifPresent(previous -> {
+            if (previous.getId().equals(target.getId())) return;
+            double distanceKm = haversineKm(
+                    previous.getPlace().getLatitude().doubleValue(),
+                    previous.getPlace().getLongitude().doubleValue(),
+                    target.getPlace().getLatitude().doubleValue(),
+                    target.getPlace().getLongitude().doubleValue());
+            long elapsedSeconds = java.time.Duration.between(previous.getVisitedAt(), now).toSeconds();
+            if (elapsedSeconds > 0 && distanceKm / (elapsedSeconds / 3600.0) > MAX_TRAVEL_SPEED_KMH) {
+                throw new GeneralException(PlanErrorCode.WAYPOINT_VISIT_TOO_FAST);
+            }
+        });
     }
 
     private double haversineKm(double lat1, double lon1, double lat2, double lon2) {

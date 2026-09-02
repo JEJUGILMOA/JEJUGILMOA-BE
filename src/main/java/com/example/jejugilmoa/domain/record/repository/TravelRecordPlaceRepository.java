@@ -17,21 +17,6 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
         Long getCount();
     }
 
-    interface PlaceVisitCount {
-        Long getPlaceId();
-        Long getCnt();
-    }
-
-    interface CategoryVisitCount {
-        Long getCategoryId();
-        Long getCnt();
-    }
-
-    interface PlaceAddress {
-        Long getPlaceId();
-        String getAddress();
-    }
-
     /**
      * width_bucket 두 번의 결과를 (row, col, 집계점수) 형태로 받기 위한 프로젝션.
      * PopularPlaceRepository에도 구조적으로 동일한 인터페이스가 별도로 존재한다 — 레포지토리가
@@ -68,15 +53,6 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
             ORDER BY rp.visitDate ASC, rp.sequenceOrder ASC
             """)
     List<TravelRecordPlace> findAllByRecordIdInSnapshotOrder(@Param("recordId") Long recordId);
-    @Query("""
-                    SELECT COUNT(DISTINCT trp.place.id) FROM TravelRecordPlace trp
-                    WHERE trp.travelRecord.user.id = :userId
-                      AND trp.travelRecord.user.deletedAt IS NULL
-                      AND trp.travelRecord.deletedAt IS NULL
-                      AND trp.visited = true
-        """)
-
-    long countDistinctVisitedPlacesByUser(@Param("userId") Long userId);
 
     /**
      * 실제 방문 기록(TravelRecordPlace) 기준 지도 뷰포트 내 혼잡도 격자 집계.
@@ -113,40 +89,6 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
             @Param("gridSize") int gridSize,
             @Param("since") LocalDateTime since
     );
-    /**
-     * 배지 진행도 계산 시 조건별로 countXxx를 반복 호출하면 N+1이 발생하므로,
-     * 여러 배지 조건에 걸친 place/category를 한 번에 IN 조회해 결과를 메모리에서 병합한다.
-     */
-    @Query("""
-        SELECT trp.place.id AS placeId, COUNT(trp) AS cnt FROM TravelRecordPlace trp
-        WHERE trp.travelRecord.user.id = :userId
-          AND trp.travelRecord.deletedAt IS NULL
-          AND trp.travelRecord.user.deletedAt IS NULL
-          AND trp.visited = true
-          AND trp.place.id IN :placeIds
-        GROUP BY trp.place.id
-        """)
-    List<PlaceVisitCount> countVisitedByUserGroupedByPlace(@Param("userId") Long userId, @Param("placeIds") Collection<Long> placeIds);
-
-    @Query("""
-        SELECT trp.place.category.id AS categoryId, COUNT(DISTINCT trp.place.id) AS cnt FROM TravelRecordPlace trp
-        WHERE trp.travelRecord.user.id = :userId
-          AND trp.travelRecord.deletedAt IS NULL
-          AND trp.travelRecord.user.deletedAt IS NULL
-          AND trp.visited = true
-          AND trp.place.category.id IN :categoryIds
-        GROUP BY trp.place.category.id
-        """)
-    List<CategoryVisitCount> countDistinctVisitedPlacesByUserGroupedByCategory(@Param("userId") Long userId, @Param("categoryIds") Collection<Long> categoryIds);
-
-    @Query("""
-        SELECT DISTINCT trp.place.id AS placeId, trp.place.address AS address FROM TravelRecordPlace trp
-        WHERE trp.travelRecord.user.id = :userId
-          AND trp.travelRecord.deletedAt IS NULL
-          AND trp.travelRecord.user.deletedAt IS NULL
-          AND trp.visited = true
-        """)
-    List<PlaceAddress> findDistinctVisitedPlacesByUser(@Param("userId") Long userId);
 
     @Modifying
     @Query("DELETE FROM TravelRecordPlace rp WHERE rp.travelRecord.id IN :recordIds")

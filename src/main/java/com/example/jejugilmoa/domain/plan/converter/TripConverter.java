@@ -1,9 +1,11 @@
 package com.example.jejugilmoa.domain.plan.converter;
 
+import com.example.jejugilmoa.domain.badge.converter.BadgeConverter;
 import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
+import com.example.jejugilmoa.domain.user.entity.UserBadge;
 
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -22,7 +24,8 @@ public class TripConverter {
         );
     }
 
-    public static TripCompleteResponse toCompleteResponse(TravelPlan plan, int placeCount, double totalDistanceKm) {
+    public static TripCompleteResponse toCompleteResponse(
+            TravelPlan plan, int placeCount, double totalDistanceKm, List<UserBadge> earnedBadges) {
         int durationDays = (int) (ChronoUnit.DAYS.between(plan.getStartDate(), plan.getEndDate()) + 1);
         return new TripCompleteResponse(
                 plan.getId(),
@@ -34,7 +37,8 @@ public class TripConverter {
                 placeCount,
                 Math.round(totalDistanceKm * 10) / 10.0,
                 plan.getActualStartedAt(),
-                plan.getActualCompletedAt()
+                plan.getActualCompletedAt(),
+                earnedBadges.stream().map(BadgeConverter::toEarnedResponse).toList()
         );
     }
 }

@@ -162,6 +162,9 @@ public interface TripControllerDocs {
                       아니면 `PLAN400_12` 오류가 반환됩니다 (일반적인 GPS 오차를 감안한 값).
                     - 여행이 진행중(IN_PROGRESS)이 아니면 `PLAN400_10` 오류가 반환됩니다.
                     - 이미 방문 인증된 경유지를 다시 인증하면 `PLAN400_11` 오류가 반환됩니다.
+                    - 방문 인증에 성공하면, 이번 방문으로 조건을 새로 충족한 뱃지가 있다면 즉시
+                      지급됩니다 (지급된 뱃지 목록은 이 응답이 아니라 여행 완료 API의
+                      `earnedBadges`에서 모아 확인할 수 있습니다).
                     - 응답으로 방문 인증 후 전체 경유지 목록(순서 오름차순)을 반환합니다.
                     """
     )
@@ -194,7 +197,9 @@ public interface TripControllerDocs {
                                   "imageUrl": "https://cdn.example.com/42.jpg",
                                   "address": "제주시 애월읍",
                                   "visited": true,
-                                  "visitedAt": "2026-07-31T09:12:34"
+                                  "visitedAt": "2026-07-31T09:12:34",
+                                  "skipped": false,
+                                  "skippedAt": null
                                 }
                               ]
                             }
@@ -234,6 +239,83 @@ public interface TripControllerDocs {
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId,
             @Valid @org.springframework.web.bind.annotation.RequestBody VisitCheckRequest request
+    );
+
+    @Operation(
+            summary = "경유지 건너뛰기",
+            description = """
+                    진행중인 여행의 경유지를 방문 인증하지 않고 건너뛰어, 다음 경유지를 인증할 수
+                    있도록 만듭니다.
+
+                    - `checkVisit`과 동일하게 `sequenceOrder` 순서상 다음 차례인 경유지만 건너뛸
+                      수 있습니다. 아직 방문하지 않은 경유지 중 순번이 가장 빠른 것이 아니면
+                      `PLAN400_13` 오류가 반환됩니다.
+                    - GPS 위치 인증과 위치 사용 로그 기록은 거치지 않습니다.
+                    - 여행이 진행중(IN_PROGRESS)이 아니면 `PLAN400_10` 오류가 반환됩니다.
+                    - 이미 방문 인증(또는 건너뛰기)된 경유지를 다시 건너뛰면 `PLAN400_11` 오류가
+                      반환됩니다.
+                    - 건너뛴 경유지는 실제 방문이 아니므로 뱃지 지급 대상에서 제외됩니다.
+                    - 응답으로 건너뛴 후 전체 경유지 목록(순서 오름차순)을 반환합니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "경유지 건너뛰기 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": [
+                                {
+                                  "waypointId": 7,
+                                  "visitDate": "2026-08-15",
+                                  "sequenceOrder": 1,
+                                  "placeId": 42,
+                                  "placeName": "애월 카페거리",
+                                  "categoryName": "카페",
+                                  "imageUrl": "https://cdn.example.com/42.jpg",
+                                  "address": "제주시 애월읍",
+                                  "visited": true,
+                                  "visitedAt": "2026-07-31T09:12:34",
+                                  "skipped": true,
+                                  "skippedAt": "2026-07-31T09:12:34"
+                                }
+                              ]
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "진행중이 아닌 여행, 이미 방문 인증(또는 건너뛰기)된 경유지, 또는 순서 위반",
+                    content = @Content(examples = {
+                            @ExampleObject(name = "진행중이 아닌 여행", value = """
+                                    {"isSuccess":false,"code":"PLAN400_10","message":"진행중인 여행이 아닙니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "이미 방문 인증(또는 건너뛰기)됨", value = """
+                                    {"isSuccess":false,"code":"PLAN400_11","message":"이미 방문 인증된 경유지입니다.","result":null}
+                                    """),
+                            @ExampleObject(name = "순서 위반", value = """
+                                    {"isSuccess":false,"code":"PLAN400_13","message":"이전 경유지를 먼저 방문 인증해야 합니다.","result":null}
+                                    """)
+                    })
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "접근 권한 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "여행 또는 경유지 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_3","message":"존재하지 않는 경유지입니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<List<WaypointResponse>> skipWaypoint(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId,
+            @Parameter(description = "건너뛸 경유지(TravelCourse) ID") Long waypointId
     );
 
     @Operation(
@@ -382,6 +464,9 @@ public interface TripControllerDocs {
                       `PLAN400_14` 오류가 반환됩니다.
                     - 진행중 상태가 아니면 `PLAN400_10` 오류가 반환됩니다.
                     - 응답에는 체류일수, 담은 장소 수, 방문 순서를 따라 계산한 총 이동거리(km)가 포함됩니다.
+                    - `earnedBadges`는 이번 여행 시작(`actualStartedAt`) 이후 획득한 뱃지 전체
+                      목록입니다. 뱃지는 방문 인증마다 즉시 지급되므로, 이 필드는 완료 시점에
+                      그동안 쌓인 뱃지를 모아 보여줄 뿐입니다. 획득한 뱃지가 없으면 빈 배열입니다.
                     """
     )
     @ApiResponses({
@@ -402,7 +487,16 @@ public interface TripControllerDocs {
                                 "placeCount": 7,
                                 "totalDistanceKm": 86.0,
                                 "actualStartedAt": "2026-07-20T09:00:00",
-                                "actualCompletedAt": "2026-07-23T17:30:00"
+                                "actualCompletedAt": "2026-07-23T17:30:00",
+                                "earnedBadges": [
+                                  {
+                                    "badgeId": 5,
+                                    "name": "애월 단골",
+                                    "description": "애월 카페거리를 3번 방문했어요.",
+                                    "imageUrl": "https://cdn.example.com/badges/5.png",
+                                    "acquiredAt": "2026-07-21T14:32:10"
+                                  }
+                                ]
                               }
                             }
                             """))

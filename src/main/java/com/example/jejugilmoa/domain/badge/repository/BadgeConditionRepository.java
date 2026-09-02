@@ -7,4 +7,7 @@ import java.util.List;
 
 public interface BadgeConditionRepository extends JpaRepository<BadgeCondition, Long> {
     List<BadgeCondition> findAllByBadgeIdIn(List<Long> badgeIds);
+
+    // 뱃지 시드(BadgeDataInitializer) 멱등 처리용
+    List<BadgeCondition> findAllByBadgeId(Long badgeId);
 }

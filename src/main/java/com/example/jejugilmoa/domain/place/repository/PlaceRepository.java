@@ -19,6 +19,10 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
     List<Place> findByExternalIdIn(List<String> externalIds);
     Optional<Place> findByNameIgnoreCase(String name);
 
+    // 뱃지 시드(BadgeDataInitializer)용 — 장소명으로 뱃지 조건 대상 place 해석
+    List<Place> findAllByNameIn(java.util.Collection<String> names);
+    List<Place> findAllByNameContaining(String keyword);
+
     @Query(value = """
             SELECT p.* FROM place p
             LEFT JOIN category c ON c.id = p.category_id
