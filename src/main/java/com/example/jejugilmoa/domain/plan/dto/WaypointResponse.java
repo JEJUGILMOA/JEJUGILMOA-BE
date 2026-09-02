@@ -31,11 +31,17 @@ public record WaypointResponse(
         @Schema(description = "주소", example = "제주특별자치도 제주시 애월읍")
         String address,
 
-        @Schema(description = "방문 완료 여부", example = "false")
+        @Schema(description = "방문 완료 여부 (건너뛴 경우도 true)", example = "false")
         boolean visited,
 
-        @Schema(description = "실제 방문 인증 시각")
+        @Schema(description = "실제 방문 인증(또는 건너뛰기) 시각")
         LocalDateTime visitedAt,
+
+        @Schema(description = "건너뛴 경유지 여부", example = "false")
+        boolean skipped,
+
+        @Schema(description = "건너뛴 시각")
+        LocalDateTime skippedAt,
 
         @Schema(description = "해당 날짜의 시작 경유지 여부", example = "true")
         boolean isStart,
