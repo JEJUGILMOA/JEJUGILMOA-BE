@@ -59,6 +59,12 @@ public class RecommendedCourse extends BaseEntity {
     @Column(name = "transport_mode", length = 20)
     private String transportMode;
 
+    @Column(name = "rating", precision = 3, scale = 2)
+    private java.math.BigDecimal rating;
+
+    @Column(name = "is_free")
+    private Boolean isFree;
+
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sequenceOrder ASC")
     @Builder.Default
