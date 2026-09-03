@@ -142,6 +142,10 @@ public interface TravelRecordControllerDocs {
                     장소 image를 생략하면 유지하고, action은 REPLACE 또는 REMOVE를 사용합니다.
                     REPLACE의 objectKeys 배열 순서대로 장소 사진 전체를 교체합니다.
                     imageObjectKeys는 null이면 유지, 빈 배열이면 전체 기록 사진을 제거합니다.
+                    thumbnailImageObjectKey는 수정 완료 후 기록에 포함된 최상위 또는 장소 이미지 중
+                    썸네일로 사용할 이미지 키입니다. 생략하면 기존 썸네일을 유지하며, 기존 썸네일이
+                    삭제된 경우 남은 첫 이미지를 자동 선택합니다. 썸네일 선택은 이미지 표시 순서에
+                    영향을 주지 않습니다.
                     """
     )
     ApiResponse<TravelRecordUpdateResponse> update(

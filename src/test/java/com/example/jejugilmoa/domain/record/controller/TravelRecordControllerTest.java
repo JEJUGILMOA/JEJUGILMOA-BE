@@ -377,6 +377,27 @@ class TravelRecordControllerTest {
     }
 
     @Test
+    void updateAcceptsThumbnailImageObjectKey() throws Exception {
+        given(travelRecordService.update(eq(42L), eq(77L), any()))
+                .willReturn(new TravelRecordUpdateResponse(
+                        77L, "제목", null, Visibility.PRIVATE,
+                        Instant.parse("2026-08-26T03:00:00Z")));
+
+        mockMvc.perform(patch("/api/records/77")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("""
+                                {"thumbnailImageObjectKey":"records/42/image-c.jpg"}
+                                """))
+                .andExpect(status().isOk());
+
+        var captor = forClass(com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateRequest.class);
+        verify(travelRecordService).update(eq(42L), eq(77L), captor.capture());
+        assertThat(captor.getValue().thumbnailImageObjectKey())
+                .isEqualTo("records/42/image-c.jpg");
+    }
+
+    @Test
     void updateRejectsBlankTitleAndInvalidVisibility() throws Exception {
         mockMvc.perform(patch("/api/records/77")
                         .with(authentication(authenticationFor(42L)))

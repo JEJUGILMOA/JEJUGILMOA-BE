@@ -111,7 +111,7 @@ class TravelRecordQueryRepositoryTest {
         insertReaction(activeId, owner.getId(), "LIKE");
         insertReaction(deletedId, owner.getId(), "DISLIKE");
 
-        assertThat(travelRecordImageRepository.findFirstImagesByRecordIds(List.of(activeId, deletedId)))
+        assertThat(travelRecordImageRepository.findThumbnailImagesByRecordIds(List.of(activeId, deletedId)))
                 .extracting(image -> image.getTravelRecord().getId())
                 .containsExactly(activeId);
         assertThat(travelRecordImageRepository.countByRecordIds(List.of(activeId, deletedId)))
@@ -232,15 +232,21 @@ class TravelRecordQueryRepositoryTest {
     }
 
     private void insertRecordImage(Long recordId, String objectKey, int sequenceOrder, Instant createdAt) {
-        jdbcClient.sql("""
+        Long imageId = jdbcClient.sql("""
                         INSERT INTO travel_record_image
                             (created_at, updated_at, travel_record_id, object_key, sequence_order)
                         VALUES (:createdAt, :createdAt, :recordId, :objectKey, :sequenceOrder)
+                        RETURNING id
                         """)
                 .param("createdAt", Timestamp.from(createdAt))
                 .param("recordId", recordId)
                 .param("objectKey", objectKey)
                 .param("sequenceOrder", sequenceOrder)
+                .query(Long.class)
+                .single();
+        jdbcClient.sql("UPDATE travel_record SET thumbnail_image_id = :imageId WHERE id = :recordId")
+                .param("imageId", imageId)
+                .param("recordId", recordId)
                 .update();
     }
 

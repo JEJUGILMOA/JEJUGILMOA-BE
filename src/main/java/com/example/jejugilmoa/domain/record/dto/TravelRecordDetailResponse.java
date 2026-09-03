@@ -16,6 +16,10 @@ public record TravelRecordDetailResponse(
         LocalDate actualEndDate,
         Instant createdAt,
         Instant updatedAt,
+        @io.swagger.v3.oas.annotations.media.Schema(description = "현재 썸네일 이미지 ID", nullable = true)
+        Long thumbnailImageId,
+        @io.swagger.v3.oas.annotations.media.Schema(description = "현재 썸네일 이미지 URL", nullable = true)
+        String thumbnailUrl,
         TravelRecordAuthorResponse author,
         TravelRecordPlanLinkResponse plan,
         List<TravelRecordImageResponse> images,

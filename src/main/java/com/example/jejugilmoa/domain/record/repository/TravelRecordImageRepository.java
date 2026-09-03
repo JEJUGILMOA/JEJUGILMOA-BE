@@ -16,17 +16,13 @@ public interface TravelRecordImageRepository extends JpaRepository<TravelRecordI
     }
 
     @Query("""
-            SELECT i FROM TravelRecordImage i
-            WHERE i.travelRecord.id IN :recordIds
-              AND i.travelRecord.deletedAt IS NULL
-              AND NOT EXISTS (
-                  SELECT earlier.id FROM TravelRecordImage earlier
-                  WHERE earlier.travelRecord.id = i.travelRecord.id
-                    AND earlier.sequenceOrder < i.sequenceOrder
-              )
-            ORDER BY i.travelRecord.id ASC
+            SELECT i FROM TravelRecord r
+            JOIN r.thumbnailImage i
+            WHERE r.id IN :recordIds
+              AND r.deletedAt IS NULL
+            ORDER BY r.id ASC
             """)
-    List<TravelRecordImage> findFirstImagesByRecordIds(@Param("recordIds") List<Long> recordIds);
+    List<TravelRecordImage> findThumbnailImagesByRecordIds(@Param("recordIds") List<Long> recordIds);
 
     @Query("""
             SELECT i.travelRecord.id AS recordId, COUNT(i) AS count

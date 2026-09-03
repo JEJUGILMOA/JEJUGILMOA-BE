@@ -16,6 +16,7 @@ import java.util.List;
 @Table(name = "travel_record", indexes = {
         @Index(name = "idx_record_user_visibility", columnList = "user_id,visibility"),
         @Index(name = "idx_record_plan", columnList = "plan_id"),
+        @Index(name = "idx_record_thumbnail_image", columnList = "thumbnail_image_id"),
         @Index(name = "idx_record_created_at", columnList = "created_at")
 })
 @Getter
@@ -40,6 +41,10 @@ public class TravelRecord extends BaseEntity {
             nullable = false
     )
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "thumbnail_image_id")
+    private TravelRecordImage thumbnailImage;
 
     @Column(length = 50, nullable = false)
     private String title;  // 기록 제목
@@ -87,6 +92,10 @@ public class TravelRecord extends BaseEntity {
         if (visibility != null) {
             this.visibility = visibility;
         }
+    }
+
+    public void changeThumbnailImage(TravelRecordImage thumbnailImage) {
+        this.thumbnailImage = thumbnailImage;
     }
 
     public void delete() {

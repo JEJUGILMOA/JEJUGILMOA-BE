@@ -117,13 +117,14 @@ public class TravelRecordService {
             }
         }
         travelRecordImageRepository.saveAll(images);
+        record.changeThumbnailImage(images.isEmpty() ? null : images.getFirst());
 
         return TravelRecordConverter.toCreateResponse(record, request.tripId());
     }
 
     @Transactional
     public TravelRecordUpdateResponse update(Long userId, Long recordId, TravelRecordUpdateRequest request) {
-        TravelRecord record = getOwnedRecord(userId, recordId);
+        TravelRecord record = getOwnedRecordForUpdate(userId, recordId);
         List<TravelRecordPlace> recordPlaces = travelRecordPlaceRepository
                 .findAllByRecordIdInSnapshotOrder(recordId);
         Map<Long, TravelRecordPlace> placesById = recordPlaces.stream()
@@ -140,9 +141,12 @@ public class TravelRecordService {
         });
         boolean changesImages = request.imageObjectKeys() != null
                 || placeUpdates.values().stream().anyMatch(update -> update.image() != null);
+        List<TravelRecordImage> finalImages = currentImages;
         if (changesImages) {
-            updateImages(record, recordPlaces, placeUpdates, currentImages, request.imageObjectKeys(), userId);
+            finalImages = updateImages(
+                    record, recordPlaces, placeUpdates, currentImages, request.imageObjectKeys(), userId);
         }
+        updateThumbnail(record, finalImages, changesImages, request.thumbnailImageObjectKey());
         travelRecordRepository.flush();
         return TravelRecordConverter.toUpdateResponse(record);
     }
@@ -155,6 +159,13 @@ public class TravelRecordService {
 
     private TravelRecord getOwnedRecord(Long userId, Long recordId) {
         return travelRecordRepository.findActiveOwnedRecord(recordId, userId)
+                .orElseThrow(() -> new GeneralException(travelRecordRepository.existsActiveById(recordId)
+                        ? RecordErrorCode.RECORD_ACCESS_DENIED
+                        : RecordErrorCode.RECORD_NOT_FOUND));
+    }
+
+    private TravelRecord getOwnedRecordForUpdate(Long userId, Long recordId) {
+        return travelRecordRepository.findActiveOwnedRecordForUpdate(recordId, userId)
                 .orElseThrow(() -> new GeneralException(travelRecordRepository.existsActiveById(recordId)
                         ? RecordErrorCode.RECORD_ACCESS_DENIED
                         : RecordErrorCode.RECORD_NOT_FOUND));
@@ -183,7 +194,7 @@ public class TravelRecordService {
         return updates;
     }
 
-    private void updateImages(
+    private List<TravelRecordImage> updateImages(
             TravelRecord record,
             List<TravelRecordPlace> recordPlaces,
             Map<Long, TravelRecordPlaceUpdateRequest> placeUpdates,
@@ -258,6 +269,10 @@ public class TravelRecordService {
 
         List<TravelRecordImage> removed = currentImages.stream()
                 .filter(image -> !retained.contains(image)).toList();
+        if (containsImage(removed, record.getThumbnailImage())) {
+            record.changeThumbnailImage(null);
+            travelRecordRepository.flush();
+        }
         travelRecordImageRepository.deleteAll(removed);
         travelRecordImageRepository.flush();
 
@@ -280,6 +295,36 @@ public class TravelRecordService {
             }
         }
         travelRecordImageRepository.saveAll(finalImages);
+        travelRecordImageRepository.flush();
+        return finalImages;
+    }
+
+    private void updateThumbnail(
+            TravelRecord record,
+            List<TravelRecordImage> finalImages,
+            boolean changesImages,
+            String requestedThumbnailKey) {
+        if (requestedThumbnailKey != null) {
+            TravelRecordImage requestedThumbnail = finalImages.stream()
+                    .filter(image -> image.getObjectKey().equals(requestedThumbnailKey))
+                    .findFirst()
+                    .orElseThrow(() -> new GeneralException(
+                            RecordErrorCode.RECORD_THUMBNAIL_TARGET_MISMATCH));
+            record.changeThumbnailImage(requestedThumbnail);
+            return;
+        }
+
+        if (changesImages && !containsImage(finalImages, record.getThumbnailImage())) {
+            record.changeThumbnailImage(finalImages.isEmpty() ? null : finalImages.getFirst());
+        }
+    }
+
+    private boolean containsImage(List<TravelRecordImage> images, TravelRecordImage target) {
+        if (target == null) {
+            return false;
+        }
+        return images.stream().anyMatch(image -> image == target
+                || image.getId() != null && image.getId().equals(target.getId()));
     }
 
     private Map<Long, TravelRecordPlace> placesById(List<TravelRecordPlace> places) {
