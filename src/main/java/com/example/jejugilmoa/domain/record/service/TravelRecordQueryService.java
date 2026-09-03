@@ -101,7 +101,7 @@ public class TravelRecordQueryService {
         }
 
         Map<Long, TravelRecordImage> thumbnails = travelRecordImageRepository
-                .findFirstImagesByRecordIds(recordIds).stream()
+                .findThumbnailImagesByRecordIds(recordIds).stream()
                 .collect(Collectors.toMap(image -> image.getTravelRecord().getId(), Function.identity()));
         Map<Long, Long> visitedPlaceCounts = travelRecordPlaceRepository.countVisitedByRecordIds(recordIds)
                 .stream().collect(Collectors.toMap(

@@ -145,8 +145,20 @@ public final class TravelRecordConverter {
         return new TravelRecordDetailResponse(
                 record.getId(), record.getTitle(), record.getDescription(), record.getVisibility(),
                 record.getActualStartDate(), record.getActualEndDate(), record.getCreatedAt(),
-                record.getUpdatedAt(), toAuthorResponse(record.getUser()), plan, recordImages,
+                record.getUpdatedAt(),
+                record.getThumbnailImage() == null ? null : record.getThumbnailImage().getId(),
+                record.getThumbnailImage() == null ? null : imageUrl(record.getThumbnailImage(), allImages),
+                toAuthorResponse(record.getUser()), plan, recordImages,
                 allImages.size(), allImages, places,
                 likeCount, dislikeCount, myReaction);
+    }
+
+    private static String imageUrl(
+            TravelRecordImage thumbnailImage, List<TravelRecordImageResponse> allImages) {
+        return allImages.stream()
+                .filter(image -> image.imageId().equals(thumbnailImage.getId()))
+                .map(TravelRecordImageResponse::imageUrl)
+                .findFirst()
+                .orElse(null);
     }
 }
