@@ -58,7 +58,7 @@ class TravelRecordQueryServiceTest {
 
         TravelRecordImage first = TravelRecordImage.builder().id(101L).travelRecord(publicRecord)
                 .objectKey("records/1/first.jpg").sequenceOrder(1).build();
-        given(travelRecordImageRepository.findFirstImagesByRecordIds(List.of(10L, 11L)))
+        given(travelRecordImageRepository.findThumbnailImagesByRecordIds(List.of(10L, 11L)))
                 .willReturn(List.of(first));
         given(imageUrlResolver.resolve("records/1/first.jpg")).willReturn("https://signed/first.jpg");
 
@@ -105,7 +105,7 @@ class TravelRecordQueryServiceTest {
         var pageable = PageRequest.of(0, 20);
         given(travelRecordRepository.findActivePublic(pageable))
                 .willReturn(new PageImpl<>(List.of(ownPublic), pageable, 1));
-        given(travelRecordImageRepository.findFirstImagesByRecordIds(anyList())).willReturn(List.of());
+        given(travelRecordImageRepository.findThumbnailImagesByRecordIds(anyList())).willReturn(List.of());
         given(travelRecordPlaceRepository.countVisitedByRecordIds(anyList())).willReturn(List.of());
         given(travelRecordImageRepository.countByRecordIds(anyList())).willReturn(List.of());
         given(travelRecordReactionRepository.countByRecordIdsAndType(anyList())).willReturn(List.of());
@@ -163,6 +163,7 @@ class TravelRecordQueryServiceTest {
                 .travelRecordPlace(place).objectKey("records/1/place-1.jpg").sequenceOrder(1).build();
         TravelRecordImage secondPlaceImage = TravelRecordImage.builder().id(403L).travelRecord(record)
                 .travelRecordPlace(place).objectKey("records/1/place-2.jpg").sequenceOrder(2).build();
+        record.changeThumbnailImage(recordImage);
         given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(30L))
                 .willReturn(List.of(placeImage, recordImage, secondPlaceImage));
         given(imageUrlResolver.resolve("records/1/general.jpg")).willReturn("https://signed/general");
@@ -177,6 +178,8 @@ class TravelRecordQueryServiceTest {
         assertThat(result.images()).singleElement().satisfies(image ->
                 assertThat(image.imageUrl()).isEqualTo("https://signed/general"));
         assertThat(result.imageCount()).isEqualTo(3);
+        assertThat(result.thumbnailImageId()).isEqualTo(401L);
+        assertThat(result.thumbnailUrl()).isEqualTo("https://signed/general");
         assertThat(result.allImages())
                 .extracting(image -> image.imageId(), image -> image.sequenceOrder())
                 .containsExactly(

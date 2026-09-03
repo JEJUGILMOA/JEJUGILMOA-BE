@@ -136,6 +136,8 @@ class TravelRecordServiceTest {
                 assertThat(image.getTravelRecordPlace()).isSameAs(placeCaptor.getValue().get(0)));
         assertThat(imageCaptor.getValue().subList(4, 6)).allSatisfy(image ->
                 assertThat(image.getTravelRecordPlace()).isSameAs(placeCaptor.getValue().get(1)));
+        assertThat(imageCaptor.getValue().getFirst().getTravelRecord().getThumbnailImage())
+                .isSameAs(imageCaptor.getValue().getFirst());
         verify(imageObjectVerifier).verify("records/42/first.jpg");
         verify(imageObjectVerifier).verify("records/42/second.webp");
         verify(imageObjectVerifier).verify("records/42/sungsan-1.jpg");
@@ -262,6 +264,8 @@ class TravelRecordServiceTest {
         verify(travelRecordImageRepository).saveAll(imageCaptor.capture());
         assertThat(imageCaptor.getValue()).extracting(TravelRecordImage::getObjectKey)
                 .containsExactly("records/42/place.jpg");
+        assertThat(imageCaptor.getValue().getFirst().getTravelRecord().getThumbnailImage())
+                .isSameAs(imageCaptor.getValue().getFirst());
     }
 
     @Test
@@ -293,7 +297,7 @@ class TravelRecordServiceTest {
     void update_changesOnlyEditableContentAndSupportsRecordWithoutPlan() {
         TravelRecord record = record(77L, owner, null);
         TravelRecordPlace place = recordPlace(501L, record, "기록 당시 장소");
-        given(travelRecordRepository.findActiveOwnedRecord(77L, USER_ID)).willReturn(Optional.of(record));
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID)).willReturn(Optional.of(record));
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of(place));
         given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L)).willReturn(List.of());
 
@@ -318,7 +322,7 @@ class TravelRecordServiceTest {
     @Test
     void update_diffsRecordImagesAndReordersWhileVerifyingOnlyNewKey() {
         TravelRecord record = record(77L, owner, null);
-        given(travelRecordRepository.findActiveOwnedRecord(77L, USER_ID)).willReturn(Optional.of(record));
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID)).willReturn(Optional.of(record));
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
         TravelRecordImage a = image(1L, record, null, "records/42/A.jpg", 1);
         TravelRecordImage b = image(2L, record, null, "records/42/B.jpg", 2);
@@ -350,7 +354,7 @@ class TravelRecordServiceTest {
         TravelRecordPlace third = recordPlace(503L, record, "셋째 장소");
         TravelRecordImage firstImage = image(11L, record, first, "records/42/old.jpg", 1);
         TravelRecordImage secondImage = image(12L, record, second, "records/42/remove.jpg", 2);
-        given(travelRecordRepository.findActiveOwnedRecord(77L, USER_ID)).willReturn(Optional.of(record));
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID)).willReturn(Optional.of(record));
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L))
                 .willReturn(List.of(first, second, third));
         given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
@@ -384,6 +388,162 @@ class TravelRecordServiceTest {
     }
 
     @Test
+    void update_changesOnlyThumbnailWithoutMutatingImageOrder() {
+        TravelRecord record = record(77L, owner, null);
+        TravelRecordImage a = image(1L, record, null, "records/42/A.jpg", 1);
+        TravelRecordImage b = image(2L, record, null, "records/42/B.jpg", 2);
+        TravelRecordImage c = image(3L, record, null, "records/42/C.jpg", 3);
+        record.changeThumbnailImage(a);
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID))
+                .willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
+                .willReturn(List.of(a, b, c));
+
+        travelRecordService.update(USER_ID, 77L, new TravelRecordUpdateRequest(
+                null, null, null, null, null, "records/42/C.jpg"));
+
+        assertThat(record.getThumbnailImage()).isSameAs(c);
+        assertThat(List.of(a, b, c)).extracting(TravelRecordImage::getSequenceOrder)
+                .containsExactly(1, 2, 3);
+        verify(travelRecordImageRepository, never()).saveAll(org.mockito.ArgumentMatchers.anyList());
+        verify(travelRecordImageRepository, never()).deleteAll(org.mockito.ArgumentMatchers.anyList());
+        verify(travelRecordImageRepository, never()).flush();
+    }
+
+    @Test
+    void update_allowsPlaceImageAsThumbnail() {
+        TravelRecord record = record(77L, owner, null);
+        TravelRecordPlace place = recordPlace(501L, record, "장소");
+        TravelRecordImage placeImage = image(
+                3L, record, place, "records/42/place.jpg", 3);
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID))
+                .willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L))
+                .willReturn(List.of(place));
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
+                .willReturn(List.of(placeImage));
+
+        travelRecordService.update(USER_ID, 77L, new TravelRecordUpdateRequest(
+                null, null, null, null, null, "records/42/place.jpg"));
+
+        assertThat(record.getThumbnailImage()).isSameAs(placeImage);
+        assertThat(placeImage.getSequenceOrder()).isEqualTo(3);
+    }
+
+    @Test
+    void update_rejectsThumbnailOutsideFinalImageSet() {
+        TravelRecord record = record(77L, owner, null);
+        TravelRecordImage image = image(1L, record, null, "records/42/A.jpg", 1);
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID))
+                .willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
+                .willReturn(List.of(image));
+
+        assertUpdateCode(77L, new TravelRecordUpdateRequest(
+                        null, null, null, null, null, "records/42/foreign.jpg"),
+                RecordErrorCode.RECORD_THUMBNAIL_TARGET_MISMATCH);
+    }
+
+    @Test
+    void update_selectsNewRecordImageAsThumbnail() {
+        TravelRecord record = record(77L, owner, null);
+        TravelRecordImage old = image(1L, record, null, "records/42/old.jpg", 1);
+        record.changeThumbnailImage(old);
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID))
+                .willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
+                .willReturn(List.of(old));
+
+        travelRecordService.update(USER_ID, 77L, new TravelRecordUpdateRequest(
+                null, null, null, null,
+                List.of("records/42/old.jpg", "records/42/new.jpg"), "records/42/new.jpg"));
+
+        assertThat(record.getThumbnailImage().getObjectKey()).isEqualTo("records/42/new.jpg");
+        assertThat(record.getThumbnailImage().getSequenceOrder()).isEqualTo(2);
+    }
+
+    @Test
+    void update_selectsNewPlaceImageAsThumbnail() {
+        TravelRecord record = record(77L, owner, null);
+        TravelRecordPlace place = recordPlace(501L, record, "장소");
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID))
+                .willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L))
+                .willReturn(List.of(place));
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L)).willReturn(List.of());
+        var placeUpdate = new TravelRecordPlaceUpdateRequest(501L, null,
+                new TravelRecordPlaceImageUpdateRequest(
+                        com.example.jejugilmoa.domain.record.enums.RecordPlaceImageAction.REPLACE,
+                        List.of("records/42/new-place.jpg")));
+
+        travelRecordService.update(USER_ID, 77L, new TravelRecordUpdateRequest(
+                null, null, null, List.of(placeUpdate), null, "records/42/new-place.jpg"));
+
+        assertThat(record.getThumbnailImage().getObjectKey()).isEqualTo("records/42/new-place.jpg");
+        assertThat(record.getThumbnailImage().getTravelRecordPlace()).isSameAs(place);
+    }
+
+    @Test
+    void update_fallsBackWhenCurrentThumbnailIsRemoved() {
+        TravelRecord record = record(77L, owner, null);
+        TravelRecordImage a = image(1L, record, null, "records/42/A.jpg", 1);
+        TravelRecordImage b = image(2L, record, null, "records/42/B.jpg", 2);
+        record.changeThumbnailImage(a);
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID))
+                .willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
+                .willReturn(List.of(a, b));
+
+        travelRecordService.update(USER_ID, 77L, new TravelRecordUpdateRequest(
+                null, null, null, null, List.of("records/42/B.jpg"), null));
+
+        assertThat(record.getThumbnailImage()).isSameAs(b);
+        assertThat(b.getSequenceOrder()).isEqualTo(1);
+        var inOrder = org.mockito.Mockito.inOrder(travelRecordRepository, travelRecordImageRepository);
+        inOrder.verify(travelRecordRepository).flush();
+        inOrder.verify(travelRecordImageRepository).deleteAll(List.of(a));
+    }
+
+    @Test
+    void update_clearsThumbnailWhenLastImageIsRemoved() {
+        TravelRecord record = record(77L, owner, null);
+        TravelRecordImage only = image(1L, record, null, "records/42/only.jpg", 1);
+        record.changeThumbnailImage(only);
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID))
+                .willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
+                .willReturn(List.of(only));
+
+        travelRecordService.update(USER_ID, 77L, new TravelRecordUpdateRequest(
+                null, null, null, null, List.of(), null));
+
+        assertThat(record.getThumbnailImage()).isNull();
+    }
+
+    @Test
+    void update_keepsCurrentThumbnailWhenAnotherImageIsRemoved() {
+        TravelRecord record = record(77L, owner, null);
+        TravelRecordImage a = image(1L, record, null, "records/42/A.jpg", 1);
+        TravelRecordImage b = image(2L, record, null, "records/42/B.jpg", 2);
+        record.changeThumbnailImage(b);
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID))
+                .willReturn(Optional.of(record));
+        given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
+        given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L))
+                .willReturn(List.of(a, b));
+
+        travelRecordService.update(USER_ID, 77L, new TravelRecordUpdateRequest(
+                null, null, null, null, List.of("records/42/B.jpg"), null));
+
+        assertThat(record.getThumbnailImage()).isSameAs(b);
+    }
+
+    @Test
     void update_rejectsForeignDeletedAndMismatchedPlace() {
         given(travelRecordRepository.existsActiveById(77L)).willReturn(true);
         assertUpdateCode(77L, new TravelRecordUpdateRequest("제목", null, null, null, null),
@@ -393,7 +553,7 @@ class TravelRecordServiceTest {
                 RecordErrorCode.RECORD_NOT_FOUND);
 
         TravelRecord own = record(79L, owner, null);
-        given(travelRecordRepository.findActiveOwnedRecord(79L, USER_ID)).willReturn(Optional.of(own));
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(79L, USER_ID)).willReturn(Optional.of(own));
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(79L)).willReturn(List.of());
         assertUpdateCode(79L, new TravelRecordUpdateRequest(null, null, null,
                         List.of(new TravelRecordPlaceUpdateRequest(999L, "침범", null)), null),
@@ -402,7 +562,7 @@ class TravelRecordServiceTest {
 
     @Test
     void update_rejectsForeignActiveRecord() {
-        given(travelRecordRepository.findActiveOwnedRecord(77L, USER_ID)).willReturn(Optional.empty());
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID)).willReturn(Optional.empty());
         given(travelRecordRepository.existsActiveById(77L)).willReturn(true);
 
         assertUpdateCode(77L, new TravelRecordUpdateRequest("제목", null, null, null, null),
@@ -412,7 +572,7 @@ class TravelRecordServiceTest {
     @Test
     void update_propagatesNewImageVerificationFailure() {
         TravelRecord record = record(77L, owner, null);
-        given(travelRecordRepository.findActiveOwnedRecord(77L, USER_ID)).willReturn(Optional.of(record));
+        given(travelRecordRepository.findActiveOwnedRecordForUpdate(77L, USER_ID)).willReturn(Optional.of(record));
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(77L)).willReturn(List.of());
         given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(77L)).willReturn(List.of());
         willThrow(new GeneralException(ImageUploadErrorCode.OBJECT_NOT_FOUND))

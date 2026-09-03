@@ -70,6 +70,45 @@ class TravelRecordMutationIntegrationTest {
     }
 
     @Test
+    void removingCurrentThumbnailUpdatesForeignKeyBeforeDeletingImage() {
+        User owner = userRepository.saveAndFlush(User.builder().nickname("썸네일 삭제 테스트").build());
+        Long recordId = insertRecord(owner.getId());
+        Long firstImageId = insertImage(
+                recordId, "records/%d/first.jpg".formatted(owner.getId()), 1);
+        insertImage(recordId, "records/%d/second.jpg".formatted(owner.getId()), 2);
+        setThumbnail(recordId, firstImageId);
+
+        travelRecordService.update(owner.getId(), recordId, new TravelRecordUpdateRequest(
+                null, null, null, null,
+                List.of("records/%d/second.jpg".formatted(owner.getId())), null));
+        travelRecordRepository.flush();
+
+        Long thumbnailId = jdbcClient.sql(
+                        "SELECT thumbnail_image_id FROM travel_record WHERE id = :recordId")
+                .param("recordId", recordId).query(Long.class).single();
+        assertThat(thumbnailId).isNotEqualTo(firstImageId);
+        assertThat(travelRecordImageRepository.findById(firstImageId)).isEmpty();
+    }
+
+    @Test
+    void databaseSetsThumbnailNullWhenReferencedImageIsDeleted() {
+        User owner = userRepository.saveAndFlush(User.builder().nickname("썸네일 FK 테스트").build());
+        Long recordId = insertRecord(owner.getId());
+        Long imageId = insertImage(recordId, "records/%d/only.jpg".formatted(owner.getId()), 1);
+        setThumbnail(recordId, imageId);
+
+        jdbcClient.sql("DELETE FROM travel_record_image WHERE id = :imageId")
+                .param("imageId", imageId).update();
+
+        Long count = jdbcClient.sql("""
+                        SELECT COUNT(*) FROM travel_record
+                        WHERE id = :recordId AND thumbnail_image_id IS NULL
+                        """)
+                .param("recordId", recordId).query(Long.class).single();
+        assertThat(count).isOne();
+    }
+
+    @Test
     void deleteKeepsDatabaseRowButExcludesAllActiveQueries() {
         User owner = userRepository.saveAndFlush(User.builder().nickname("삭제 통합 테스트").build());
         Long recordId = insertRecord(owner.getId());
@@ -98,14 +137,20 @@ class TravelRecordMutationIntegrationTest {
                 .param("userId", userId).query(Long.class).single();
     }
 
-    private void insertImage(Long recordId, String objectKey, int sequenceOrder) {
-        jdbcClient.sql("""
+    private Long insertImage(Long recordId, String objectKey, int sequenceOrder) {
+        return jdbcClient.sql("""
                         INSERT INTO travel_record_image
                             (created_at, updated_at, travel_record_id, object_key, sequence_order)
                         VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :recordId, :objectKey, :sequenceOrder)
+                        RETURNING id
                         """)
                 .param("recordId", recordId).param("objectKey", objectKey)
-                .param("sequenceOrder", sequenceOrder).update();
+                .param("sequenceOrder", sequenceOrder).query(Long.class).single();
+    }
+
+    private void setThumbnail(Long recordId, Long imageId) {
+        jdbcClient.sql("UPDATE travel_record SET thumbnail_image_id = :imageId WHERE id = :recordId")
+                .param("imageId", imageId).param("recordId", recordId).update();
     }
 
     private Long insertRecordPlace(Long recordId) {
