@@ -27,6 +27,18 @@ public interface TravelRecordRepository extends JpaRepository<TravelRecord, Long
     Optional<TravelRecord> findActiveOwnedRecord(
             @Param("recordId") Long recordId, @Param("userId") Long userId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT r FROM TravelRecord r
+            JOIN r.user u
+            WHERE r.id = :recordId
+              AND u.id = :userId
+              AND r.deletedAt IS NULL
+              AND u.deletedAt IS NULL
+            """)
+    Optional<TravelRecord> findActiveOwnedRecordForUpdate(
+            @Param("recordId") Long recordId, @Param("userId") Long userId);
+
     @Query("""
             SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END
             FROM TravelRecord r
@@ -79,6 +91,7 @@ public interface TravelRecordRepository extends JpaRepository<TravelRecord, Long
             SELECT r FROM TravelRecord r
             JOIN FETCH r.user u
             LEFT JOIN FETCH r.travelPlan p
+            LEFT JOIN FETCH r.thumbnailImage ti
             WHERE r.id = :recordId
               AND r.deletedAt IS NULL
               AND u.deletedAt IS NULL
