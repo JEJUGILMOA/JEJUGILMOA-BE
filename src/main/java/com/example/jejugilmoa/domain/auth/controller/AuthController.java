@@ -1,6 +1,8 @@
 package com.example.jejugilmoa.domain.auth.controller;
 
 import com.example.jejugilmoa.domain.auth.controller.docs.AuthControllerDocs;
+import com.example.jejugilmoa.domain.auth.dto.AppleLoginRequest;
+import com.example.jejugilmoa.domain.auth.service.AppleAuthService;
 import com.example.jejugilmoa.domain.auth.dto.OAuthLoginRequest;
 import com.example.jejugilmoa.domain.auth.dto.OAuthLoginResponse;
 import com.example.jejugilmoa.domain.auth.jwt.CookieProvider;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController implements AuthControllerDocs {
 
     private final AuthService authService;
+    private final AppleAuthService appleAuthService;
     private final CookieProvider cookieProvider;
 
     @Override
@@ -43,6 +46,18 @@ public class AuthController implements AuthControllerDocs {
         cookieProvider.addAccessTokenCookie(response, tokens.accessToken());
         cookieProvider.addRefreshTokenCookie(response, tokens.refreshToken());
 
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, loginResponse);
+    }
+
+    @Override
+    @PostMapping("/apple/login")
+    public ApiResponse<OAuthLoginResponse> appleLogin(
+            @Valid @RequestBody AppleLoginRequest request, HttpServletResponse response
+    ) {
+        OAuthLoginResponse loginResponse = appleAuthService.login(request);
+        TokenPair tokens = authService.issueTokens(loginResponse.userId(), loginResponse.role());
+        cookieProvider.addAccessTokenCookie(response, tokens.accessToken());
+        cookieProvider.addRefreshTokenCookie(response, tokens.refreshToken());
         return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, loginResponse);
     }
 

@@ -40,6 +40,10 @@ jwt:
   cookie-secure: ${JWT_COOKIE_SECURE:false}
 
 app:
+  apple:
+    issuer: ${APPLE_ISSUER:https://appleid.apple.com}
+    jwks-uri: ${APPLE_JWKS_URI:https://appleid.apple.com/auth/keys}
+    allowed-audiences: ${APPLE_ALLOWED_AUDIENCES:}
   location-usage:
     retention:
       enabled: ${LOCATION_USAGE_RETENTION_ENABLED:true}

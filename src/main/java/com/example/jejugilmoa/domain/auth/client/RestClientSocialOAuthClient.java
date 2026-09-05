@@ -141,6 +141,7 @@ public class RestClientSocialOAuthClient implements SocialOAuthClient {
         try {
             RestClient restClient = restClientBuilder.build();
             return switch (provider) {
+                case APPLE -> throw new GeneralException(AuthErrorCode.UNSUPPORTED_PROVIDER);
                 case KAKAO -> {
                     KakaoUserInfoResponse response = restClient.get()
                         .uri(properties.userInfoUri())

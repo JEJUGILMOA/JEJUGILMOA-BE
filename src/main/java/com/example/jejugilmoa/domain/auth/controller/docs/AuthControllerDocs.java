@@ -1,5 +1,6 @@
 package com.example.jejugilmoa.domain.auth.controller.docs;
 
+import com.example.jejugilmoa.domain.auth.dto.AppleLoginRequest;
 import com.example.jejugilmoa.domain.auth.dto.OAuthLoginRequest;
 import com.example.jejugilmoa.domain.auth.dto.OAuthLoginResponse;
 import com.example.jejugilmoa.domain.auth.jwt.CookieProvider;
@@ -16,6 +17,21 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 public interface AuthControllerDocs {
+
+    @Operation(summary = "iOS Apple 로그인", description = """
+            Apple identityToken과 rawNonce로 로그인합니다.
+            앱은 SHA-256(rawNonce)의 소문자 hex 값을 Apple 인증 요청 nonce로 지정해야 합니다.
+            성공 시 기존 OAuth 응답과 ACCESS_TOKEN/REFRESH_TOKEN HttpOnly 쿠키를 반환합니다.
+            nonce 재사용 방지는 1차 버전에 포함되지 않습니다.
+            """)
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "필수값 또는 길이 오류"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Apple 토큰 또는 nonce 오류"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "Apple 공개키 조회 실패")
+    })
+    ApiResponse<OAuthLoginResponse> appleLogin(@RequestBody AppleLoginRequest request, HttpServletResponse response);
+
 
     @Operation(
         summary = "소셜 로그인",
