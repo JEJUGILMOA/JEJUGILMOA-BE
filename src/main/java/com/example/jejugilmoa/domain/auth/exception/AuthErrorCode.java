@@ -29,6 +29,9 @@ public enum AuthErrorCode implements BaseCode {
     EXPIRED_APPLE_IDENTITY_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH401_6", "Apple 인증 토큰이 만료되었습니다. 다시 로그인해주세요."),
     INVALID_APPLE_NONCE(HttpStatus.UNAUTHORIZED, "AUTH401_7", "Apple 로그인 요청이 유효하지 않습니다. 다시 로그인해주세요."),
 
+    APPLE_IDENTITY_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "AUTH401_8", "이미 사용된 Apple 인증 토큰입니다. 다시 로그인해주세요."),
+    APPLE_REPLAY_STORE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AUTH503_1", "Apple 로그인 인증을 일시적으로 처리할 수 없습니다. 잠시 후 다시 시도해주세요."),
+
     DEV_EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH409_1", "이미 가입된 이메일입니다."),
     DEV_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTH404_1", "개발용 유저를 찾을 수 없습니다. 먼저 회원가입을 해주세요.");
 

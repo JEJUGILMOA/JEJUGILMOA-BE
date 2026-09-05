@@ -35,6 +35,7 @@ class AppleLoginIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired JwtProvider jwt;
     @Autowired JdbcClient jdbc;
+    @Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
     final HttpClient http = HttpClient.newHttpClient();
     final ObjectMapper mapper = new ObjectMapper();
     final String subject = "apple-integration-" + UUID.randomUUID();
@@ -60,6 +61,9 @@ class AppleLoginIntegrationTest {
         String identity = sign(token().subject(subject));
         var first = login(identity, NONCE);
         assertThat(first.statusCode()).isEqualTo(200);
+        String replayKey = "auth:apple:identity-token:" + hash(identity);
+        assertThat(redis.opsForValue().get(replayKey)).isEqualTo("1");
+        assertThat(redis.getExpire(replayKey)).isBetween(1L, 300L);
         var body = mapper.readTree(first.body());
         assertThat(body.path("isSuccess").asBoolean()).isTrue();
         assertThat(body.path("code").asText()).isEqualTo("COMMON200");
@@ -77,7 +81,14 @@ class AppleLoginIntegrationTest {
         String tokenId = jwt.parseRefreshClaims(refresh).getId();
         assertThat(refreshTokens.findByTokenId(tokenId)).isPresent();
 
-        var second = login(identity, NONCE);
+        var replay = login(identity, NONCE);
+        assertThat(replay.statusCode()).isEqualTo(401);
+        assertThat(mapper.readTree(replay.body()).path("code").asText()).isEqualTo("AUTH401_8");
+        assertThat(replay.headers().allValues("Set-Cookie")).isEmpty();
+
+        String freshIdentity = sign(token().subject(subject).id(UUID.randomUUID().toString()));
+        assertThat(freshIdentity).isNotEqualTo(identity);
+        var second = login(freshIdentity, NONCE);
         assertThat(second.statusCode()).isEqualTo(200);
         var secondBody = mapper.readTree(second.body());
         assertThat(secondBody.path("result").path("newUser").asBoolean()).isFalse();
@@ -92,11 +103,38 @@ class AppleLoginIntegrationTest {
     }
 
     @Test void realHttpBadNonceHasNoMemberOrCookies() throws Exception {
-        var response = login(sign(token().subject(subject)), "wrong-nonce-".repeat(4));
+        String identity = sign(token().subject(subject));
+        var response = login(identity, "wrong-nonce-".repeat(4));
+        assertThat(redis.hasKey("auth:apple:identity-token:" + hash(identity))).isFalse();
         assertThat(response.statusCode()).isEqualTo(401);
         assertThat(mapper.readTree(response.body()).path("code").asText()).isEqualTo("AUTH401_7");
         assertThat(response.headers().allValues("Set-Cookie")).isEmpty();
         assertThat(users.findByExternalProviderAndExternalIdAndDeletedAtIsNull("apple", subject)).isEmpty();
+    }
+
+    @Test void concurrentReplayAllowsExactlyOneLogin() throws Exception {
+        String identity = sign(token().subject(subject));
+        var ready = new java.util.concurrent.CountDownLatch(2);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Callable<HttpResponse<String>> request = () -> {
+                ready.countDown();
+                if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("동시 요청 시작 시간 초과");
+                }
+                return login(identity, NONCE);
+            };
+            var first = executor.submit(request);
+            var second = executor.submit(request);
+            assertThat(ready.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            var responses = java.util.List.of(first.get(20, java.util.concurrent.TimeUnit.SECONDS),
+                    second.get(20, java.util.concurrent.TimeUnit.SECONDS));
+            assertThat(responses).extracting(HttpResponse::statusCode).containsExactlyInAnyOrder(200, 401);
+            var rejected = responses.stream().filter(r -> r.statusCode() == 401).findFirst().orElseThrow();
+            assertThat(mapper.readTree(rejected.body()).path("code").asText()).isEqualTo("AUTH401_8");
+            assertThat(rejected.headers().allValues("Set-Cookie")).isEmpty();
+        }
     }
 
     private HttpResponse<String> login(String identity, String nonce) throws Exception {

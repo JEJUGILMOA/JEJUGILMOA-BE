@@ -25,6 +25,7 @@ import java.util.HexFormat;
 public class AppleJwtIdentityTokenVerifier implements AppleIdentityTokenVerifier {
     private final AppleJwksClient jwksClient;
     private final AppleAuthProperties properties;
+    private final AppleIdentityTokenReplayStore replayStore;
 
     @Override
     public AppleIdentityClaims verify(String identityToken, String rawNonce) {
@@ -71,6 +72,7 @@ public class AppleJwtIdentityTokenVerifier implements AppleIdentityTokenVerifier
                     throw new GeneralException(AuthErrorCode.INVALID_APPLE_IDENTITY_TOKEN);
                 }
             }
+            replayStore.consume(sha256(identityToken), claims.getExpiration().toInstant());
             return new AppleIdentityClaims(claims.getSubject(), email);
         } catch (ExpiredJwtException ex) {
             throw new GeneralException(AuthErrorCode.EXPIRED_APPLE_IDENTITY_TOKEN);

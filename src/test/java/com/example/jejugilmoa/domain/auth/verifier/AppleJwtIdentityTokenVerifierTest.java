@@ -22,11 +22,12 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class AppleJwtIdentityTokenVerifierTest {
     @Mock AppleJwksClient client;
+    @Mock AppleIdentityTokenReplayStore replayStore;
     AppleJwtIdentityTokenVerifier verifier;
 
     @BeforeEach
     void setUp() {
-        verifier = new AppleJwtIdentityTokenVerifier(client, properties("https://appleid.apple.com/auth/keys"));
+        verifier = new AppleJwtIdentityTokenVerifier(client, properties("https://appleid.apple.com/auth/keys"), replayStore);
         lenient().when(client.getKey(KID)).thenReturn(KEYS.getPublic());
     }
 
@@ -96,7 +97,7 @@ class AppleJwtIdentityTokenVerifierTest {
     @Test void rejectsMissingConfigurationWithoutJwksCall() {
         var base = properties("https://appleid.apple.com/auth/keys");
         verifier = new AppleJwtIdentityTokenVerifier(client,
-                new AppleAuthProperties(base.issuer(), base.jwksUri(), Set.of()));
+                new AppleAuthProperties(base.issuer(), base.jwksUri(), Set.of()), replayStore);
         rejects(sign(token()), AuthErrorCode.MISSING_OAUTH_CONFIGURATION);
         verifyNoInteractions(client);
     }
@@ -104,5 +105,6 @@ class AppleJwtIdentityTokenVerifierTest {
     private void rejects(String value, AuthErrorCode code) {
         assertThatThrownBy(() -> verifier.verify(value, NONCE)).isInstanceOf(GeneralException.class)
                 .extracting(ex -> ((GeneralException) ex).getCode()).isEqualTo(code);
+        verifyNoInteractions(replayStore);
     }
 }
