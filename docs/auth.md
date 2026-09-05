@@ -21,7 +21,7 @@ sequenceDiagram
 
     Note over FE,OAuth: 1. 로그인
     FE->>OAuth: 소셜 로그인 → 인가코드 수신
-    FE->>BE: POST /api/v1/auth/oauth/{provider}/login<br/>(authorizationCode)
+    FE->>BE: POST /api/auth/oauth/{provider}/login<br/>(authorizationCode)
     BE->>OAuth: 인가코드 → 제공자 액세스 토큰 교환
     BE->>OAuth: 프로필 조회 (externalId, nickname, ...)
     BE->>DB: 유저 조회 or 신규 생성 (find-or-create)
@@ -33,12 +33,12 @@ sequenceDiagram
     Note over BE: JwtAuthenticationFilter가 ACCESS_TOKEN 쿠키를<br/>검증해 SecurityContext에 userId/role 설정
 
     Note over FE,BE: 3. 액세스 토큰 만료 시
-    FE->>BE: POST /api/v1/auth/reissue (REFRESH_TOKEN 쿠키)
+    FE->>BE: POST /api/auth/reissue (REFRESH_TOKEN 쿠키)
     BE->>DB: jti로 조회 → 기존 토큰 폐기(회전) → 새 토큰 저장
     BE-->>FE: 200 + 새 ACCESS_TOKEN / REFRESH_TOKEN 쿠키
 
     Note over FE,BE: 4. 로그아웃
-    FE->>BE: POST /api/v1/auth/logout
+    FE->>BE: POST /api/auth/logout
     BE->>DB: RefreshToken revoked=true
     BE-->>FE: 200 + 두 쿠키 모두 Max-Age=0으로 제거
 ```
@@ -49,7 +49,7 @@ sequenceDiagram
 
 | 위치 | 클래스 | 역할 |
 |---|---|---|
-| `controller/` | `AuthController` | 로그인/로그아웃/재발급 3개 엔드포인트. 쿠키 설정도 여기서 |
+| `controller/` | `AuthController` | 소셜·Apple 로그인/로그아웃/재발급 4개 엔드포인트. 쿠키 설정도 여기서 |
 | `controller/docs/` | `AuthControllerDocs` | Swagger 문서 전용 인터페이스 (구현체에서 어노테이션 분리) |
 | `service/` | `AuthService` | 로그인(find-or-create), 토큰 발급/회전/폐기의 핵심 로직 |
 | `client/` | `SocialOAuthClient` / `RestClientSocialOAuthClient` | 인가코드 → 제공자 토큰 → 프로필 조회. 제공자별 분기 처리 |
@@ -101,8 +101,8 @@ refresh_token
 └─ version    : 낙관적 락 (동시 재발급 경합 방지)
 ```
 
-Redis가 아니라 DB인 이유: 현 시점 Redis는 미구성 상태라 이 목적만으로 인프라를
-추가하는 건 과했다. 상세는 [ADR-0006](adr/0006-jwt-cookie-auth.md).
+리프레시 토큰의 DB 저장은 Redis 도입 전 결정이며 현재도 유지한다. Apple replay 방지는
+기존 Redis를 사용한다. 리프레시 토큰 설계 상세는 [ADR-0006](adr/0006-jwt-cookie-auth.md).
 
 ### 회전(rotation)
 
@@ -142,11 +142,12 @@ Redis가 아니라 DB인 이유: 현 시점 Redis는 미구성 상태라 이 목
 
 ## API 요약
 
-베이스: `/api/v1/auth` · 응답은 전부 `ApiResponse<T>` 봉투. Swagger UI(`/swagger-ui.html`)에 상세 스펙 있음.
+베이스: `/api/auth` · 응답은 전부 `ApiResponse<T>` 봉투. Swagger UI(`/swagger-ui.html`)에 상세 스펙 있음.
 
 | 메서드/경로 | 하는 일 | 성공 | 주요 실패 |
 |---|---|---|---|
 | `POST /oauth/{provider}/login` | 인가코드로 로그인(최초면 자동 가입) + 토큰 쿠키 발급 | 200, 바디에 유저 정보 | `AUTH400_1` 미지원 provider, `AUTH400_2` 잘못된 인가코드, `AUTH502_*` 제공자 통신 실패 |
+| `POST /apple/login` | Apple identityToken/nonce 검증 및 일회성 소비 + 토큰 쿠키 발급 | 200, 바디에 유저 정보 | `AUTH401_5~8` 검증 실패/재사용, `AUTH503_1` 저장소 장애 |
 | `POST /reissue` | 리프레시 토큰 검증 → 회전 → 새 쿠키 발급 | 200, 바디 없음 | `AUTH401_2` 무효 토큰, `AUTH401_3` 쿠키 없음, `AUTH401_4` 재사용 탐지 |
 | `POST /logout` | 리프레시 토큰 폐기 + 쿠키 제거 | **항상 200** (쿠키 없어도, 토큰이 무효여도) | — |
 
@@ -206,8 +207,8 @@ jwt:
 ```bash
 docker compose up -d && ./gradlew bootRun   # DB 포트 다르면 DB_PORT 환경변수
 
-curl -i -X POST http://localhost:8080/api/v1/auth/reissue   # → 401 AUTH401_3
-curl -i -X POST http://localhost:8080/api/v1/auth/logout    # → 200 + 쿠키 제거
+curl -i -X POST http://localhost:8080/api/auth/reissue   # → 401 AUTH401_3
+curl -i -X POST http://localhost:8080/api/auth/logout    # → 200 + 쿠키 제거
 ```
 
 DB에 쌓인 토큰 확인:
@@ -253,6 +254,7 @@ AuthController.appleLogin
  → AppleAuthService
  → AppleIdentityTokenVerifier (AppleJwtIdentityTokenVerifier)
  → AppleJwksClient (서버 설정의 공개키 endpoint)
+ → Redis에 identityToken digest 일회성 등록 (exp까지 보관)
  → 검증된 AppleIdentityClaims
  → AuthConverter.toUserInfo (APPLE, sub, 애플 사용자, null, 검증된 이메일)
  → AuthService.loginWithVerifiedIdentity
@@ -318,14 +320,21 @@ Spring Boot는 `.env`를 자동으로 읽지 않으므로 실행 환경에 직�
 | `AUTH401_5` | 401 | Apple token 서명/header/claim 무효 또는 공개키 조회 후 kid 없음 |
 | `AUTH401_6` | 401 | Apple token 만료 |
 | `AUTH401_7` | 401 | nonce 누락 또는 불일치 |
+| `AUTH401_8` | 401 | 이미 사용된 Apple identityToken |
+| `AUTH503_1` | 503 | replay 저장소 장애 |
 | `AUTH502_2` | 502 | JWKS 통신 장애 또는 공개키 응답 오류 |
 | `AUTH500_1` | 500 | Apple 설정 누락/오류 |
 
 ### 후속 보안·운영 이슈
 
-1. 이번 범위에는 서버 nonce challenge 및 Redis replay 저장소가 없다.
-   nonce 해시 비교는 동일한 token/rawNonce의 재전송을 막지 않으며, token 만료 전 재사용이 가능하다.
-   앱은 매 로그인 시도마다 새로운 nonce를 생성한다. 서버 측 일회성 소비는 후속 작업이다.
+1. 서버 nonce challenge는 제공하지 않는다. 앱은 매 로그인 시도마다 새로운 nonce를 생성한다.
+   검증 완료 후 compact identityToken 전체의 SHA-256 digest만 공용 Redis에 원자적으로 등록한다.
+   동일 토큰은 AUTH401_8로 거부하며, 동일 sub의 새로운 토큰은 허용한다.
+   Redis의 SET NX PXAT을 Lua로 실행해 만료 확인과 등록을 원자화하고 exp에 자동 삭제한다.
+   Redis 장애 시 AUTH503_1로 거부한다. 이후 회원 처리/쿠키 발급 실패에도 소비를 취소하지 않으므로
+   앱은 새로운 Apple 토큰으로 재시도해야 한다.
+   모든 인스턴스는 동일 Redis를 사용해야 하며, 운영 Redis는 AOF 영속화와 noeviction이 필요하다.
+   데이터 유실·flush·복제 failover로 소비 기록이 사라지면 만료 전 replay가 가능하다.
 2. Apple 권한 철회 감지, Apple refresh token/code 교환 및 token revoke는 미구현이다.
    자체 refresh token 회전이 Apple 측 철회를 감지하는 것은 아니다.
 3. 배포 전 실제 Bundle ID/Sign in with Apple capability와 iOS 쿠키 유지·재발급을 실기기에서 확인한다.
