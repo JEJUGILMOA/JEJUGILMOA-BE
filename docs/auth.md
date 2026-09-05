@@ -226,3 +226,110 @@ docker compose exec db psql -U postgres -d jejugilmoa \
   아니게 되어 `SameSite=None`으로 바꿔야 하는 순간 재검토 필요
 - `JwtProvider`/`CookieProvider`/`JwtAuthenticationFilter` 단위 테스트 없음
   (서비스/컨트롤러 테스트로 간접 커버만 됨)
+
+
+## iOS 네이티브 Apple 로그인 (1차)
+
+`POST /api/auth/apple/login`은 인증 없이 호출하며 기존 인가코드 endpoint와 분리한다.
+
+```json
+{
+  "identityToken": "Apple에서 받은 identityToken",
+  "rawNonce": "로그인 시도마다 생성한 충분히 긴 난수 문자열"
+}
+```
+
+- `identityToken`: 필수, 최대 16,384자.
+- `rawNonce`: 필수, 32~256자. 앱에서 CSPRNG 난수 32바이트를 생성하고 Base64URL 문자열로
+  표현하는 방식을 권장한다. 입력값을 trim하거나 정규화하지 않는다.
+- 앱은 `SHA-256(rawNonce의 UTF-8 바이트)`의 **소문자 hex(64자)**를 Apple 인증 요청의
+  nonce로 지정한다. 서버에는 해시 전 `rawNonce`를 보낸다. nonce 비교는 상수 시간 비교를 사용한다.
+- `audience`, `sub`, 이메일, role을 별도 입력으로 받지 않는다.
+
+호출 흐름:
+
+```text
+AuthController.appleLogin
+ → AppleAuthService
+ → AppleIdentityTokenVerifier (AppleJwtIdentityTokenVerifier)
+ → AppleJwksClient (서버 설정의 공개키 endpoint)
+ → 검증된 AppleIdentityClaims
+ → AuthConverter.toUserInfo (APPLE, sub, 애플 사용자, null, 검증된 이메일)
+ → AuthService.loginWithVerifiedIdentity
+ → 기존 활성 회원 조회 / 탈퇴 회원 복구 / 가입 / 누락 이메일 보충
+ → AuthService.issueTokens
+ → CookieProvider
+ → ApiResponse<OAuthLoginResponse>
+```
+
+기존 카카오/네이버/구글은 기존 `SocialOAuthClient`로 신원을 확인한 후 같은 공통 진입점을 사용한다.
+`/api/auth/oauth/apple/login`은 지원하지 않으며 `AUTH400_1`로 거부한다.
+Apple JWT는 서비스 자체 `JwtProvider`로 검증하지 않는다.
+
+### 응답과 앱의 쿠키 처리
+
+```json
+{
+  "isSuccess": true,
+  "code": "COMMON200",
+  "message": "성공적으로 요청을 처리했습니다.",
+  "result": {
+    "userId": 123,
+    "nickname": "애플 사용자",
+    "profileImageUrl": null,
+    "role": "USER",
+    "newUser": true
+  }
+}
+```
+
+기존과 동일하게 `ACCESS_TOKEN`, `REFRESH_TOKEN`을 HttpOnly cookie로 발급한다.
+앱은 Set-Cookie를 저장하고 이후 인증 API, `/api/auth/reissue`, `/api/auth/logout`에 전송해야 한다.
+토큰은 response body에 넣지 않는다. `Secure` 여부는 기존 `JWT_COOKIE_SECURE` 설정을 따른다.
+
+### 환경변수
+
+| 변수 | 기본값 | 설명 |
+|---|---|---|
+| `APPLE_ISSUER` | `https://appleid.apple.com` | 정확히 일치해야 하는 issuer |
+| `APPLE_JWKS_URI` | `https://appleid.apple.com/auth/keys` | 서버가 신뢰하는 공개키 주소 |
+| `APPLE_ALLOWED_AUDIENCES` | 빈 값 | 허용 iOS Bundle ID. 여러 개면 쉼표 구분 |
+
+실제 Bundle ID는 기본값으로 추측하지 않는다. audience 미설정 시 Apple 요청만
+`AUTH500_1`로 거부하며 기존 제공자 로그인을 유지한다.
+Spring Boot는 `.env`를 자동으로 읽지 않으므로 실행 환경에 직접 주입해야 한다.
+운영 환경에서는 Apple의 issuer/JWKS 기본값을 유지한다. HTTP JWKS는 로컬 테스트에만 허용한다.
+
+### 검증·공개키 정책
+
+- `kid` 필수 및 256자 제한, `alg=RS256`만 허용, unsigned/HMAC token 거부.
+- token이 지정한 `jku`/`x5u` 주소는 사용하지 않는다. 압축 JWT도 거부한다.
+- RSA 서명 검증 후 issuer, audience, 필수 expiration, nonce, sub(필수/255자 이하)를 검사한다.
+- 만료 시계 오차는 허용하지 않는다. 서버 시각은 NTP로 동기화한다.
+- `email_verified`가 boolean `true` 또는 문자열 `"true"`인 이메일만 사용한다.
+  이메일이 없거나 미검증이면 null로 처리한다. 이메일로 계정을 자동 병합하지 않는다.
+- 공개키 캐시 TTL 1시간, 전체 갱신 최소 간격 30초. 알 수 없는 kid는 갱신 가능 시 재조회한다.
+  갱신 직후 새 키가 나타나면 최대 30초 후 재시도가 필요할 수 있다.
+- 연결 timeout 3초, 응답 timeout 5초, HTTP redirect는 따라가지 않는다.
+- 공개키 조회 실패 시 만료된 캐시로 인증하지 않는다. 유효기간 내 이미 알고 있는 키는 계속 사용할 수 있다.
+
+| 코드 | HTTP | 의미 |
+|---|---|---|
+| `AUTH401_5` | 401 | Apple token 서명/header/claim 무효 또는 공개키 조회 후 kid 없음 |
+| `AUTH401_6` | 401 | Apple token 만료 |
+| `AUTH401_7` | 401 | nonce 누락 또는 불일치 |
+| `AUTH502_2` | 502 | JWKS 통신 장애 또는 공개키 응답 오류 |
+| `AUTH500_1` | 500 | Apple 설정 누락/오류 |
+
+### 후속 보안·운영 이슈
+
+1. 이번 범위에는 서버 nonce challenge 및 Redis replay 저장소가 없다.
+   nonce 해시 비교는 동일한 token/rawNonce의 재전송을 막지 않으며, token 만료 전 재사용이 가능하다.
+   앱은 매 로그인 시도마다 새로운 nonce를 생성한다. 서버 측 일회성 소비는 후속 작업이다.
+2. Apple 권한 철회 감지, Apple refresh token/code 교환 및 token revoke는 미구현이다.
+   자체 refresh token 회전이 Apple 측 철회를 감지하는 것은 아니다.
+3. 배포 전 실제 Bundle ID/Sign in with Apple capability와 iOS 쿠키 유지·재발급을 실기기에서 확인한다.
+4. 운영 HTTPS 및 Secure cookie 설정, 로그인 rate limit, JWKS 장애·키 갱신 모니터링을 확인한다.
+   identityToken/rawNonce/JWT 원문은 로그에 기록하지 않는다.
+
+자동화 검증은 테스트용 RSA 키와 로컬 JWKS stub을 사용한다. 실제 Apple 계정에 의존하지 않는다.

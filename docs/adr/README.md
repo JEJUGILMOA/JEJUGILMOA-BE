@@ -24,3 +24,4 @@
 | [0008](0008-place-image-table.md) | 장소 갤러리 이미지를 PlaceImage 테이블로 분리 저장 | Accepted |
 | [0009](0009-waypoint-concurrency.md) | 경유지 동시 추가의 중복·순번 충돌 방지 | Accepted |
 | [0010](0010-retain-travel-record-after-plan-deletion.md) | 여행 계획 삭제 후 여행 기록 보존 | Accepted |
+| [0011](0011-native-apple-login.md) | iOS 네이티브 Apple identityToken 로그인 | Accepted |
