@@ -84,7 +84,8 @@ public class DirectionService {
     }
 
     private void validateCoordinate(double lat, double lng) {
-        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        if (Double.isNaN(lat) || Double.isNaN(lng)
+                || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
             throw new GeneralException(DirectionErrorCode.INVALID_COORDINATE);
         }
     }
@@ -99,7 +100,7 @@ public class DirectionService {
         if (!StringUtils.hasText(waypoints)) {
             return null;
         }
-        String[] points = waypoints.split("\\|");
+        String[] points = waypoints.split("\\|", -1);
         if (points.length > MAX_WAYPOINTS) {
             throw new GeneralException(DirectionErrorCode.TOO_MANY_WAYPOINTS);
         }
@@ -109,7 +110,7 @@ public class DirectionService {
     }
 
     private String parseWaypoint(String point) {
-        String[] parts = point.split(",");
+        String[] parts = point.split(",", -1);
         if (parts.length != 2) {
             throw new GeneralException(DirectionErrorCode.INVALID_WAYPOINT_FORMAT);
         }

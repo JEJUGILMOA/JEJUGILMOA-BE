@@ -3,11 +3,14 @@ package com.example.jejugilmoa.global.external.navermap;
 import com.example.jejugilmoa.global.external.config.ExternalApiProperties;
 import com.example.jejugilmoa.global.external.navermap.dto.NaverDirectionsResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
 
 @Component
 public class NaverDirectionsClient {
@@ -24,12 +27,27 @@ public class NaverDirectionsClient {
         this.clientId = props.naverMap().clientId();
         this.clientSecret = props.naverMap().clientSecret();
         this.baseUrl = props.naverMap().baseUrl();
+        validateBaseUrl(this.baseUrl);
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(3_000);
         factory.setReadTimeout(10_000);
         this.restClient = RestClient.builder()
             .requestFactory(factory)
             .build();
+    }
+
+    private static void validateBaseUrl(String url) {
+        URI uri;
+        try {
+            uri = URI.create(url);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("네이버 지도 baseUrl이 유효하지 않습니다: " + url, e);
+        }
+        if (!"https".equals(uri.getScheme()) || uri.getHost() == null
+                || !uri.getHost().endsWith("ntruss.com")) {
+            throw new IllegalStateException(
+                "네이버 지도 baseUrl은 ntruss.com 호스트의 HTTPS여야 합니다: " + url);
+        }
     }
 
     NaverDirectionsClient(ExternalApiProperties props, RestClient.Builder builder) {
@@ -61,6 +79,7 @@ public class NaverDirectionsClient {
                 .header("x-ncp-apigw-api-key-id", clientId)
                 .header("x-ncp-apigw-api-key", clientSecret)
                 .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {})
                 .body(NaverDirectionsResponse.class);
         } catch (Exception e) {
             throw new NaverMapException("네이버 지도 Directions API 호출 오류", e);

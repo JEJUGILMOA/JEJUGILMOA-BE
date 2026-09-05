@@ -36,7 +36,7 @@ public interface DirectionControllerDocs {
                     value = """
                         {
                           "isSuccess": true,
-                          "code": "FOUND200",
+                          "code": "DIRECTION200_1",
                           "message": "조회에 성공했습니다.",
                           "result": {
                             "option": "traoptimal",
