@@ -64,6 +64,74 @@ class AuthServiceTest {
     @InjectMocks
     private AuthService authService;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = SocialProvider.class, names = {"KAKAO", "NAVER", "GOOGLE"})
+    void existingProvidersStillUseVerifiedIdentityFlow(SocialProvider provider) {
+        var request = new OAuthLoginRequest("code", "https://example.com/callback", null);
+        var info = new OAuthUserInfo(provider, "external", "기존 회원", null, null);
+        var user = User.builder().id(55L).nickname("내 닉네임").build();
+        given(socialOAuthClient.fetchUserInfo(provider, request)).willReturn(info);
+        given(userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNull(provider.getKey(), "external"))
+                .willReturn(Optional.of(user));
+        assertThat(authService.login(provider.getKey(), request).userId()).isEqualTo(55L);
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void appleCannotUseAuthorizationCodeRoute() {
+        assertThatThrownBy(() -> authService.login("apple", new OAuthLoginRequest("code", null, null)))
+                .isInstanceOf(GeneralException.class)
+                .extracting(ex -> ((GeneralException) ex).getCode()).isEqualTo(AuthErrorCode.UNSUPPORTED_PROVIDER);
+        verifyNoInteractions(socialOAuthClient, userRepository);
+    }
+
+    @Test
+    void createsNewAppleMemberFromVerifiedIdentity() {
+        var info = new OAuthUserInfo(SocialProvider.APPLE, "apple-sub", "애플 사용자", null, null);
+        given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+        assertThat(authService.loginWithVerifiedIdentity(info).newUser()).isTrue();
+        verify(userService).restoreByExternalAccount("apple", "apple-sub");
+        verifyNoInteractions(socialOAuthClient);
+    }
+
+    @Test
+    void existingAppleMemberBackfillsEmailWithoutOverwritingProfile() {
+        var user = User.builder().id(66L).nickname("내 닉네임").profileImageUrl("my-image").build();
+        given(userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNull("apple", "apple-sub"))
+                .willReturn(Optional.of(user));
+        var response = authService.loginWithVerifiedIdentity(
+                new OAuthUserInfo(SocialProvider.APPLE, "apple-sub", "애플 사용자", null, "a@example.com"));
+        assertThat(response.newUser()).isFalse();
+        assertThat(response.nickname()).isEqualTo("내 닉네임");
+        assertThat(response.profileImageUrl()).isEqualTo("my-image");
+        assertThat(user.getEmail()).isEqualTo("a@example.com");
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void restoresAppleMemberThroughExistingRestoreFlow() {
+        var user = User.builder().id(77L).nickname("복구 회원").build();
+        given(userService.restoreByExternalAccount("apple", "apple-sub")).willReturn(Optional.of(user));
+        var result = authService.loginWithVerifiedIdentity(
+                new OAuthUserInfo(SocialProvider.APPLE, "apple-sub", "애플 사용자", null, null));
+        assertThat(result.userId()).isEqualTo(77L);
+        assertThat(result.newUser()).isFalse();
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void retriesAppleConcurrentSignupConflict() {
+        var user = User.builder().id(88L).nickname("애플 사용자").build();
+        given(userRepository.findByExternalProviderAndExternalIdAndDeletedAtIsNull("apple", "apple-sub"))
+                .willReturn(Optional.empty(), Optional.of(user));
+        given(userRepository.save(any(User.class)))
+                .willThrow(new org.springframework.dao.DataIntegrityViolationException("동시 가입"));
+        var result = authService.loginWithVerifiedIdentity(
+                new OAuthUserInfo(SocialProvider.APPLE, "apple-sub", "애플 사용자", null, null));
+        assertThat(result.userId()).isEqualTo(88L);
+        assertThat(result.newUser()).isFalse();
+    }
+
     @Test
     @DisplayName("소셜 계정이 없으면 새 사용자를 생성하고 로그인 응답을 반환한다")
     void loginCreatesUserWhenSocialAccountNotExists() {
