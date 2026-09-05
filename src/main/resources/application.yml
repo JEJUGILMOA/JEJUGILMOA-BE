@@ -78,6 +78,10 @@ external:
     visitor-data:
       service-key: ${VISITOR_DATA_API_KEY:}
       base-url: ${VISITOR_DATA_BASE_URL:}
+    naver-map:
+      client-id: ${NAVER_MAP_CLIENT_ID:}
+      client-secret: ${NAVER_MAP_CLIENT_SECRET:}
+      base-url: https://maps.apigw.ntruss.com
 
 firebase:
   credentials:

@@ -27,7 +27,7 @@ docker compose up -d     # REQUIRED FIRST — PostGIS DB + Redis. Even `test` fa
 - **Soft delete**: `User` and `TravelRecord` use `deletedAt`; every query on them must filter `deletedAt IS NULL` ([ADR-0003](docs/adr/0003-soft-delete.md)).
 - **Security requires auth by default**: `SecurityConfig` allows only `/swagger-ui/**`, `/v3/api-docs/**`, `/health`, `/`, `/api/auth/**` (and `/dev/auth/**` outside the `prod` profile) — everything else needs a valid JWT via `JwtAuthenticationFilter`. Get the current user via the authenticated principal (`UserPrincipal`), not a `TODO` placeholder. See [docs/auth.md](docs/auth.md) and [ADR-0006](docs/adr/0006-jwt-cookie-auth.md) for the OAuth/JWT/refresh-rotation design.
 - **`ddl-auto: update`** (dev) never drops/renames columns — schema drift is fixed by `docker compose down -v`. Prod is `validate` and there is currently no migration path ([ADR-0005](docs/adr/0005-schema-management.md)).
-- `RedisConfig` defines a real `RedisCacheManager` bean (30 min TTL) and `docker compose` runs a Redis container, but nothing in `src/main` uses `@Cacheable`/`@CacheEvict` yet — caching is configured but dormant, don't assume any endpoint is actually cached.
+- `RedisConfig` defines a real `RedisCacheManager` bean (30 min TTL, JDK value serialization — cached DTOs must implement `Serializable`) and `docker compose` runs a Redis container. Live caches: `placeDetail`, `popularPlaces`, `directions`. Redis is NOT in CI, so never write a test that requires a real cache round-trip.
 
 ## Conventions (musts)
 

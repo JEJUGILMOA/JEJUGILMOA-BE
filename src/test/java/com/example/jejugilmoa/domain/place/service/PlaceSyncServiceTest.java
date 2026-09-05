@@ -36,7 +36,8 @@ class PlaceSyncServiceTest {
     void setUp() {
         var props = new ExternalApiProperties(
             new ExternalApiProperties.ApiConfig("test-key", "https://api.test.com"),
-            new ExternalApiProperties.ApiConfig("", "")
+            new ExternalApiProperties.ApiConfig("", ""),
+            new ExternalApiProperties.NaverMapConfig("", "", "")
         );
         tourApiClient = new TourApiClient(props);
         ReflectionTestUtils.setField(tourApiClient, "restClient", mockRestClient);
