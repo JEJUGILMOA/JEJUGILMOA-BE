@@ -93,7 +93,8 @@ public interface TravelRecordControllerDocs {
                               ],
                               "imageObjectKeys": [
                                 "records/42/550e8400-e29b-41d4-a716-446655440000.jpg"
-                              ]
+                              ],
+                              "thumbnailImageObjectKey": "records/42/place1.jpg"
                             }
                             """)
             )
@@ -117,7 +118,7 @@ public interface TravelRecordControllerDocs {
                             """))
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "400", description = "미완료 여행, 메모 대상 불일치 또는 잘못된 이미지 키"),
+                    responseCode = "400", description = "미완료 여행, 메모 대상 불일치, 잘못된 이미지 키 또는 썸네일 대상 불일치"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "401", description = "인증 필요"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(

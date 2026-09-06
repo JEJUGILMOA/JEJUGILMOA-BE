@@ -117,7 +117,7 @@ public class TravelRecordService {
             }
         }
         travelRecordImageRepository.saveAll(images);
-        record.changeThumbnailImage(images.isEmpty() ? null : images.getFirst());
+        updateThumbnail(record, images, true, request.thumbnailImageObjectKey());
 
         return TravelRecordConverter.toCreateResponse(record, request.tripId());
     }
