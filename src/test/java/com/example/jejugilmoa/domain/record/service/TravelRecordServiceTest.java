@@ -146,6 +146,39 @@ class TravelRecordServiceTest {
         verify(imageObjectVerifier).verify("records/42/aewol-2.webp");
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"second.jpg", "place.jpg"})
+    void create_selectsRequestedThumbnailWithoutChangingSequence(String filename) {
+        TravelPlan plan = completedPlan(owner);
+        stubCreate(plan, List.of(course(plan, 101L, 1L, "장소", "주소", "33.1", "126.1",
+                LocalDate.of(2026, 8, 10), 1)));
+        String selectedKey = "records/42/" + filename;
+        travelRecordService.create(USER_ID, new TravelRecordCreateRequest(
+                TRIP_ID, "여행 기록", null, null,
+                List.of(new TravelRecordPlaceMemoRequest(101L, null, List.of("records/42/place.jpg"))),
+                List.of("records/42/first.jpg", "records/42/second.jpg"), selectedKey));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<TravelRecordImage>> captor = ArgumentCaptor.forClass(List.class);
+        verify(travelRecordImageRepository).saveAll(captor.capture());
+        List<TravelRecordImage> images = captor.getValue();
+        assertThat(images).extracting(TravelRecordImage::getObjectKey)
+                .containsExactly("records/42/first.jpg", "records/42/second.jpg", "records/42/place.jpg");
+        assertThat(images).extracting(TravelRecordImage::getSequenceOrder).containsExactly(1, 2, 3);
+        assertThat(images.getFirst().getTravelRecord().getThumbnailImage())
+                .isSameAs(images.get(filename.equals("place.jpg") ? 2 : 1));
+        assertThat(images.getLast().getTravelRecordPlace()).isNotNull();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void create_rejectsThumbnailOutsideRequest(boolean hasImages) {
+        stubCreate(completedPlan(owner), List.of());
+        assertCode(new TravelRecordCreateRequest(TRIP_ID, "여행 기록", null, null, null,
+                        hasImages ? List.of("records/42/first.jpg") : null, "records/42/missing.jpg"),
+                RecordErrorCode.RECORD_THUMBNAIL_TARGET_MISMATCH);
+    }
+
     @Test
     void create_defaultsVisibilityToPrivate() {
         TravelPlan plan = completedPlan(owner);
@@ -156,6 +189,7 @@ class TravelRecordServiceTest {
         ArgumentCaptor<TravelRecord> captor = ArgumentCaptor.forClass(TravelRecord.class);
         verify(travelRecordRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getVisibility()).isEqualTo(Visibility.PRIVATE);
+        assertThat(captor.getValue().getThumbnailImage()).isNull();
     }
 
     @Test

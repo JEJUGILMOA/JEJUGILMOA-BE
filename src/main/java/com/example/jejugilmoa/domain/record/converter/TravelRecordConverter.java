@@ -64,7 +64,6 @@ public final class TravelRecordConverter {
 
     public static TravelRecordImage toImage(
             TravelRecord record, TravelRecordPlace recordPlace, String objectKey, int sequenceOrder) {
-        // TODO: 조회 API 구현 시 sequenceOrder가 가장 빠른 이미지를 대표 이미지로 사용
         return TravelRecordImage.builder()
                 .travelRecord(record)
                 .travelRecordPlace(recordPlace)
@@ -118,7 +117,7 @@ public final class TravelRecordConverter {
     }
 
     public static TravelRecordImageResponse toImageResponse(TravelRecordImage image, String imageUrl) {
-        return new TravelRecordImageResponse(image.getId(), imageUrl, image.getSequenceOrder());
+        return new TravelRecordImageResponse(image.getId(), imageUrl, image.getObjectKey(), image.getSequenceOrder());
     }
 
     public static TravelRecordPlaceResponse toPlaceResponse(

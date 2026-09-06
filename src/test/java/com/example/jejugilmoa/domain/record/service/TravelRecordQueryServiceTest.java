@@ -181,11 +181,12 @@ class TravelRecordQueryServiceTest {
         assertThat(result.thumbnailImageId()).isEqualTo(401L);
         assertThat(result.thumbnailUrl()).isEqualTo("https://signed/general");
         assertThat(result.allImages())
-                .extracting(image -> image.imageId(), image -> image.sequenceOrder())
+                .extracting(image -> image.imageId(), image -> image.sequenceOrder(),
+                        image -> image.objectKey(), image -> image.imageUrl())
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple(402L, 1),
-                        org.assertj.core.groups.Tuple.tuple(403L, 2),
-                        org.assertj.core.groups.Tuple.tuple(401L, 3));
+                        org.assertj.core.groups.Tuple.tuple(402L, 1, "records/1/place-1.jpg", "https://signed/place-1"),
+                        org.assertj.core.groups.Tuple.tuple(403L, 2, "records/1/place-2.jpg", "https://signed/place-2"),
+                        org.assertj.core.groups.Tuple.tuple(401L, 3, "records/1/general.jpg", "https://signed/general"));
         assertThat(result.places()).singleElement().satisfies(response -> {
             assertThat(response.placeName()).isEqualTo("snapshot");
             assertThat(response.images()).extracting(image -> image.imageUrl())

@@ -198,14 +198,40 @@ class TravelRecordControllerTest {
                                   {"travelCourseId":101,"imageObjectKeys":[
                                     "records/42/place-1.jpg","records/42/place-2.jpg"
                                   ]}
-                                ]}
+                                ], "thumbnailImageObjectKey":"records/42/place-2.jpg"}
                                 """))
                 .andExpect(status().isCreated());
 
         var captor = forClass(com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest.class);
         verify(travelRecordService).create(eq(42L), captor.capture());
+        assertThat(captor.getValue().thumbnailImageObjectKey()).isEqualTo("records/42/place-2.jpg");
         assertThat(captor.getValue().placeMemos().getFirst().imageObjectKeys())
                 .containsExactly("records/42/place-1.jpg", "records/42/place-2.jpg");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "   "})
+    void createRejectsBlankThumbnail(String key) throws Exception {
+        mockMvc.perform(post("/api/records")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("{\"tripId\":10,\"title\":\"여행 기록\",\"thumbnailImageObjectKey\":\"" + key + "\"}"))
+                .andExpect(status().isBadRequest());
+        verify(travelRecordService, org.mockito.Mockito.never()).create(any(), any());
+    }
+
+    @Test
+    void createReturnsExistingThumbnailMismatchCode() throws Exception {
+        given(travelRecordService.create(eq(42L), any()))
+                .willThrow(new GeneralException(RecordErrorCode.RECORD_THUMBNAIL_TARGET_MISMATCH));
+        mockMvc.perform(post("/api/records")
+                        .with(authentication(authenticationFor(42L)))
+                        .contentType("application/json")
+                        .content("""
+                                {"tripId":10,"title":"여행 기록","thumbnailImageObjectKey":"records/42/missing.jpg"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("RECORD400_7"));
     }
 
     @Test
