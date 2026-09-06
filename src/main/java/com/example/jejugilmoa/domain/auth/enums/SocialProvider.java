@@ -12,7 +12,8 @@ import java.util.Arrays;
 public enum SocialProvider {
     KAKAO("kakao", "카카오", false),
     NAVER("naver", "네이버", true),
-    GOOGLE("google", "구글", true);
+    GOOGLE("google", "구글", true),
+    APPLE("apple", "애플", false);
 
     private final String key;
     private final String displayName;

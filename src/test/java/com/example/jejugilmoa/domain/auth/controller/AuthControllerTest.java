@@ -43,6 +43,9 @@ class AuthControllerTest {
     @MockitoBean
     private CookieProvider cookieProvider;
 
+    @MockitoBean
+    private com.example.jejugilmoa.domain.auth.service.AppleAuthService appleAuthService;
+
     @Test
     @DisplayName("소셜 로그인 성공 시 사용자 정보를 응답한다")
     void loginSuccess() throws Exception {

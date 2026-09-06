@@ -43,8 +43,15 @@ public class AuthService {
     // find/save 각각은 스프링 데이터 JPA가 별도 트랜잭션으로 처리해준다.
     public OAuthLoginResponse login(String providerValue, OAuthLoginRequest request) {
         SocialProvider provider = SocialProvider.from(providerValue);
+        if (provider == SocialProvider.APPLE) {
+            throw new GeneralException(AuthErrorCode.UNSUPPORTED_PROVIDER);
+        }
         OAuthUserInfo userInfo = socialOAuthClient.fetchUserInfo(provider, request);
+        return loginWithVerifiedIdentity(userInfo);
+    }
 
+    // 외부 신원 검증을 마친 내부 호출만 사용한다. 유니크 충돌 복구를 위해 트랜잭션을 묶지 않는다.
+    public OAuthLoginResponse loginWithVerifiedIdentity(OAuthUserInfo userInfo) {
         try {
             return findOrCreateUser(userInfo);
         } catch (DataIntegrityViolationException ex) {

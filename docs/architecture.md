@@ -133,3 +133,4 @@ erDiagram
 | 여행 기록 보존 | 계획과 기록의 lifecycle을 분리하고, 계획 삭제 시 `ON DELETE SET NULL`로 기록 snapshot 보존 | [0010](adr/0010-retain-travel-record-after-plan-deletion.md) |
 | 데이터베이스 스키마 | Flyway를 통해 관리하며, 마이그레이션 파일은 `src/main/resources/db/migration` 경로에 버전 순서대로 추가한다. | — |
 | 인증 | 외부 OAuth 로그인 + 앱 자체 JWT(액세스/리프레시, HttpOnly 쿠키). 리프레시 토큰은 DB 저장, 재발급 시 회전 + 재사용 탐지. **인가는 여전히 미구현 — 전 요청 permitAll** | [0006](adr/0006-jwt-cookie-auth.md) |
+| 인증 | Apple 네이티브 로그인은 전용 verifier로 검증한 뒤 기존 회원 처리와 JWT/쿠키 발급을 사용 | [0011](adr/0011-native-apple-login.md) |

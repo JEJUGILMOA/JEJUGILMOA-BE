@@ -25,6 +25,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: jejugilmoa-redis
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - jejugilmoa-redis-data:/data
     ports:
       - "${REDIS_PORT:-6379}:6379"
     healthcheck:
@@ -35,3 +38,4 @@ services:
 
 volumes:
   jejugilmoa-db-data:
+  jejugilmoa-redis-data:
