@@ -3,7 +3,7 @@ package com.example.jejugilmoa.domain.plan.service;
 import com.example.jejugilmoa.domain.direction.service.DirectionService;
 import com.example.jejugilmoa.domain.plan.converter.TravelPlanRouteConverter;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanRoutesResponse;
-import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
+import com.example.jejugilmoa.domain.plan.enums.RouteGenerationStatus;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanRouteStatus;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanRouteJobClaim;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
@@ -27,6 +27,7 @@ public class TravelPlanRouteService {
     private final DirectionService directions;
     private final TravelPlanRepository plans;
     private final TravelPlanRouteRepository routes;
+    private final TravelPlanRouteJobRepository routeJobs;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public boolean refresh(TravelPlanRouteJobClaim claim, AtomicBoolean lost) {
@@ -67,15 +68,23 @@ public class TravelPlanRouteService {
         }
     }
 
-    @Transactional(readOnly = true)
+    // 계획 권한, 경로, job을 같은 스냅샷에서 읽어 갱신 전후 상태가 섞이지 않게 한다.
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public TravelPlanRoutesResponse getRoutes(Long planId, Long userId, LocalDate date) {
-        TravelPlan plan = plans.findByIdWithPreferences(planId)
+        var plan = plans.findRouteAccessById(planId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
-        if (!plan.getUser().getId().equals(userId))
+        if (!plan.getOwnerId().equals(userId))
             throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
-        return new TravelPlanRoutesResponse(routes.findAllByTravelPlanIdOrderByRouteDateAsc(planId).stream()
-                .filter(route -> date == null || date.equals(route.getRouteDate()))
-                .map(TravelPlanRouteConverter::toResponse).toList());
+        var savedRoutes = date == null
+                ? routes.findAllByTravelPlanIdOrderByRouteDateAsc(planId)
+                : routes.findByTravelPlanIdAndRouteDate(planId, date).stream().toList();
+        var generation = routeJobs.findStateByPlanId(planId).map(job -> switch (job.status()) {
+            case PENDING -> RouteGenerationStatus.PENDING;
+            case RUNNING -> job.leaseValid() ? RouteGenerationStatus.RUNNING : RouteGenerationStatus.PENDING;
+            case DONE -> RouteGenerationStatus.DONE;
+        }).orElse(RouteGenerationStatus.NOT_REQUESTED);
+        return new TravelPlanRoutesResponse(plan.getPlanId(), new TravelPlanRoutesResponse.Generation(generation),
+                savedRoutes.stream().map(TravelPlanRouteConverter::toResponse).toList());
     }
 
     public record Result(TravelPlanRouteStatus status, String failureCode, List<List<Double>> path,

@@ -14,6 +14,18 @@ import java.util.List;
 
 public interface TravelPlanRepository extends JpaRepository<TravelPlan, Long> {
 
+    interface RouteAccess {
+        Long getPlanId();
+        Long getOwnerId();
+    }
+
+    @Query("""
+            SELECT p.id AS planId, u.id AS ownerId FROM TravelPlan p
+            JOIN p.user u
+            WHERE p.id = :planId AND u.deletedAt IS NULL
+            """)
+    Optional<RouteAccess> findRouteAccessById(@Param("planId") Long planId);
+
     @Query("SELECT p FROM TravelPlan p WHERE p.user.id = :userId AND p.user.deletedAt IS NULL ORDER BY p.createdAt DESC")
     List<TravelPlan> findMyPlans(@Param("userId") Long userId);
 
