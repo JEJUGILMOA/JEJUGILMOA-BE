@@ -12,6 +12,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import com.example.jejugilmoa.domain.plan.entity.TravelPlanRoute;
+import com.example.jejugilmoa.domain.plan.enums.RouteGenerationStatus;
+import com.example.jejugilmoa.domain.plan.enums.TravelPlanRouteJobStatus;
+import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -24,6 +31,7 @@ class TravelPlanRouteServiceTest {
     @Mock DirectionService directions;
     @Mock TravelPlanRepository plans;
     @Mock TravelPlanRouteRepository routes;
+    @Mock TravelPlanRouteJobRepository routeJobs;
     @InjectMocks TravelPlanRouteService service;
 
     private PlanRouteInput input(int size) {
@@ -79,6 +87,86 @@ class TravelPlanRouteServiceTest {
         assertThat(TravelPlanRouteJobService.retrySeconds(2)).isEqualTo(60);
         assertThat(TravelPlanRouteJobService.retrySeconds(6)).isEqualTo(900);
         assertThat(TravelPlanRouteJobService.retrySeconds(Integer.MAX_VALUE)).isEqualTo(900);
+    }
+
+    private void ownedPlan() {
+        var access = mock(TravelPlanRepository.RouteAccess.class);
+        when(access.getPlanId()).thenReturn(1L);
+        when(access.getOwnerId()).thenReturn(42L);
+        when(plans.findRouteAccessById(1L)).thenReturn(Optional.of(access));
+    }
+
+    private TravelPlanRoute readyRoute(LocalDate date) {
+        var route = TravelPlanRoute.builder().routeDate(date).build();
+        route.begin("internal-hash");
+        route.finish(READY, null, List.of(List.of(126.5, 33.5), List.of(126.6, 33.6)), 18342, 2421000L);
+        return route;
+    }
+
+    @Test void queryWithoutDateLoadsAllRoutesAndAbsentJobIsNotRequested() {
+        ownedPlan();
+        var date = LocalDate.of(2026, 9, 10);
+        when(routes.findAllByTravelPlanIdOrderByRouteDateAsc(1L)).thenReturn(List.of(readyRoute(date)));
+        var result = service.getRoutes(1L, 42L, null);
+        assertThat(result.planId()).isEqualTo(1L);
+        assertThat(result.generation().status()).isEqualTo(RouteGenerationStatus.NOT_REQUESTED);
+        assertThat(result.routes()).extracting(r -> r.date()).containsExactly(date);
+        verify(routes).findAllByTravelPlanIdOrderByRouteDateAsc(1L);
+        verify(routes, never()).findByTravelPlanIdAndRouteDate(anyLong(), any());
+        verify(plans, never()).findByIdWithPreferences(anyLong());
+    }
+
+    @Test void queryWithDateLoadsOnlyRequestedRouteAndPreservesReadyWhilePending() {
+        ownedPlan();
+        var date = LocalDate.of(2026, 9, 10);
+        when(routes.findByTravelPlanIdAndRouteDate(1L, date)).thenReturn(Optional.of(readyRoute(date)));
+        when(routeJobs.findStateByPlanId(1L)).thenReturn(Optional.of(
+                new TravelPlanRouteJobRepository.JobState(TravelPlanRouteJobStatus.PENDING, false)));
+        var result = service.getRoutes(1L, 42L, date);
+        assertThat(result.generation().status()).isEqualTo(RouteGenerationStatus.PENDING);
+        assertThat(result.routes()).singleElement().satisfies(route -> {
+            assertThat(route.status()).isEqualTo(READY);
+            assertThat(route.path()).containsExactly(List.of(126.5, 33.5), List.of(126.6, 33.6));
+            assertThat(route.distance()).isEqualTo(18342);
+            assertThat(route.duration()).isEqualTo(2421000L);
+        });
+        verify(routes).findByTravelPlanIdAndRouteDate(1L, date);
+        verify(routes, never()).findAllByTravelPlanIdOrderByRouteDateAsc(anyLong());
+    }
+
+    @Test void unmatchedDateStillReturnsEmptyRoutes() {
+        ownedPlan();
+        var date = LocalDate.of(1900, 1, 1);
+        assertThat(service.getRoutes(1L, 42L, date).routes()).isEmpty();
+        verify(routes).findByTravelPlanIdAndRouteDate(1L, date);
+        verify(routes, never()).findAllByTravelPlanIdOrderByRouteDateAsc(anyLong());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"PENDING,false,PENDING", "RUNNING,true,RUNNING", "RUNNING,false,PENDING", "DONE,false,DONE"})
+    void queryMapsJobState(String stored, boolean leaseValid, String expected) {
+        ownedPlan();
+        when(routeJobs.findStateByPlanId(1L)).thenReturn(Optional.of(
+                new TravelPlanRouteJobRepository.JobState(TravelPlanRouteJobStatus.valueOf(stored), leaseValid)));
+        assertThat(service.getRoutes(1L, 42L, null).generation().status())
+                .isEqualTo(RouteGenerationStatus.valueOf(expected));
+    }
+
+    @Test void queryRejectsOtherOwnerBeforeReadingRoutesOrJob() {
+        var access = mock(TravelPlanRepository.RouteAccess.class);
+        when(access.getOwnerId()).thenReturn(99L);
+        when(plans.findRouteAccessById(1L)).thenReturn(Optional.of(access));
+        assertThatThrownBy(() -> service.getRoutes(1L, 42L, null))
+                .isInstanceOfSatisfying(GeneralException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(PlanErrorCode.PLAN_ACCESS_DENIED));
+        verifyNoInteractions(routes, routeJobs);
+    }
+
+    @Test void queryRejectsMissingOrFilteredPlanBeforeReadingRoutesOrJob() {
+        assertThatThrownBy(() -> service.getRoutes(1L, 42L, null))
+                .isInstanceOfSatisfying(GeneralException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(PlanErrorCode.PLAN_NOT_FOUND));
+        verifyNoInteractions(routes, routeJobs);
     }
 
 }

@@ -1,6 +1,6 @@
 # 날짜별 계획 경로 API
 
-`TravelPlanRoute` 1차 구현. 기존 `/api/directions/driving`은 그대로 유지한다.
+`TravelPlanRoute` 저장 결과와 durable job의 계획 단위 갱신 상태를 조회한다. 기존 `/api/directions/driving`은 그대로 유지한다.
 
 ## 조회
 
@@ -14,6 +14,23 @@ Authorization: Bearer <accessToken>
 `date`는 선택적인 ISO 날짜이며 생략하면 저장된 전체 경로를 날짜 오름차순으로 반환한다.
 일치하는 날짜가 없거나 아직 갱신하지 않은 기존 계획이면 `routes: []`다. 조회는 Directions를 호출하지 않는다.
 
+응답의 `result`는 기존 `routes`에 `planId`, `generation: {status}`를 추가한다.
+날짜 필터가 있어도 generation은 계획 전체 기준이다. 날짜별 Route 필드명과 타입은 유지한다.
+
+| generation.status | 의미 |
+|---|---|
+| NOT_REQUESTED | durable route job 없음. 조회만으로 job을 등록하지 않음 |
+| PENDING | 생성·재생성·재시도 대기. RUNNING lease가 만료되어 재처리 대기 중인 경우도 포함 |
+| RUNNING | DB 조회 시점에 유효한 lease를 가진 worker가 작업 처리 중 |
+| DONE | 현재 예약된 job 처리 완료. 모든 날짜 route가 READY라는 뜻은 아님 |
+
+`routes[].status`는 날짜별 저장 결과다. 계획 수정 직후 worker가 입력을 준비하기 전에는
+`generation.status=PENDING`과 기존 `routes[].status=READY`가 함께 반환될 수 있다.
+RUNNING 중에도 기존 READY 경로가 포함될 수 있으므로, READY만으로 최신 경로라고 판단하지 않는다.
+기존 경로는 조회에서 변경하거나 삭제하지 않는다. DONE이어도 NOT_REQUIRED, UNSUPPORTED 등이 있을 수 있다.
+
+아래는 `routes[]`의 필드다.
+
 | 필드 | 의미 |
 |---|---|
 | date | 경로 날짜 |
@@ -25,7 +42,7 @@ Authorization: Bearer <accessToken>
 | path | `[longitude, latitude]` 배열 목록, READY 외 빈 배열 |
 | failureCode | 실패 사유 또는 제한 초과 사유, 그 외 null |
 
-`routeHash`는 응답에서 제외한다. null 필드의 출력 여부는 공통 Jackson 설정을 따른다.
+`routeHash`, lease/claim token, job의 raw lastError는 응답에서 제외한다. null 필드의 출력 여부는 공통 Jackson 설정을 따른다.
 계획 없음은 `404 PLAN404_1`, 다른 사용자의 계획은 `403 PLAN403_1`, 인증 없음은 401,
 잘못된 date는 공통 오류 봉투와 함께 400을 반환한다.
 
@@ -37,6 +54,8 @@ READY 응답 형식(좌표/수치는 테스트 Directions 응답 fixture):
   "code": "COMMON200",
   "message": "성공적으로 요청을 처리했습니다.",
   "result": {
+    "planId": 1,
+    "generation": {"status": "DONE"},
     "routes": [{
       "date": "2026-09-10",
       "status": "READY",
@@ -68,7 +87,7 @@ READY 응답 형식(좌표/수치는 테스트 Directions 응답 fixture):
 방문 인증·건너뛰기·선호 토글은 좌표 순서를 변경하지 않으므로 job을 등록하지 않는다.
 
 계획 저장 응답은 경로 계산을 기다리지 않는다. DB job을 worker가 비동기로 처리한다.
-외부 호출 동안 DB 트랜잭션이나 계획 잠금을 유지하지 않는다. 조회 형식은 그대로이며,
+외부 호출 동안 DB 트랜잭션이나 계획 잠금을 유지하지 않는다.
 새 계획은 첫 worker 처리 전 빈 routes를, 기존 계획은 worker 입력 준비 전 이전 경로를 반환할 수 있다.
 계획 기간의 각 날짜를 재판단하지만 동일 hash의 READY 날짜는 외부 호출을 생략한다.
 
@@ -84,7 +103,18 @@ job은 계획과 함께 커밋되며, 프로세스 중단 시 120초 lease 만�
 READY는 시간 경과만으로 갱신하지 않는다. 좌표를 직접 변경하는 Place 동기화는 이번 job 등록 범위 밖이다.
 자세한 트랜잭션·동시성 설계는 [ADR-0013](adr/0013-durable-route-update-job.md)를 참고한다.
 
-## 실제 로컬 HTTP 검증 응답
+## 조회 구현
+
+권한 검증은 planId와 ownerId만 projection으로 읽으며 탈퇴 사용자의 계획은 제외한다.
+선호 테마·경유지·출발지를 로딩하거나 쓰기 잠금을 획득하지 않는다.
+`date`가 있으면 `(plan_id, route_date)` 단일 조회를 사용하고, 없으면 날짜 오름차순 전체 조회를 사용한다.
+계획·경로·job은 읽기 전용 REPEATABLE_READ 트랜잭션의 같은 스냅샷에서 읽는다.
+lease 유효성은 worker와 동일한 DB 시계로 판단한다. 응답 이후 상태 변경까지 보장하는 것은 아니다.
+날짜 형식 오류는 기존 400을 유지하며, 형식이 유효하지만 일치하는 날짜가 없으면 빈 목록을 반환한다.
+
+## 이전 버전의 실제 로컬 HTTP 검증 응답
+
+아래 기록은 generation 필드 추가 전 응답이다.
 
 2026-09-07, 별도 PostGIS DB에서 계획 30을 생성·수정한 뒤 조회한 실제 응답이다.
 Directions 호출이 실패했지만 계획 수정은 HTTP 200으로 완료되고 해당 날짜만 FAILED로 남았다.

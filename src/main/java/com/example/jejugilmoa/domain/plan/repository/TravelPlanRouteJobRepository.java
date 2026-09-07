@@ -1,6 +1,7 @@
 package com.example.jejugilmoa.domain.plan.repository;
 
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanRouteJobClaim;
+import com.example.jejugilmoa.domain.plan.enums.TravelPlanRouteJobStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -11,6 +12,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TravelPlanRouteJobRepository {
     private final JdbcClient jdbc;
+
+    public record JobState(TravelPlanRouteJobStatus status, boolean leaseValid) {}
+
+    /** worker와 같은 DB 시계로 lease를 판단하며 내부 token과 오류는 조회하지 않는다. */
+    public Optional<JobState> findStateByPlanId(Long planId) {
+        return jdbc.sql("""
+                SELECT status, COALESCE(lease_until > clock_timestamp(), false) AS lease_valid
+                FROM travel_plan_route_update_job WHERE plan_id = :planId
+                """).param("planId", planId)
+                .query((rs, row) -> new JobState(TravelPlanRouteJobStatus.valueOf(rs.getString("status")),
+                        rs.getBoolean("lease_valid"))).optional();
+    }
 
     public void enqueue(Long planId) {
         jdbc.sql("""
