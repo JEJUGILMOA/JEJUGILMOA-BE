@@ -25,3 +25,4 @@
 | [0009](0009-waypoint-concurrency.md) | 경유지 동시 추가의 중복·순번 충돌 방지 | Accepted |
 | [0010](0010-retain-travel-record-after-plan-deletion.md) | 여행 계획 삭제 후 여행 기록 보존 | Accepted |
 | [0011](0011-native-apple-login.md) | iOS 네이티브 Apple identityToken 로그인 | Accepted |
+| [0012](0012-travel-plan-route.md) | 날짜별 계획 경로 저장과 커밋 후 계산 | Accepted |
