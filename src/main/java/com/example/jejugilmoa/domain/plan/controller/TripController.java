@@ -8,10 +8,12 @@ import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
+import com.example.jejugilmoa.domain.plan.dto.WaypointReorderRequest;
 import com.example.jejugilmoa.domain.plan.service.TripService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import com.example.jejugilmoa.global.apiPayload.code.GeneralSuccessCode;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -82,6 +84,17 @@ public class TripController implements TripControllerDocs {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.REQUEST_OK,
                 tripService.removeWaypoint(tripId, principal.userId(), waypointId));
+    }
+
+    @Operation(summary = "진행 중 날짜별 경유지 순서 변경",
+            description = "해당 날짜 전체 경유지 ID를 전달합니다. 방문한 경유지 위치는 유지해야 합니다. 저장 후 날짜별 경로를 갱신합니다.")
+    @PutMapping("/{tripId}/waypoints/order")
+    public ApiResponse<List<WaypointResponse>> reorderWaypoints(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long tripId,
+            @Valid @RequestBody WaypointReorderRequest request) {
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK,
+                tripService.reorderWaypoints(tripId, principal.userId(), request));
     }
 
     @PostMapping("/{tripId}/complete")
