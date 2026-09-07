@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DirectionService {
 
-    private static final int MAX_WAYPOINTS = 5;
+    public static final int MAX_WAYPOINTS = 5;
 
     // 네이버 응답 코드: 1=출발지·목적지 동일, 2~5=경로 탐색 불가
     private static final int NAVER_CODE_SAME_START_GOAL = 1;

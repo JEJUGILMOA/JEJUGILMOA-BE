@@ -75,6 +75,36 @@ erDiagram
 
     USER ||--o{ TRAVEL_PLAN : creates
     TRAVEL_PLAN ||--o{ TRAVEL_COURSE : "ordered stops"
+    TRAVEL_PLAN ||--o{ TRAVEL_PLAN_ROUTE : "daily saved driving routes"
+    TRAVEL_PLAN ||--o| TRAVEL_PLAN_ROUTE_UPDATE_JOB : "durable coalesced update"
+    TRAVEL_PLAN_ROUTE_UPDATE_JOB {
+        bigint id PK
+        bigint plan_id FK "UNIQUE"
+        varchar status "PENDING RUNNING DONE"
+        boolean dirty
+        integer attempt_count
+        timestamptz next_attempt_at
+        timestamptz lease_until
+        uuid lease_token
+        varchar last_error
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    TRAVEL_PLAN_ROUTE {
+        bigint id PK
+        bigint plan_id FK
+        date route_date "UNIQUE plan_id + route_date"
+        jsonb path "longitude latitude arrays"
+        integer total_distance "meter"
+        bigint total_duration "millisecond"
+        varchar route_option "traoptimal"
+        varchar route_hash "SHA-256"
+        varchar status "CALCULATING READY FAILED UNSUPPORTED NOT_REQUIRED"
+        varchar failure_code
+        timestamptz calculated_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
     TRAVEL_PLAN ||--o{ TRAVEL_PLAN_PREFERENCE : "styled by"
     TRAVEL_PLAN ||--o| TRAVEL_SHARED_PLAN : "shared as current plan"
     PLACE ||--o{ TRAVEL_COURSE : "visited in"
@@ -134,3 +164,12 @@ erDiagram
 | 데이터베이스 스키마 | Flyway를 통해 관리하며, 마이그레이션 파일은 `src/main/resources/db/migration` 경로에 버전 순서대로 추가한다. | — |
 | 인증 | 외부 OAuth 로그인 + 앱 자체 JWT(액세스/리프레시, HttpOnly 쿠키). 리프레시 토큰은 DB 저장, 재발급 시 회전 + 재사용 탐지. **인가는 여전히 미구현 — 전 요청 permitAll** | [0006](adr/0006-jwt-cookie-auth.md) |
 | 인증 | Apple 네이티브 로그인은 전용 verifier로 검증한 뒤 기존 회원 처리와 JWT/쿠키 발급을 사용 | [0011](adr/0011-native-apple-login.md) |
+
+### 날짜별 계획 경로
+
+`TravelCourse`를 그대로 유지하고 `TravelPlanRoute`에 날짜별 Directions 결과를 저장한다.
+계획 생성·전체 수정·경유지 변경 트랜잭션은 `TravelPlanRouteJobService.enqueue`로 계획당 한 job을 함께 저장한다.
+기존 메모리 이벤트는 제거했다. scheduler가 DB 작업을 claim하고, worker가 트랜잭션 밖에서 Directions를 호출한다.
+job lease/heartbeat로 활성 작업을 보호하며 중단된 작업은 만료 후 재claim한다.
+결과 저장 시 계획 잠금, job 소유권 토큰, 현재 입력 hash를 함께 검증한다.
+설계·복구 및 재시도 정책은 [ADR-0013](adr/0013-durable-route-update-job.md), API는 [계획 경로](plan-routes.md)를 참고한다.

@@ -11,6 +11,7 @@ import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
+import com.example.jejugilmoa.domain.plan.dto.WaypointReorderRequest;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
@@ -224,6 +225,15 @@ public class TripService {
         }
 
         return waypointService.removeWaypoint(tripId, userId, waypointId);
+    }
+
+    @Transactional
+    public List<WaypointResponse> reorderWaypoints(Long tripId, Long userId,
+            WaypointReorderRequest request) {
+        TravelPlan plan = findPlanAndVerifyOwner(tripId, userId);
+        if (plan.getStatus() != TravelPlanStatus.IN_PROGRESS)
+            throw new GeneralException(PlanErrorCode.TRIP_NOT_IN_PROGRESS);
+        return waypointService.reorderWaypoints(tripId, userId, request);
     }
 
     /**

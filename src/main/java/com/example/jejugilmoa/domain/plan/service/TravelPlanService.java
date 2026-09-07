@@ -44,6 +44,7 @@ public class TravelPlanService {
 
     private static final int MAX_TRIP_DAYS = 30;
 
+    private final TravelPlanRouteJobService routeJobs;
     private final TravelPlanRepository travelPlanRepository;
     private final TravelPlanPreferenceRepository travelPlanPreferenceRepository;
     private final TravelCourseRepository travelCourseRepository;
@@ -147,6 +148,7 @@ public class TravelPlanService {
                 .toList();
         List<DayDeparture> dayDepartures = dayDepartureRepository.findAllByTravelPlanIdOrderByVisitDateAsc(plan.getId());
 
+        routeJobs.enqueue(plan.getId());
         return TravelPlanConverter.toDetail(plan, waypoints, dayDepartures);
     }
 
@@ -211,6 +213,7 @@ public class TravelPlanService {
                 .toList();
         List<DayDeparture> dayDepartures = dayDepartureRepository.findAllByTravelPlanIdOrderByVisitDateAsc(plan.getId());
 
+        routeJobs.enqueue(plan.getId());
         return TravelPlanConverter.toDetail(plan, waypoints, dayDepartures);
     }
 

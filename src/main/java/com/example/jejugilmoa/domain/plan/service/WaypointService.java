@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class WaypointService {
 
+    private final TravelPlanRouteJobService routeJobs;
     private final TravelPlanRepository travelPlanRepository;
     private final TravelCourseRepository travelCourseRepository;
     private final PlaceRepository placeRepository;
@@ -67,6 +68,7 @@ public class WaypointService {
         }
 
         refreshStartDestinationFlags(planId, visitDate);
+        routeJobs.enqueue(planId);
         return listWaypoints(planId);
     }
 
@@ -78,20 +80,30 @@ public class WaypointService {
                 .filter(c -> c.getTravelPlan().getId().equals(planId))
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.WAYPOINT_NOT_FOUND));
 
-        int removedOrder = target.getSequenceOrder();
         LocalDate visitDate = target.getVisitDate();
         travelCourseRepository.delete(target);
-        // 같은 Day에서 제거된 순번 이후만 당김
-        travelCourseRepository.decrementSequenceOrderAfter(planId, visitDate, removedOrder);
+        travelCourseRepository.flush();
+        // 일괄 -1 UPDATE는 DB의 행 처리 순서에 따라 UNIQUE 충돌이 발생하므로 임시 순번을 거친다.
+        List<TravelCourse> remaining = travelCourseRepository
+                .findAllByTravelPlanIdAndVisitDateOrderBySequenceOrderAsc(planId, visitDate);
+        if (!remaining.isEmpty()) {
+            List<Long> ids = remaining.stream().map(TravelCourse::getId).toList();
+            travelCourseRepository.shiftSequenceOrderByOffset(
+                    planId, visitDate, remaining.getLast().getSequenceOrder() + 1);
+            for (int i = 0; i < ids.size(); i++) {
+                travelCourseRepository.updateSequenceOrder(ids.get(i), planId, i + 1);
+            }
+        }
 
         refreshStartDestinationFlags(planId, visitDate);
+        routeJobs.enqueue(planId);
         return listWaypoints(planId);
     }
 
     @Transactional
     public List<WaypointResponse> reorderWaypoints(Long planId, Long userId, WaypointReorderRequest request) {
         TravelPlan plan = findPlanAndVerifyOwner(planId, userId);
-        if (plan.getStatus() != TravelPlanStatus.DRAFT) {
+        if (plan.getStatus() != TravelPlanStatus.DRAFT && plan.getStatus() != TravelPlanStatus.IN_PROGRESS) {
             throw new GeneralException(PlanErrorCode.PLAN_NOT_EDITABLE);
         }
 
@@ -107,6 +119,14 @@ public class WaypointService {
             throw new GeneralException(PlanErrorCode.INVALID_WAYPOINT_ORDER);
         }
 
+        // 진행 중 이미 방문한 경유지는 원래 위치를 유지한다.
+        if (plan.getStatus() == TravelPlanStatus.IN_PROGRESS) {
+            for (int i = 0; i < existing.size(); i++) {
+                if (existing.get(i).isVisited() && !existing.get(i).getId().equals(newOrder.get(i)))
+                    throw new GeneralException(PlanErrorCode.INVALID_WAYPOINT_ORDER);
+            }
+        }
+
         // Phase-1: 해당 Day의 순번을 임시 offset으로 이동 (uk_course_plan_date_sequence 충돌 방지)
         travelCourseRepository.shiftSequenceOrderByOffset(planId, visitDate, newOrder.size() + 1);
 
@@ -116,6 +136,7 @@ public class WaypointService {
         }
 
         refreshStartDestinationFlags(planId, visitDate);
+        routeJobs.enqueue(planId);
         return listWaypoints(planId);
     }
 
