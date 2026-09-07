@@ -74,4 +74,11 @@ class TravelPlanRouteServiceTest {
         assertThat(service.calculate(input).failureCode()).isEqualTo("INVALID_COORDINATE");
         verifyNoInteractions(directions);
     }
+    @Test void retryBackoffIsBoundedAndNeverImmediate() {
+        assertThat(TravelPlanRouteJobService.retrySeconds(1)).isEqualTo(30);
+        assertThat(TravelPlanRouteJobService.retrySeconds(2)).isEqualTo(60);
+        assertThat(TravelPlanRouteJobService.retrySeconds(6)).isEqualTo(900);
+        assertThat(TravelPlanRouteJobService.retrySeconds(Integer.MAX_VALUE)).isEqualTo(900);
+    }
+
 }

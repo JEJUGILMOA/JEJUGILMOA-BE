@@ -4,7 +4,6 @@ import com.example.jejugilmoa.domain.direction.dto.DirectionResponse;
 import com.example.jejugilmoa.domain.direction.service.DirectionService;
 import com.example.jejugilmoa.domain.plan.dto.*;
 import com.example.jejugilmoa.domain.plan.entity.*;
-import com.example.jejugilmoa.domain.plan.event.PlanRouteChanged;
 import com.example.jejugilmoa.domain.plan.repository.*;
 import com.example.jejugilmoa.domain.place.entity.*;
 import com.example.jejugilmoa.domain.place.repository.*;
@@ -13,7 +12,6 @@ import com.example.jejugilmoa.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -23,12 +21,14 @@ import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
 import java.util.stream.IntStream;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import static com.example.jejugilmoa.domain.plan.enums.TravelPlanRouteStatus.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
-@SpringBootTest(properties = {"app.sync.run-on-startup=false", "spring.jpa.show-sql=false"})
+@SpringBootTest(properties = {"app.sync.run-on-startup=false", "spring.jpa.show-sql=false", "app.plan-route.worker.enabled=false"})
 class TravelPlanRouteIntegrationTest {
     @Autowired TravelPlanService service;
     @Autowired TravelPlanRouteService routeService;
@@ -42,7 +42,8 @@ class TravelPlanRouteIntegrationTest {
     @Autowired CategoryRepository categories;
     @Autowired UserRepository users;
     @Autowired PlatformTransactionManager transactionManager;
-    @Autowired ApplicationEventPublisher events;
+    @Autowired TravelPlanRouteWorker worker;
+    @Autowired TravelPlanRouteJobService jobs;
     @Autowired JdbcClient jdbc;
     @MockitoBean DirectionService directions;
     User user;
@@ -97,7 +98,27 @@ class TravelPlanRouteIntegrationTest {
     private Long create(int... indexes) {
         Long id = service.create(user.getId(), request("경로 테스트", indexes)).planId();
         planIds.add(id);
+        assertThat(jobStatus(id)).isEqualTo("PENDING");
+        assertThat(routes.findAllByTravelPlanIdOrderByRouteDateAsc(id)).isEmpty();
+        assertThat(worker.runOnce()).isTrue();
         return id;
+    }
+    private void replace(Long id, TravelPlanCreateRequest request) {
+        service.replace(id, user.getId(), request);
+        makeDue(id);
+        assertThat(worker.runOnce()).isTrue();
+    }
+    private String jobStatus(Long id) {
+        return jdbc.sql("SELECT status FROM travel_plan_route_update_job WHERE plan_id = :id")
+                .param("id", id).query(String.class).single();
+    }
+    private void makeDue(Long id) {
+        jdbc.sql("UPDATE travel_plan_route_update_job SET next_attempt_at = now() - interval '1 second' WHERE plan_id = :id")
+                .param("id", id).update();
+    }
+    private void expire(Long id) {
+        jdbc.sql("UPDATE travel_plan_route_update_job SET lease_until = now() - interval '1 second' WHERE plan_id = :id")
+                .param("id", id).update();
     }
     private TravelPlanRoute route(Long id) { return routes.findByTravelPlanIdAndRouteDate(id, date).orElseThrow(); }
 
@@ -107,10 +128,10 @@ class TravelPlanRouteIntegrationTest {
         assertThat(saved.getStatus()).isEqualTo(READY);
         assertThat(saved.getPath()).containsExactly(List.of(126.5, 33.5), List.of(126.6, 33.6));
         assertThat(routes.findByTravelPlanIdAndRouteDate(id, date.plusDays(1)).orElseThrow().getStatus()).isEqualTo(NOT_REQUIRED);
-        service.replace(id, user.getId(), request("제목만 변경", 0, 1));
+        replace(id, request("제목만 변경", 0, 1));
         assertThat(route(id).getCalculatedAt()).isEqualTo(saved.getCalculatedAt());
         verify(directions, times(1)).getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
-        service.replace(id, user.getId(), request("순서 변경", 1, 0));
+        replace(id, request("순서 변경", 1, 0));
         assertThat(route(id).getRouteHash()).isNotEqualTo(saved.getRouteHash());
         verify(directions, times(2)).getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
         assertThat(jdbc.sql("SELECT jsonb_typeof(path -> 0) FROM travel_plan_route WHERE id = :id")
@@ -125,17 +146,17 @@ class TravelPlanRouteIntegrationTest {
         assertThat(route(id).getStatus()).isEqualTo(FAILED);
         doReturn(response()).when(directions).getDriving(
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
-        service.replace(id, user.getId(), request("재시도", 0));
+        replace(id, request("재시도", 0));
         assertThat(route(id).getStatus()).isEqualTo(READY);
     }
 
     @Test void overLimitAndRemovedCoursesClearOldGeometry() {
         Long id = create(0);
-        service.replace(id, user.getId(), request("초과", 0, 1, 2, 3, 4, 5, 6));
+        replace(id, request("초과", 0, 1, 2, 3, 4, 5, 6));
         assertThat(route(id).getStatus()).isEqualTo(UNSUPPORTED);
         assertThat(route(id).getPath()).isNull();
         assertThat(route(id).getCalculatedAt()).isNull();
-        service.replace(id, user.getId(), request("장소 없음"));
+        replace(id, request("장소 없음"));
         assertThat(route(id).getStatus()).isEqualTo(NOT_REQUIRED);
         verify(directions, times(1)).getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
     }
@@ -145,13 +166,16 @@ class TravelPlanRouteIntegrationTest {
         tx.executeWithoutResult(status -> plans.findByIdForUpdate(id).orElseThrow().start(LocalDateTime.now()));
         String oldHash = route(id).getRouteHash();
         trips.addWaypoint(id, user.getId(), new WaypointAddRequest(stops.get(3).getId(), date, false));
+        worker.runOnce();
         assertThat(route(id).getRouteHash()).isNotEqualTo(oldHash);
         var ordered = courses.findAllByTravelPlanIdAndVisitDateOrderBySequenceOrderAsc(id, date);
         trips.removeWaypoint(id, user.getId(), ordered.get(1).getId());
+        worker.runOnce();
         String removedHash = route(id).getRouteHash();
         var remaining = courses.findAllByTravelPlanIdAndVisitDateOrderBySequenceOrderAsc(id, date);
         trips.reorderWaypoints(id, user.getId(), new WaypointReorderRequest(date,
                 List.of(remaining.get(2).getId(), remaining.get(0).getId(), remaining.get(1).getId())));
+        worker.runOnce();
         assertThat(route(id).getRouteHash()).isNotEqualTo(removedHash);
         verify(directions, times(4)).getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
     }
@@ -159,12 +183,20 @@ class TravelPlanRouteIntegrationTest {
     @Test void legacyDepartureFallbackAndStaleResultProtection() {
         Long id = create(0, 1);
         tx.executeWithoutResult(status -> departures.deleteAll(departures.findAllByTravelPlanIdOrderByVisitDateAsc(id)));
-        var input = store.prepare(id).getFirst();
+        tx.executeWithoutResult(status -> jobs.enqueue(id));
+        var claim = jobs.claim().orElseThrow();
+        var input = store.prepare(claim).getFirst();
         assertThat(input.points()).hasSize(2);
         assertThat(input.points().getFirst().longitude()).isEqualTo(126.5);
         service.replace(id, user.getId(), request("최신 입력", 2, 3));
+        // 현재 입력과 다른 결과는 소유권이 유효해도 반영하지 않는다.
+        store.complete(claim, input, TravelPlanRouteService.Result.empty(FAILED, "OLD_FAILURE"));
+        assertThat(route(id).getStatus()).isEqualTo(CALCULATING);
+        expire(id);
+        worker.runOnce();
         String latestHash = route(id).getRouteHash();
-        store.complete(id, input, TravelPlanRouteService.Result.empty(FAILED, "OLD_FAILURE"));
+        assertThatThrownBy(() -> store.complete(claim, input, TravelPlanRouteService.Result.empty(FAILED, "OLD_FAILURE")))
+                .isInstanceOf(IllegalStateException.class);
         assertThat(route(id).getRouteHash()).isEqualTo(latestHash);
         assertThat(route(id).getStatus()).isEqualTo(READY);
     }
@@ -175,7 +207,7 @@ class TravelPlanRouteIntegrationTest {
         var original = request("출발지 변경", 0, 1);
         var changed = new DayPlanRequest(date, null, "다른 출발지", new BigDecimal("33.48"),
                 new BigDecimal("126.48"), original.days().getFirst().waypoints());
-        service.replace(id, user.getId(), new TravelPlanCreateRequest(original.title(), original.startDate(),
+        replace(id, new TravelPlanCreateRequest(original.title(), original.startDate(),
                 original.endDate(), null, null, List.of(changed), null));
         assertThat(route(id).getRouteHash()).isNotEqualTo(oldHash);
         var ordered = courses.findAllByTravelPlanIdAndVisitDateOrderBySequenceOrderAsc(id, date);
@@ -191,9 +223,12 @@ class TravelPlanRouteIntegrationTest {
 
     @Test void rolledBackPlanDoesNotCallDirections() {
         tx.executeWithoutResult(status -> {
-            service.create(user.getId(), request("롤백", 0));
+            Long id = service.create(user.getId(), request("롤백", 0)).planId();
+            assertThat(jobStatus(id)).isEqualTo("PENDING");
             status.setRollbackOnly();
         });
+        assertThat(jdbc.sql("SELECT count(*) FROM travel_plan_route_update_job j JOIN travel_plan p ON p.id=j.plan_id WHERE p.user_id=:id")
+                .param("id", user.getId()).query(Long.class).single()).isZero();
         verifyNoInteractions(directions);
     }
 
@@ -206,4 +241,177 @@ class TravelPlanRouteIntegrationTest {
         assertThat(routes.findAllByTravelPlanIdOrderByRouteDateAsc(id)).isEmpty();
         planIds.remove(id);
     }
+    private Long enqueueOnly() {
+        Long id = service.create(user.getId(), request("내구성 검증", 0, 1)).planId();
+        planIds.add(id);
+        return id;
+    }
+
+    @Test void committedJobSurvivesWithoutListenerAndWorkerConsumesIt() {
+        Long id = enqueueOnly();
+        assertThat(jobStatus(id)).isEqualTo("PENDING");
+        assertThat(routes.findAllByTravelPlanIdOrderByRouteDateAsc(id)).isEmpty();
+        verifyNoInteractions(directions);
+        assertThat(worker.runOnce()).isTrue();
+        assertThat(jobStatus(id)).isEqualTo("DONE");
+        assertThat(route(id).getStatus()).isEqualTo(READY);
+        assertThat(worker.runOnce()).isFalse();
+    }
+
+    @Test void uncommittedJobIsInvisibleAndRollbackOfReplacementRestoresDoneJob() {
+        Long id = create(0);
+        String hash = route(id).getRouteHash();
+        tx.executeWithoutResult(status -> {
+            service.replace(id, user.getId(), request("롤백할 수정", 1));
+            assertThat(jobStatus(id)).isEqualTo("PENDING");
+            var independent = new TransactionTemplate(transactionManager);
+            independent.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            String committedStatus = independent.execute(other -> jobStatus(id));
+            assertThat(committedStatus).isEqualTo("DONE");
+            status.setRollbackOnly();
+        });
+        assertThat(jobStatus(id)).isEqualTo("DONE");
+        assertThat(route(id).getRouteHash()).isEqualTo(hash);
+    }
+
+    @Test void concurrentClaimHasExactlyOneOwner() throws Exception {
+        Long id = enqueueOnly();
+        CyclicBarrier start = new CyclicBarrier(2);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            Callable<Optional<TravelPlanRouteJobClaim>> claim = () -> {
+                start.await(5, TimeUnit.SECONDS);
+                return jobs.claim();
+            };
+            var first = pool.submit(claim);
+            var second = pool.submit(claim);
+            var claims = List.of(first.get(5, TimeUnit.SECONDS), second.get(5, TimeUnit.SECONDS));
+            assertThat(claims.stream().filter(Optional::isPresent).count()).isOne();
+            assertThat(jobStatus(id)).isEqualTo("RUNNING");
+        }
+    }
+
+    @Test void activeCalculatingAndRepeatedChangesProduceOnlyOneDirectionsCall() throws Exception {
+        Long id = enqueueOnly();
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        doAnswer(call -> {
+            entered.countDown();
+            assertThat(release.await(10, TimeUnit.SECONDS)).isTrue();
+            return response();
+        }).when(directions).getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(worker::runOnce);
+            try {
+                assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(route(id).getStatus()).isEqualTo(CALCULATING);
+                service.replace(id, user.getId(), request("메타 변경1", 0, 1));
+                service.replace(id, user.getId(), request("메타 변경2", 0, 1));
+                assertThat(pool.submit(worker::runOnce).get(5, TimeUnit.SECONDS)).isFalse();
+                assertThat(jdbc.sql("SELECT count(*) FROM travel_plan_route_update_job WHERE plan_id=:id")
+                        .param("id", id).query(Long.class).single()).isOne();
+            } finally {
+                release.countDown();
+            }
+            assertThat(first.get(5, TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(jobStatus(id)).isEqualTo("PENDING");
+        worker.runOnce();
+        assertThat(jobStatus(id)).isEqualTo("DONE");
+        verify(directions, times(1)).getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
+    }
+
+    @Test void abandonedCalculatingLeaseIsReclaimedAndOldTokenCannotRenewOrWrite() {
+        Long id = enqueueOnly();
+        var abandoned = jobs.claim().orElseThrow();
+        var inputs = store.prepare(abandoned);
+        assertThat(route(id).getStatus()).isEqualTo(CALCULATING);
+        expire(id);
+        assertThat(jobs.renew(abandoned)).isFalse();
+        assertThat(worker.runOnce()).isTrue();
+        assertThat(route(id).getStatus()).isEqualTo(READY);
+        assertThat(jobStatus(id)).isEqualTo("DONE");
+        assertThatThrownBy(() -> store.complete(abandoned, inputs.getFirst(),
+                TravelPlanRouteService.Result.empty(FAILED, "STALE"))).isInstanceOf(IllegalStateException.class);
+        jobs.finish(abandoned, false, "STALE");
+        assertThat(jobStatus(id)).isEqualTo("DONE");
+        assertThat(route(id).getStatus()).isEqualTo(READY);
+    }
+
+    @Test void heartbeatRenewalExtendsLeaseAndBlocksAnotherClaim() {
+        Long id = enqueueOnly();
+        var claim = jobs.claim().orElseThrow();
+        jdbc.sql("UPDATE travel_plan_route_update_job SET lease_until=now()+interval '5 seconds' WHERE plan_id=:id")
+                .param("id", id).update();
+        assertThat(jobs.renew(claim)).isTrue();
+        assertThat(jdbc.sql("SELECT lease_until > now()+interval '100 seconds' FROM travel_plan_route_update_job WHERE plan_id=:id")
+                .param("id", id).query(Boolean.class).single()).isTrue();
+        assertThat(jobs.claim()).isEmpty();
+    }
+
+    @Test void failedDirectionsRetryWithBackoffWithoutAnotherPlanChange() {
+        doThrow(new IllegalStateException("외부 실패")).when(directions)
+                .getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
+        Long id = enqueueOnly();
+        worker.runOnce();
+        assertThat(route(id).getStatus()).isEqualTo(FAILED);
+        assertThat(jobStatus(id)).isEqualTo("PENDING");
+        assertThat(jdbc.sql("SELECT next_attempt_at > now()+interval '20 seconds' FROM travel_plan_route_update_job WHERE plan_id=:id")
+                .param("id", id).query(Boolean.class).single()).isTrue();
+        assertThat(worker.runOnce()).isFalse();
+        doReturn(response()).when(directions).getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
+        makeDue(id);
+        worker.runOnce();
+        assertThat(jobStatus(id)).isEqualTo("DONE");
+        assertThat(route(id).getStatus()).isEqualTo(READY);
+        verify(directions, times(2)).getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
+    }
+
+    @Test void expiredWorkerCannotOverwriteNewOwnerEvenWithSameHash() throws Exception {
+        Long id = enqueueOnly();
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        AtomicInteger calls = new AtomicInteger();
+        doAnswer(call -> {
+            if (calls.incrementAndGet() == 1) {
+                entered.countDown();
+                assertThat(release.await(10, TimeUnit.SECONDS)).isTrue();
+                return new DirectionResponse("traoptimal", new DirectionResponse.RouteSummary(1, 1, 0, 0, 0), response().path());
+            }
+            return response();
+        }).when(directions).getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(worker::runOnce);
+            try {
+                assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+                expire(id);
+                assertThat(pool.submit(worker::runOnce).get(5, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                release.countDown();
+            }
+            first.get(5, TimeUnit.SECONDS);
+        }
+        assertThat(route(id).getTotalDistance()).isEqualTo(18342);
+        assertThat(jobStatus(id)).isEqualTo("DONE");
+    }
+
+    @Test void rejectedStaleInputIsRetriedEvenWithoutAnotherEnqueue() {
+        Long id = enqueueOnly();
+        AtomicInteger calls = new AtomicInteger();
+        doAnswer(call -> {
+            if (calls.incrementAndGet() == 1) {
+                // Place 좌표 동기화와 경로 계산이 겹친 상황. 좌표와 geom은 함께 갱신한다.
+                jdbc.sql("UPDATE place SET longitude=126.9, geom=ST_SetSRID(ST_MakePoint(126.9, latitude),4326) WHERE id=:id")
+                        .param("id", stops.getFirst().getId()).update();
+            }
+            return response();
+        }).when(directions).getDriving(anyDouble(), anyDouble(), anyDouble(), anyDouble(), nullable(String.class), anyString());
+        worker.runOnce();
+        assertThat(jobStatus(id)).isEqualTo("PENDING");
+        assertThat(route(id).getStatus()).isEqualTo(CALCULATING);
+        makeDue(id);
+        worker.runOnce();
+        assertThat(jobStatus(id)).isEqualTo("DONE");
+        assertThat(route(id).getStatus()).isEqualTo(READY);
+    }
+
 }
