@@ -76,6 +76,20 @@ erDiagram
     USER ||--o{ TRAVEL_PLAN : creates
     TRAVEL_PLAN ||--o{ TRAVEL_COURSE : "ordered stops"
     TRAVEL_PLAN ||--o{ TRAVEL_PLAN_ROUTE : "daily saved driving routes"
+    TRAVEL_PLAN ||--o| TRAVEL_PLAN_ROUTE_UPDATE_JOB : "durable coalesced update"
+    TRAVEL_PLAN_ROUTE_UPDATE_JOB {
+        bigint id PK
+        bigint plan_id FK "UNIQUE"
+        varchar status "PENDING RUNNING DONE"
+        boolean dirty
+        integer attempt_count
+        timestamptz next_attempt_at
+        timestamptz lease_until
+        uuid lease_token
+        varchar last_error
+        timestamptz created_at
+        timestamptz updated_at
+    }
     TRAVEL_PLAN_ROUTE {
         bigint id PK
         bigint plan_id FK
@@ -154,7 +168,8 @@ erDiagram
 ### 날짜별 계획 경로
 
 `TravelCourse`를 그대로 유지하고 `TravelPlanRoute`에 날짜별 Directions 결과를 저장한다.
-계획 생성·전체 수정·경유지 변경 트랜잭션은 최종 상태 저장 후 `PlanRouteChanged`를 발행한다.
-커밋 후 동기 리스너가 짧은 별도 트랜잭션에서 입력을 준비하고, 트랜잭션 밖에서 Directions를 호출한다.
-결과 저장 시 계획 잠금과 현재 입력 hash 재검증으로 오래된 결과 반영을 차단한다.
-정책·장애 및 재시도 제약은 [ADR-0012](adr/0012-travel-plan-route.md), API는 [계획 경로](plan-routes.md)를 참고한다.
+계획 생성·전체 수정·경유지 변경 트랜잭션은 `TravelPlanRouteJobService.enqueue`로 계획당 한 job을 함께 저장한다.
+기존 메모리 이벤트는 제거했다. scheduler가 DB 작업을 claim하고, worker가 트랜잭션 밖에서 Directions를 호출한다.
+job lease/heartbeat로 활성 작업을 보호하며 중단된 작업은 만료 후 재claim한다.
+결과 저장 시 계획 잠금, job 소유권 토큰, 현재 입력 hash를 함께 검증한다.
+설계·복구 및 재시도 정책은 [ADR-0013](adr/0013-durable-route-update-job.md), API는 [계획 경로](plan-routes.md)를 참고한다.

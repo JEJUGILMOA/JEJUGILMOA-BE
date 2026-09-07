@@ -53,21 +53,23 @@ READY 응답 형식(좌표/수치는 테스트 Directions 응답 fixture):
 
 ## 생성·갱신
 
-1. `POST /api/plans`: 계획 및 모든 날짜의 출발지·장소 저장 완료 후 이벤트 발행.
-2. `PUT /api/plans/{planId}`: 전체 replace 완료 후 이벤트를 한 번 발행. 중간 삭제/삽입에는 호출 없음.
-3. `POST /api/trips/{tripId}/waypoints`: 추가와 시작/도착 플래그 재정렬 완료 후 이벤트 발행.
-4. `DELETE /api/trips/{tripId}/waypoints/{waypointId}`: 삭제 및 최종 순번 확정 후 이벤트 발행.
-5. `PUT /api/trips/{tripId}/waypoints/order`: 날짜 전체 순서 및 플래그 확정 후 이벤트 발행.
+1. `POST /api/plans`: 계획 및 모든 날짜의 출발지·장소 저장 완료 후 같은 트랜잭션에서 job 등록.
+2. `PUT /api/plans/{planId}`: 전체 replace 완료 후 job을 한 번 등록. 중간 삭제/삽입에는 호출 없음.
+3. `POST /api/trips/{tripId}/waypoints`: 추가와 시작/도착 플래그 재정렬 완료 후 같은 트랜잭션에서 job 등록.
+4. `DELETE /api/trips/{tripId}/waypoints/{waypointId}`: 삭제 및 최종 순번 확정 후 같은 트랜잭션에서 job 등록.
+5. `PUT /api/trips/{tripId}/waypoints/order`: 날짜 전체 순서 및 플래그 확정 후 같은 트랜잭션에서 job 등록.
 
 ```json
 {"visitDate":"2026-09-10","waypointIds":[3,1,2]}
 ```
 
 진행 중 순서 변경은 IN_PROGRESS에서만 가능하며 방문/건너뛰기 처리된 경유지 위치를 유지해야 한다.
-기존 WaypointService의 DRAFT 재정렬도 같은 갱신 이벤트를 발행한다.
-방문 인증·건너뛰기·선호 토글은 좌표 순서를 변경하지 않으므로 갱신 이벤트를 발행하지 않는다.
+기존 WaypointService의 DRAFT 재정렬도 같은 job 등록 방식을 사용한다.
+방문 인증·건너뛰기·선호 토글은 좌표 순서를 변경하지 않으므로 job을 등록하지 않는다.
 
-이벤트는 커밋 후 동기 실행한다. 외부 호출 동안 DB 트랜잭션이나 계획 잠금을 유지하지 않는다.
+계획 저장 응답은 경로 계산을 기다리지 않는다. DB job을 worker가 비동기로 처리한다.
+외부 호출 동안 DB 트랜잭션이나 계획 잠금을 유지하지 않는다. 조회 형식은 그대로이며,
+새 계획은 첫 worker 처리 전 빈 routes를, 기존 계획은 worker 입력 준비 전 이전 경로를 반환할 수 있다.
 계획 기간의 각 날짜를 재판단하지만 동일 hash의 READY 날짜는 외부 호출을 생략한다.
 
 입력은 저장된 DayDeparture 좌표 → sequenceOrder 순 Place 좌표다. DayDeparture가 없으면 첫 Place부터 시작한다.
@@ -77,10 +79,10 @@ Directions 또는 Redis 호출 오류는 `FAILED`로 남기며 이미 커밋한 
 
 ## 제한
 
-저장 요청은 동기 경로 계산을 기다린다. 프로세스 중단이나 경로 결과 저장 DB 장애로 `CALCULATING`이
-남을 수 있고 자동 재시도는 없다. 이후 계획 저장 또는 경유지 변경으로 재계산한다.
-READY는 시간 경과만으로 갱신하지 않는다. 좌표를 직접 변경하는 Place 동기화는 이번 이벤트 범위 밖이다.
-자세한 트랜잭션·동시성 설계는 [ADR-0012](adr/0012-travel-plan-route.md)를 참고한다.
+job은 계획과 함께 커밋되며, 프로세스 중단 시 120초 lease 만료 후 다른 worker가 회수한다.
+활성 worker는 30초마다 lease를 갱신한다. 실패는 30초부터 최대 15분까지 지수 backoff로 재시도한다.
+READY는 시간 경과만으로 갱신하지 않는다. 좌표를 직접 변경하는 Place 동기화는 이번 job 등록 범위 밖이다.
+자세한 트랜잭션·동시성 설계는 [ADR-0013](adr/0013-durable-route-update-job.md)를 참고한다.
 
 ## 실제 로컬 HTTP 검증 응답
 
