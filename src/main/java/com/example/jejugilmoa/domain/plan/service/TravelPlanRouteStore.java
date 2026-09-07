@@ -2,6 +2,7 @@ package com.example.jejugilmoa.domain.plan.service;
 
 import com.example.jejugilmoa.domain.plan.entity.*;
 import com.example.jejugilmoa.domain.plan.repository.*;
+import com.example.jejugilmoa.domain.plan.dto.TravelPlanRouteJobClaim;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -15,14 +16,17 @@ import static com.example.jejugilmoa.domain.plan.enums.TravelPlanRouteStatus.*;
 @RequiredArgsConstructor
 @Transactional(propagation = Propagation.REQUIRES_NEW)
 public class TravelPlanRouteStore {
+    private final TravelPlanRouteJobRepository jobs;
     private final TravelPlanRepository plans;
     private final TravelCourseRepository courses;
     private final DayDepartureRepository departures;
     private final TravelPlanRouteRepository routes;
 
-    public List<PlanRouteInput> prepare(Long planId) {
+    public List<PlanRouteInput> prepare(TravelPlanRouteJobClaim claim) {
+        Long planId = claim.planId();
         TravelPlan plan = plans.findByIdForUpdate(planId).orElse(null);
         if (plan == null) return List.of();
+        requireOwnership(claim);
         Map<LocalDate, PlanRouteInput> inputs = inputs(plan);
         List<TravelPlanRoute> existing = routes.findAllByTravelPlanIdOrderByRouteDateAsc(planId);
         Map<LocalDate, TravelPlanRoute> byDate = new HashMap<>();
@@ -42,18 +46,26 @@ public class TravelPlanRouteStore {
         return List.copyOf(pending);
     }
 
-    public void complete(Long planId, PlanRouteInput input, TravelPlanRouteService.Result result) {
+    public boolean complete(TravelPlanRouteJobClaim claim, PlanRouteInput input, TravelPlanRouteService.Result result) {
+        Long planId = claim.planId();
         TravelPlan plan = plans.findByIdForUpdate(planId).orElse(null);
-        if (plan == null) return;
+        if (plan == null) return true;
+        requireOwnership(claim);
         PlanRouteInput current = inputs(plan).get(input.date());
         // 외부 호출 중 다른 요청이 경유지를 변경했다면 이전 결과를 버린다.
-        if (current == null || !current.hash().equals(input.hash())) return;
-        routes.findByTravelPlanIdAndRouteDate(planId, input.date()).ifPresent(route -> {
-            if (!input.hash().equals(route.getRouteHash())) return;
+        if (current == null || !current.hash().equals(input.hash())) return false;
+        return routes.findByTravelPlanIdAndRouteDate(planId, input.date()).map(route -> {
+            if (!input.hash().equals(route.getRouteHash())) return false;
             // 동일 입력의 늦게 도착한 실패가 먼저 성공한 경로를 지우지 않게 한다.
-            if (route.getStatus() == READY) return;
+            if (route.getStatus() == READY) return true;
             route.finish(result.status(), result.failureCode(), result.path(), result.distance(), result.duration());
-        });
+            return true;
+        }).orElse(false);
+    }
+
+    private void requireOwnership(TravelPlanRouteJobClaim claim) {
+        // 계획 → job 순서로 잠가 enqueue와의 교착을 피한다. 만료된 worker는 같은 hash도 저장할 수 없다.
+        if (!jobs.lockOwned(claim)) throw new IllegalStateException("경로 job 소유권이 만료되었습니다.");
     }
 
     private Map<LocalDate, PlanRouteInput> inputs(TravelPlan plan) {

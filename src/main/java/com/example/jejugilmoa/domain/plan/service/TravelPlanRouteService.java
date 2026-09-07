@@ -5,7 +5,7 @@ import com.example.jejugilmoa.domain.plan.converter.TravelPlanRouteConverter;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanRoutesResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanRouteStatus;
-import com.example.jejugilmoa.domain.plan.event.PlanRouteChanged;
+import com.example.jejugilmoa.domain.plan.dto.TravelPlanRouteJobClaim;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.*;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
@@ -13,37 +13,35 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
-import org.springframework.transaction.event.*;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import static com.example.jejugilmoa.domain.plan.enums.TravelPlanRouteStatus.*;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class TravelPlanRouteService {
+    private final TravelPlanRouteJobService jobs;
     private final TravelPlanRouteStore store;
     private final DirectionService directions;
     private final TravelPlanRepository plans;
     private final TravelPlanRouteRepository routes;
 
-    // AFTER_COMMIT의 원래 영속성 컨텍스트도 중단하여 외부 호출 중 DB 트랜잭션을 유지하지 않는다.
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void refresh(PlanRouteChanged event) {
-        try {
-            for (PlanRouteInput input : store.prepare(event.planId())) {
-                Result result = calculate(input);
-                try {
-                    store.complete(event.planId(), input, result);
-                } catch (RuntimeException e) {
-                    log.error("계획 경로 결과 저장 실패: planId={}, date={}", event.planId(), input.date(), e);
-                }
+    public boolean refresh(TravelPlanRouteJobClaim claim, AtomicBoolean lost) {
+        boolean success = true;
+        for (PlanRouteInput input : store.prepare(claim)) {
+            if (lost.get() || !jobs.renew(claim)) {
+                lost.set(true);
+                return false;
             }
-        } catch (RuntimeException e) {
-            // 이미 커밋된 계획에 대해 저장 API가 실패 응답을 반환하지 않게 격리한다.
-            log.error("계획 경로 입력 준비 실패: planId={}", event.planId(), e);
+            Result result = calculate(input);
+            if (lost.get()) return false;
+            // 입력이 바뀌어 결과를 버린 경우도 완료로 간주하지 않고 최신 입력을 다시 판단한다.
+            if (!store.complete(claim, input, result) || result.status() == FAILED) success = false;
         }
+        return success;
     }
 
     Result calculate(PlanRouteInput input) {

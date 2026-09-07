@@ -27,8 +27,6 @@ import com.example.jejugilmoa.domain.user.exception.UserErrorCode;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
-import com.example.jejugilmoa.domain.plan.event.PlanRouteChanged;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,7 +44,7 @@ public class TravelPlanService {
 
     private static final int MAX_TRIP_DAYS = 30;
 
-    private final ApplicationEventPublisher events;
+    private final TravelPlanRouteJobService routeJobs;
     private final TravelPlanRepository travelPlanRepository;
     private final TravelPlanPreferenceRepository travelPlanPreferenceRepository;
     private final TravelCourseRepository travelCourseRepository;
@@ -150,7 +148,7 @@ public class TravelPlanService {
                 .toList();
         List<DayDeparture> dayDepartures = dayDepartureRepository.findAllByTravelPlanIdOrderByVisitDateAsc(plan.getId());
 
-        events.publishEvent(new PlanRouteChanged(plan.getId()));
+        routeJobs.enqueue(plan.getId());
         return TravelPlanConverter.toDetail(plan, waypoints, dayDepartures);
     }
 
@@ -215,7 +213,7 @@ public class TravelPlanService {
                 .toList();
         List<DayDeparture> dayDepartures = dayDepartureRepository.findAllByTravelPlanIdOrderByVisitDateAsc(plan.getId());
 
-        events.publishEvent(new PlanRouteChanged(plan.getId()));
+        routeJobs.enqueue(plan.getId());
         return TravelPlanConverter.toDetail(plan, waypoints, dayDepartures);
     }
 

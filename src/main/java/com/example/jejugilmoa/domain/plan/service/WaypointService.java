@@ -15,8 +15,6 @@ import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
-import com.example.jejugilmoa.domain.plan.event.PlanRouteChanged;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +30,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class WaypointService {
 
-    private final ApplicationEventPublisher events;
+    private final TravelPlanRouteJobService routeJobs;
     private final TravelPlanRepository travelPlanRepository;
     private final TravelCourseRepository travelCourseRepository;
     private final PlaceRepository placeRepository;
@@ -70,7 +68,7 @@ public class WaypointService {
         }
 
         refreshStartDestinationFlags(planId, visitDate);
-        events.publishEvent(new PlanRouteChanged(planId));
+        routeJobs.enqueue(planId);
         return listWaypoints(planId);
     }
 
@@ -98,7 +96,7 @@ public class WaypointService {
         }
 
         refreshStartDestinationFlags(planId, visitDate);
-        events.publishEvent(new PlanRouteChanged(planId));
+        routeJobs.enqueue(planId);
         return listWaypoints(planId);
     }
 
@@ -138,7 +136,7 @@ public class WaypointService {
         }
 
         refreshStartDestinationFlags(planId, visitDate);
-        events.publishEvent(new PlanRouteChanged(planId));
+        routeJobs.enqueue(planId);
         return listWaypoints(planId);
     }
 
