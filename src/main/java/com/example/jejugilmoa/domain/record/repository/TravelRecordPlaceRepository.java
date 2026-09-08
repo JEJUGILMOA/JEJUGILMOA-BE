@@ -17,6 +17,20 @@ public interface TravelRecordPlaceRepository extends JpaRepository<TravelRecordP
         Long getCount();
     }
 
+    interface RecordPlaceCount {
+        Long getRecordId();
+        Long getCount();
+    }
+
+    @Query("""
+            SELECT rp.travelRecord.id AS recordId, COUNT(rp) AS count
+            FROM TravelRecordPlace rp
+            WHERE rp.travelRecord.id IN :recordIds
+              AND rp.travelRecord.deletedAt IS NULL
+            GROUP BY rp.travelRecord.id
+            """)
+    List<RecordPlaceCount> countAllByRecordIds(@Param("recordIds") Collection<Long> recordIds);
+
     /**
      * width_bucket 두 번의 결과를 (row, col, 집계점수) 형태로 받기 위한 프로젝션.
      * PopularPlaceRepository에도 구조적으로 동일한 인터페이스가 별도로 존재한다 — 레포지토리가

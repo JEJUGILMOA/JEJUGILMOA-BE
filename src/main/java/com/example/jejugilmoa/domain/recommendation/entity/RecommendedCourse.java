@@ -69,4 +69,5 @@ public class RecommendedCourse extends BaseEntity {
     @OrderBy("sequenceOrder ASC")
     @Builder.Default
     private List<RecommendedCoursePath> paths = new ArrayList<>();
+
 }
