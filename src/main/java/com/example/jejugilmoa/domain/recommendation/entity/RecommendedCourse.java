@@ -69,4 +69,14 @@ public class RecommendedCourse extends BaseEntity {
     @OrderBy("sequenceOrder ASC")
     @Builder.Default
     private List<RecommendedCoursePath> paths = new ArrayList<>();
+
+    public void incrementCopyCount() {
+        this.copyCount = (this.copyCount == null ? 0 : this.copyCount) + 1;
+    }
+
+    public void decrementCopyCount() {
+        if (this.copyCount != null && this.copyCount > 0) {
+            this.copyCount--;
+        }
+    }
 }
