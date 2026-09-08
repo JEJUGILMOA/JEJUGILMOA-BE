@@ -20,10 +20,14 @@ import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -57,13 +61,13 @@ public class SavedCourseService {
             throw new GeneralException(RecommendationErrorCode.COURSE_ALREADY_SAVED);
         }
 
-        savedCourseRepository.save(SavedCourse.builder()
+        persistSavedCourse(SavedCourse.builder()
                 .user(user)
                 .sourceType(CourseSourceType.RECOMMENDED)
                 .recommendedCourse(course)
                 .build());
 
-        course.incrementCopyCount();
+        recommendedCourseRepository.incrementCopyCount(courseId);
     }
 
     private void saveRecordCourse(User user, Long userId, Long recordId) {
@@ -80,11 +84,24 @@ public class SavedCourseService {
             throw new GeneralException(RecommendationErrorCode.COURSE_ALREADY_SAVED);
         }
 
-        savedCourseRepository.save(SavedCourse.builder()
+        persistSavedCourse(SavedCourse.builder()
                 .user(user)
                 .sourceType(CourseSourceType.RECORD)
                 .travelRecord(record)
                 .build());
+    }
+
+    // uq_saved_course_recommended / uq_saved_course_record 충돌 → COURSE_ALREADY_SAVED(409)
+    private void persistSavedCourse(SavedCourse savedCourse) {
+        try {
+            savedCourseRepository.saveAndFlush(savedCourse);
+        } catch (DataIntegrityViolationException e) {
+            String msg = e.getMostSpecificCause().getMessage();
+            if (msg != null && (msg.contains("uq_saved_course_recommended") || msg.contains("uq_saved_course_record"))) {
+                throw new GeneralException(RecommendationErrorCode.COURSE_ALREADY_SAVED);
+            }
+            throw e;
+        }
     }
 
     @Transactional
@@ -97,16 +114,52 @@ public class SavedCourseService {
         }
 
         if (savedCourse.getSourceType() == CourseSourceType.RECOMMENDED) {
-            savedCourse.getRecommendedCourse().decrementCopyCount();
+            recommendedCourseRepository.decrementCopyCount(savedCourse.getRecommendedCourse().getId());
         }
 
         savedCourseRepository.delete(savedCourse);
     }
 
     public List<SavedCourseListItemResponse> getSavedCourses(Long userId) {
-        return savedCourseRepository.findAllByUserIdWithSources(userId).stream()
-                .map(this::toListItem)
+        List<SavedCourse> savedCourses = savedCourseRepository.findAllByUserIdWithSources(userId);
+        if (savedCourses.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> recommendedIds = savedCourses.stream()
+                .filter(sc -> sc.getSourceType() == CourseSourceType.RECOMMENDED)
+                .map(sc -> sc.getRecommendedCourse().getId())
                 .toList();
+
+        List<Long> recordIds = savedCourses.stream()
+                .filter(sc -> sc.getSourceType() == CourseSourceType.RECORD)
+                .map(sc -> sc.getTravelRecord().getId())
+                .toList();
+
+        Map<Long, Integer> recommendedPlaceCounts = batchCountPaths(recommendedIds);
+        Map<Long, Integer> recordPlaceCounts = batchCountRecordPlaces(recordIds);
+
+        return savedCourses.stream()
+                .map(sc -> toListItem(sc, recommendedPlaceCounts, recordPlaceCounts))
+                .toList();
+    }
+
+    private Map<Long, Integer> batchCountPaths(Collection<Long> courseIds) {
+        if (courseIds.isEmpty()) return Map.of();
+        return recommendedCourseRepository.countPathsByCourseIds(courseIds).stream()
+                .collect(Collectors.toMap(
+                        RecommendedCourseRepository.CoursePathCount::getCourseId,
+                        c -> c.getCount().intValue()
+                ));
+    }
+
+    private Map<Long, Integer> batchCountRecordPlaces(Collection<Long> recordIds) {
+        if (recordIds.isEmpty()) return Map.of();
+        return travelRecordPlaceRepository.countAllByRecordIds(recordIds).stream()
+                .collect(Collectors.toMap(
+                        TravelRecordPlaceRepository.RecordPlaceCount::getRecordId,
+                        c -> c.getCount().intValue()
+                ));
     }
 
     public SavedCourseDetailResponse getSavedCourseDetail(Long userId, Long savedCourseId) {
@@ -124,16 +177,19 @@ public class SavedCourseService {
         }
     }
 
-    private SavedCourseListItemResponse toListItem(SavedCourse sc) {
+    private SavedCourseListItemResponse toListItem(SavedCourse sc,
+                                                    Map<Long, Integer> recommendedPlaceCounts,
+                                                    Map<Long, Integer> recordPlaceCounts) {
         if (sc.getSourceType() == CourseSourceType.RECOMMENDED) {
             RecommendedCourse rc = sc.getRecommendedCourse();
+            int placeCount = recommendedPlaceCounts.getOrDefault(rc.getId(), 0);
             return new SavedCourseListItemResponse(
                     sc.getId(),
                     CourseSourceType.RECOMMENDED,
                     rc.getTitle(),
                     rc.getImageUrl(),
                     rc.getRegion(),
-                    rc.getPaths().size(),
+                    placeCount,
                     rc.getEstimatedMinutes(),
                     rc.getTransportMode()
             );
@@ -142,15 +198,14 @@ public class SavedCourseService {
             TravelRecordImage thumbnail = record.getThumbnailImage();
             String imageUrl = thumbnail != null
                     ? imageUrlResolver.resolve(thumbnail.getObjectKey()) : null;
-            List<TravelRecordPlace> places =
-                    travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(record.getId());
+            int placeCount = recordPlaceCounts.getOrDefault(record.getId(), 0);
             return new SavedCourseListItemResponse(
                     sc.getId(),
                     CourseSourceType.RECORD,
                     record.getTitle(),
                     imageUrl,
                     null,
-                    places.size(),
+                    placeCount,
                     null,
                     null
             );
