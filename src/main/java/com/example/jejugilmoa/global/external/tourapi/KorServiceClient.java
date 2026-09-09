@@ -8,6 +8,7 @@ import com.example.jejugilmoa.global.external.tourapi.dto.LocationBasedItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.TourApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,7 +26,10 @@ import java.util.Optional;
 @Component
 public class KorServiceClient {
 
-    public record KeywordSearchPage(List<AreaBasedItem> items, long totalCount) {}
+    public record KeywordSearchPage(List<AreaBasedItem> items, long totalCount) implements Serializable {
+        @Serial
+        private static final long serialVersionUID = 1L;
+    }
 
     private static final String BASE_URL = "https://apis.data.go.kr/B551011/KorService2";
     private static final String MOBILE_OS = "AND";
@@ -181,7 +187,9 @@ public class KorServiceClient {
     /**
      * 키워드 검색 (searchKeyword2) — 제주도(lDongRegnCd=50), 추천순(arrange=Q).
      * API 호출/응답 실패 시 TourApiException 발생 → 호출자가 DB 폴백 처리.
+     * 동일 keyword·page·size 조합은 5분간 Redis에 캐싱되어 중복 TourAPI 호출을 차단.
      */
+    @Cacheable(value = "keywordSearch", key = "#keyword + ':' + #pageNo + ':' + #numOfRows")
     public KeywordSearchPage searchKeyword2(String keyword, int pageNo, int numOfRows) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/searchKeyword2")
                 .queryParam("serviceKey", serviceKey)
