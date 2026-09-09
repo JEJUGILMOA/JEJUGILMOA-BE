@@ -20,8 +20,9 @@ import java.util.Map;
 @Component
 public class ClsSystem3Resolver {
 
-    // KorService2 cat2 (중분류) 코드 → 중분류명
+    // KorService2 cat2 (중분류) 코드 → 중분류명. 구분류(A0xxx)·신분류 모두 포함.
     private static final Map<String, String> OLD_CAT2_LABELS = Map.ofEntries(
+        // ── 구분류체계 (A0xxx / B02xx) ──────────────────────────────────
         Map.entry("A0101", "자연관광지"),
         Map.entry("A0102", "동식물관광지"),
         Map.entry("A0201", "역사관광지"),
@@ -43,7 +44,69 @@ public class ClsSystem3Resolver {
         Map.entry("B0204", "펜션"),
         Map.entry("B0206", "민박"),
         Map.entry("B0207", "게스트하우스"),
-        Map.entry("B0210", "야영장/캠핑")
+        Map.entry("B0210", "야영장/캠핑"),
+        // ── 신분류체계 ──────────────────────────────────────────────────
+        // NA 자연관광
+        Map.entry("NA01", "자연경관(산)"),
+        Map.entry("NA02", "자연경관(해양)"),
+        Map.entry("NA03", "자연생태"),
+        Map.entry("NA04", "자연공원"),
+        Map.entry("NA05", "기타자연관광"),
+        // FD 음식
+        Map.entry("FD01", "한식"),
+        Map.entry("FD02", "외국식"),
+        Map.entry("FD03", "간이음식"),
+        Map.entry("FD04", "주점"),
+        Map.entry("FD05", "카페/찻집"),
+        // SH 쇼핑
+        Map.entry("SH01", "백화점"),
+        Map.entry("SH02", "쇼핑몰"),
+        Map.entry("SH03", "대형마트"),
+        Map.entry("SH04", "면세점"),
+        Map.entry("SH05", "전문매장"),
+        Map.entry("SH06", "시장"),
+        Map.entry("SH07", "기타쇼핑"),
+        // HS 역사관광
+        Map.entry("HS01", "역사유적지"),
+        Map.entry("HS02", "역사유물"),
+        Map.entry("HS03", "종교성지"),
+        Map.entry("HS04", "안보관광지"),
+        // EV 축제/공연/행사
+        Map.entry("EV01", "축제"),
+        Map.entry("EV02", "공연"),
+        Map.entry("EV03", "행사"),
+        // EX 체험관광
+        Map.entry("EX01", "전통체험"),
+        Map.entry("EX02", "공예체험"),
+        Map.entry("EX03", "농산어촌 체험"),
+        Map.entry("EX04", "산사체험"),
+        Map.entry("EX05", "웰니스관광"),
+        Map.entry("EX06", "산업관광"),
+        Map.entry("EX07", "기타체험"),
+        // LS 레저스포츠
+        Map.entry("LS01", "육상레저스포츠"),
+        Map.entry("LS02", "수상레저스포츠"),
+        Map.entry("LS03", "항공레저스포츠"),
+        Map.entry("LS04", "복합레저스포츠"),
+        // VE 문화관광
+        Map.entry("VE01", "랜드마크관광"),
+        Map.entry("VE02", "테마공원"),
+        Map.entry("VE03", "도시공원"),
+        Map.entry("VE04", "문화거리"),
+        Map.entry("VE05", "복합관광시설"),
+        Map.entry("VE06", "공연시설"),
+        Map.entry("VE07", "전시시설"),
+        Map.entry("VE08", "행사시설"),
+        Map.entry("VE09", "교육시설"),
+        Map.entry("VE10", "레저스포츠시설"),
+        Map.entry("VE12", "기타문화시설"),
+        // AC 숙박
+        Map.entry("AC01", "호텔"),
+        Map.entry("AC02", "콘도미니엄"),
+        Map.entry("AC03", "펜션/민박"),
+        Map.entry("AC04", "모텔"),
+        Map.entry("AC05", "캠핑"),
+        Map.entry("AC06", "호스텔/게스트하우스")
     );
 
     // KorService2 areaBasedList2가 반환하는 구분류체계 코드 → 소분류명
