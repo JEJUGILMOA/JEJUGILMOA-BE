@@ -88,7 +88,16 @@ public class KorServiceClient {
      * lDongRegnCd=50(제주도), arrange=Q(추천순)
      */
     public List<AreaBasedItem> areaBasedListByPopularity(int numOfRows, int pageNo) {
-        String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/areaBasedList2")
+        return areaBasedList(null, numOfRows, pageNo);
+    }
+
+    /**
+     * 콘텐츠 유형별 지역 기반 관광정보 조회 (areaBasedList2)
+     * lDongRegnCd=50(제주도), arrange=Q(추천순)
+     * contentTypeId 예: 39=음식점(카페 포함), 38=쇼핑, 32=숙박
+     */
+    public List<AreaBasedItem> areaBasedList(Integer contentTypeId, int numOfRows, int pageNo) {
+        var builder = UriComponentsBuilder.fromUriString(BASE_URL + "/areaBasedList2")
                 .queryParam("serviceKey", serviceKey)
                 .queryParam("MobileOS", MOBILE_OS)
                 .queryParam("MobileApp", MOBILE_APP)
@@ -96,8 +105,11 @@ public class KorServiceClient {
                 .queryParam("lDongRegnCd", 50)
                 .queryParam("arrange", "Q")
                 .queryParam("numOfRows", numOfRows)
-                .queryParam("pageNo", pageNo)
-                .build().toUriString();
+                .queryParam("pageNo", pageNo);
+        if (contentTypeId != null) {
+            builder.queryParam("contentTypeId", contentTypeId);
+        }
+        String uri = builder.build().toUriString();
 
         TourApiResponse<AreaBasedItem> response;
         try {
@@ -106,11 +118,11 @@ public class KorServiceClient {
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
-            throw new TourApiException("areaBasedListByPopularity 호출 오류", e);
+            throw new TourApiException("areaBasedList2 호출 오류 (contentTypeId=" + contentTypeId + ")", e);
         }
 
         if (response == null || !response.isSuccess()) {
-            throw new TourApiException("areaBasedListByPopularity 응답 실패");
+            throw new TourApiException("areaBasedList2 응답 실패 (contentTypeId=" + contentTypeId + ")");
         }
         return response.items();
     }
