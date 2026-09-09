@@ -48,14 +48,29 @@ public class PlaceQueryService {
     private final PlacePersistService placePersistService;
 
     public PageResponse<PlaceSummaryDto> browse(String keyword, String categoryName, Pageable pageable) {
-        if (keyword != null && !keyword.isBlank()) {
-            return searchByKeyword(keyword.trim(), pageable);
-        }
+        String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
         String cat = (categoryName == null || categoryName.isBlank()) ? null : categoryName.trim();
-        Page<Place> places = cat == null
-            ? placeRepository.findByPublishedTrue(pageable)
-            : placeRepository.findByCategoryNameAndPublishedTrue(cat, pageable);
+
+        if (kw != null && cat == null) {
+            return searchByKeyword(kw, pageable);
+        }
+        // keyword+category: TourAPI로 DB 보강 후 DB 검색 (정확한 페이지네이션 + 카테고리 필터)
+        if (kw != null) {
+            enrichDbFromTourApi(kw);
+        }
+        Page<Place> places = placeRepository.search(kw != null ? escapeLike(kw) : null, cat, pageable);
         return PageResponse.of(places.map(placeConverter::toSummary));
+    }
+
+    private void enrichDbFromTourApi(String keyword) {
+        try {
+            KorServiceClient.KeywordSearchPage searchPage = korServiceClient.searchKeyword2(keyword, 1, 100);
+            if (!searchPage.items().isEmpty()) {
+                placePersistService.saveKorServiceItems(searchPage.items());
+            }
+        } catch (Exception e) {
+            log.warn("keyword+category TourAPI 보강 실패, DB 검색 진행: keyword={}", keyword, e);
+        }
     }
 
     private PageResponse<PlaceSummaryDto> searchByKeyword(String keyword, Pageable pageable) {
