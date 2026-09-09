@@ -8,6 +8,7 @@ import com.example.jejugilmoa.global.external.tourapi.dto.LocationBasedItem;
 import com.example.jejugilmoa.global.external.tourapi.dto.TourApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,7 +26,10 @@ import java.util.Optional;
 @Component
 public class KorServiceClient {
 
-    public record KeywordSearchPage(List<AreaBasedItem> items, long totalCount) {}
+    public record KeywordSearchPage(List<AreaBasedItem> items, long totalCount) implements Serializable {
+        @Serial
+        private static final long serialVersionUID = 1L;
+    }
 
     private static final String BASE_URL = "https://apis.data.go.kr/B551011/KorService2";
     private static final String MOBILE_OS = "AND";
@@ -88,7 +94,16 @@ public class KorServiceClient {
      * lDongRegnCd=50(제주도), arrange=Q(추천순)
      */
     public List<AreaBasedItem> areaBasedListByPopularity(int numOfRows, int pageNo) {
-        String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/areaBasedList2")
+        return areaBasedList(null, numOfRows, pageNo);
+    }
+
+    /**
+     * 콘텐츠 유형별 지역 기반 관광정보 조회 (areaBasedList2)
+     * lDongRegnCd=50(제주도), arrange=Q(추천순)
+     * contentTypeId 예: 39=음식점(카페 포함), 38=쇼핑, 32=숙박
+     */
+    public List<AreaBasedItem> areaBasedList(Integer contentTypeId, int numOfRows, int pageNo) {
+        var builder = UriComponentsBuilder.fromUriString(BASE_URL + "/areaBasedList2")
                 .queryParam("serviceKey", serviceKey)
                 .queryParam("MobileOS", MOBILE_OS)
                 .queryParam("MobileApp", MOBILE_APP)
@@ -96,8 +111,11 @@ public class KorServiceClient {
                 .queryParam("lDongRegnCd", 50)
                 .queryParam("arrange", "Q")
                 .queryParam("numOfRows", numOfRows)
-                .queryParam("pageNo", pageNo)
-                .build().toUriString();
+                .queryParam("pageNo", pageNo);
+        if (contentTypeId != null) {
+            builder.queryParam("contentTypeId", contentTypeId);
+        }
+        String uri = builder.build().toUriString();
 
         TourApiResponse<AreaBasedItem> response;
         try {
@@ -106,11 +124,11 @@ public class KorServiceClient {
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
-            throw new TourApiException("areaBasedListByPopularity 호출 오류", e);
+            throw new TourApiException("areaBasedList2 호출 오류 (contentTypeId=" + contentTypeId + ")", e);
         }
 
         if (response == null || !response.isSuccess()) {
-            throw new TourApiException("areaBasedListByPopularity 응답 실패");
+            throw new TourApiException("areaBasedList2 응답 실패 (contentTypeId=" + contentTypeId + ")");
         }
         return response.items();
     }
@@ -169,7 +187,9 @@ public class KorServiceClient {
     /**
      * 키워드 검색 (searchKeyword2) — 제주도(lDongRegnCd=50), 추천순(arrange=Q).
      * API 호출/응답 실패 시 TourApiException 발생 → 호출자가 DB 폴백 처리.
+     * 동일 keyword·page·size 조합은 5분간 Redis에 캐싱되어 중복 TourAPI 호출을 차단.
      */
+    @Cacheable(value = "keywordSearch", key = "#keyword + ':' + #pageNo + ':' + #numOfRows")
     public KeywordSearchPage searchKeyword2(String keyword, int pageNo, int numOfRows) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/searchKeyword2")
                 .queryParam("serviceKey", serviceKey)

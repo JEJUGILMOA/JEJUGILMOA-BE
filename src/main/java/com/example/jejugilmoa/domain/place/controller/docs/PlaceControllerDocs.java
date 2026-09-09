@@ -24,7 +24,7 @@ public interface PlaceControllerDocs {
             - 카테고리 미입력 시 전체 인기 장소 조회
             - 카테고리 입력 시 해당 카테고리 내 인기 장소 조회
 
-            **사용 가능한 카테고리**: `자연`, `음식`, `카페`, `전통시장`, `역사`, `체험`
+            **사용 가능한 카테고리**: `자연`, `음식`, `카페`, `체험`, `역사`, `쇼핑`, `축제`, `숙박`
             """
     )
     @ApiResponses({
@@ -72,7 +72,7 @@ public interface PlaceControllerDocs {
         )
     })
     ApiResponse<PageResponse<PopularPlaceDto>> getPopular(
-        @Parameter(description = "카테고리 필터 (미입력 시 전체 조회, 예: 자연·음식·카페·전통시장·역사·체험)", example = "자연")
+        @Parameter(description = "카테고리 필터 (미입력 시 전체 조회). 가능한 값: 자연·음식·카페·체험·역사·쇼핑·축제·숙박", example = "카페")
         @RequestParam(required = false) String category,
 
         @Parameter(description = "페이지 번호 (0부터 시작)", example = "0")
@@ -95,7 +95,7 @@ public interface PlaceControllerDocs {
 
             **검색 대상 필드**: 장소명(`name`), 주소(`address`) — 대소문자 무시
 
-            **사용 가능한 카테고리**: `자연`, `음식`, `카페`, `전통시장`, `역사`, `체험`, `쇼핑`, `사진명소`
+            **사용 가능한 카테고리**: `자연`, `음식`, `카페`, `체험`, `역사`, `쇼핑`, `축제`, `숙박`
             """
     )
     @ApiResponses({
@@ -221,14 +221,13 @@ public interface PlaceControllerDocs {
                             "address": "제주특별자치도 서귀포시",
                             "latitude": 33.4589,
                             "longitude": 126.9425,
-                            "description": null,
+                            "description": "성산일출봉은 제주도 동쪽 끝에 위치한...",
                             "imageUrl": "https://example.com/seongsan.jpg",
                             "images": [
                               "https://example.com/img1.jpg",
                               "https://example.com/img2.jpg"
                             ],
-                            "categoryName": "자연",
-                            "description": "성산일출봉은 제주도 동쪽 끝..."
+                            "categoryName": "자연"
                           }
                         }
                         """

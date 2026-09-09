@@ -48,13 +48,14 @@ public class PlaceQueryService {
     private final PlacePersistService placePersistService;
 
     public PageResponse<PlaceSummaryDto> browse(String keyword, String categoryName, Pageable pageable) {
-        if (keyword != null && !keyword.isBlank()) {
-            return searchByKeyword(keyword.trim(), pageable);
-        }
+        String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
         String cat = (categoryName == null || categoryName.isBlank()) ? null : categoryName.trim();
-        Page<Place> places = cat == null
-            ? placeRepository.findByPublishedTrue(pageable)
-            : placeRepository.findByCategoryNameAndPublishedTrue(cat, pageable);
+
+        if (kw != null && cat == null) {
+            return searchByKeyword(kw, pageable);
+        }
+        // keyword+category: syncFromKorService() 스케줄러로 사전 동기화된 DB에서 직접 조회
+        Page<Place> places = placeRepository.search(kw != null ? escapeLike(kw) : null, cat, pageable);
         return PageResponse.of(places.map(placeConverter::toSummary));
     }
 

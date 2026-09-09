@@ -56,10 +56,28 @@ public class PlaceSyncService {
 
     private static final int BATCH_SIZE = 500;
 
+    // 관광지·문화시설·레포츠는 일반 추천순 1000건으로, 음식/카페·쇼핑·숙박은 contentTypeId별로 별도 수집.
+    private static final int[][] CONTENT_TYPE_SYNCS = {
+        {39, 1000},  // 음식점 (카페 포함)
+        {38, 500},   // 쇼핑
+        {32, 500},   // 숙박
+    };
+
     public void syncFromKorService() {
         List<AreaBasedItem> items = korServiceClient.areaBasedListByPopularity(1000, 1);
-        log.info("KorService2 areaBasedList2 조회: {}건", items.size());
+        log.info("KorService2 areaBasedList2 조회 (전체): {}건", items.size());
         placePersistService.saveKorServiceItems(items);
+
+        for (int[] spec : CONTENT_TYPE_SYNCS) {
+            int contentTypeId = spec[0], numOfRows = spec[1];
+            try {
+                List<AreaBasedItem> typeItems = korServiceClient.areaBasedList(contentTypeId, numOfRows, 1);
+                log.info("KorService2 areaBasedList2 조회 (contentTypeId={}): {}건", contentTypeId, typeItems.size());
+                placePersistService.saveKorServiceItems(typeItems);
+            } catch (Exception e) {
+                log.warn("contentTypeId={} 동기화 실패, 건너뜀", contentTypeId, e);
+            }
+        }
     }
 
     /** KorService2 areaBasedList2 기준 페이지(1-based)를 지정해 500건씩 추가 동기화. */
