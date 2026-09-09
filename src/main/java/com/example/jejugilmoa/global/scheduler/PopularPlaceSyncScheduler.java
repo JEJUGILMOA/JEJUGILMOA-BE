@@ -1,6 +1,8 @@
 package com.example.jejugilmoa.global.scheduler;
 
+import com.example.jejugilmoa.domain.place.entity.PopularPlace;
 import com.example.jejugilmoa.domain.place.enums.CurationLabel;
+import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.place.repository.PopularPlaceRepository;
 import com.example.jejugilmoa.global.external.tourapi.KorServiceClient;
 import com.example.jejugilmoa.global.external.tourapi.TourApiClient;
@@ -32,6 +34,7 @@ public class PopularPlaceSyncScheduler {
     private final KorServiceClient korServiceClient;
     private final TourApiClient tourApiClient;
     private final PopularPlaceRepository popularPlaceRepository;
+    private final PlaceRepository placeRepository;
 
     @Scheduled(cron = "0 0 2 * * MON", zone = "Asia/Seoul")
     @Transactional
@@ -64,13 +67,22 @@ public class PopularPlaceSyncScheduler {
 
             int score = Math.max(1, POPULARITY_FETCH_SIZE - i);
             popularPlaceRepository.findByPlaceExternalId(item.contentid())
-                    .ifPresent(pp -> {
-                        pp.updateVisitCount(score);
-                        if (pp.getPlace().getImageUrl() == null
-                                && item.firstimage() != null && !item.firstimage().isBlank()) {
-                            pp.getPlace().updateImageUrl(item.firstimage());
-                        }
-                    });
+                    .ifPresentOrElse(
+                        pp -> {
+                            pp.updateVisitCount(score);
+                            if (pp.getPlace().getImageUrl() == null
+                                    && item.firstimage() != null && !item.firstimage().isBlank()) {
+                                pp.getPlace().updateImageUrl(item.firstimage());
+                            }
+                        },
+                        () -> placeRepository.findByExternalId(item.contentid()).ifPresent(place ->
+                            popularPlaceRepository.save(PopularPlace.builder()
+                                .place(place)
+                                .visitCount(score)
+                                .searchCount(0)
+                                .build())
+                        )
+                    );
         }
     }
 
