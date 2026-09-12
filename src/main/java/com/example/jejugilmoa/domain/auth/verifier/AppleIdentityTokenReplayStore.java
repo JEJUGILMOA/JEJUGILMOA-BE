@@ -17,13 +17,14 @@ public class AppleIdentityTokenReplayStore {
     private final StringRedisTemplate redis;
 
     // 만료 확인과 최초 등록을 하나의 명령으로 실행한다. 원문 토큰/nonce는 저장하지 않는다.
+    // nowMillis는 Java에서 전달 — TIME(비결정적)을 Lua 안에서 쓰면 Redis 3.x에서 쓰기 금지 오류가 발생한다.
     private static final DefaultRedisScript<Long> CONSUME = new DefaultRedisScript<>("""
-            local now = redis.call('TIME')
-            local nowMillis = now[1] * 1000 + math.floor(now[2] / 1000)
-            if tonumber(ARGV[1]) <= nowMillis then
+            local expiresAtMillis = tonumber(ARGV[1])
+            local nowMillis = tonumber(ARGV[2])
+            if expiresAtMillis <= nowMillis then
                 return -1
             end
-            if redis.call('SET', KEYS[1], '1', 'NX', 'PXAT', ARGV[1]) then
+            if redis.call('SET', KEYS[1], '1', 'NX', 'PX', expiresAtMillis - nowMillis) then
                 return 1
             end
             return 0
@@ -33,7 +34,8 @@ public class AppleIdentityTokenReplayStore {
         Long result;
         try {
             result = redis.execute(CONSUME, List.of("auth:apple:identity-token:" + digest),
-                    Long.toString(expiresAt.toEpochMilli()));
+                    Long.toString(expiresAt.toEpochMilli()),
+                    Long.toString(Instant.now().toEpochMilli()));
         } catch (DataAccessException ex) {
             // 저장 실패 시 인증을 허용하지 않으며, 요청 원문이 포함될 수 있는 예외를 기록하지 않는다.
             throw new GeneralException(AuthErrorCode.APPLE_REPLAY_STORE_UNAVAILABLE);
