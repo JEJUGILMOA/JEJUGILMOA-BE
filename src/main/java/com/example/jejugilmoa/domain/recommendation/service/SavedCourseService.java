@@ -24,6 +24,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -190,8 +191,7 @@ public class SavedCourseService {
                     rc.getImageUrl(),
                     rc.getRegion(),
                     placeCount,
-                    rc.getEstimatedMinutes(),
-                    rc.getTransportMode()
+                    rc.getEstimatedMinutes()
             );
         } else {
             TravelRecord record = sc.getTravelRecord();
@@ -206,7 +206,6 @@ public class SavedCourseService {
                     imageUrl,
                     null,
                     placeCount,
-                    null,
                     null
             );
         }
@@ -226,15 +225,19 @@ public class SavedCourseService {
                 ))
                 .toList();
 
+        List<String> tags = rc.getTags() != null && !rc.getTags().isBlank()
+                ? Arrays.asList(rc.getTags().split(",")) : List.of();
+
         return new SavedCourseDetailResponse(
                 sc.getId(),
                 CourseSourceType.RECOMMENDED,
                 rc.getTitle(),
                 rc.getImageUrl(),
                 rc.getRegion(),
+                rc.getTheme(),
+                tags,
                 stops.size(),
                 rc.getEstimatedMinutes(),
-                rc.getTransportMode(),
                 rc.getDescription(),
                 stops
         );
@@ -265,8 +268,9 @@ public class SavedCourseService {
                 record.getTitle(),
                 imageUrl,
                 null,
-                stops.size(),
                 null,
+                null,
+                stops.size(),
                 null,
                 record.getDescription(),
                 stops

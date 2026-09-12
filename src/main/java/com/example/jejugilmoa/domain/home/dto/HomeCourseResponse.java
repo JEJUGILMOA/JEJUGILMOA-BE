@@ -30,9 +30,6 @@ public record HomeCourseResponse(
         @Schema(description = "경유지 수")
         Integer placeCount,
 
-        @Schema(description = "이동 수단 (WALK / DRIVE / MIXED)")
-        String transportMode,
-
         @Schema(description = "코스 미리보기 (첫 3개 장소)")
         List<CoursePreviewItem> preview
 

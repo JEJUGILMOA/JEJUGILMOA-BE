@@ -19,17 +19,20 @@ public record SavedCourseDetailResponse(
         @Schema(description = "대표 이미지 URL")
         String imageUrl,
 
-        @Schema(description = "지역")
+        @Schema(description = "지역. RECORD 타입은 null.")
         String region,
+
+        @Schema(description = "테마 (TravelTheme 값). RECORD 타입은 null.")
+        String theme,
+
+        @Schema(description = "태그 목록. RECORD 타입은 null.")
+        List<String> tags,
 
         @Schema(description = "총 장소 수")
         int placeCount,
 
         @Schema(description = "예상 소요 시간 (분). RECORD 타입은 null.")
         Integer estimatedMinutes,
-
-        @Schema(description = "주요 이동 수단. RECORD 타입은 null.")
-        String transportMode,
 
         @Schema(description = "코스 설명. RECORD 타입은 null.")
         String description,

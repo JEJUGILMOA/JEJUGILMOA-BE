@@ -24,9 +24,6 @@ public record SavedCourseListItemResponse(
         int placeCount,
 
         @Schema(description = "예상 소요 시간 (분). RECORD 타입은 null.")
-        Integer estimatedMinutes,
-
-        @Schema(description = "주요 이동 수단. RECORD 타입은 null.")
-        String transportMode
+        Integer estimatedMinutes
 
 ) {}

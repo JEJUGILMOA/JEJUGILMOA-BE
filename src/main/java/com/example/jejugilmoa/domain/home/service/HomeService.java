@@ -162,7 +162,6 @@ public class HomeService {
                 tags,
                 course.getEstimatedMinutes(),
                 course.getPaths().size(),
-                course.getTransportMode(),
                 preview
         );
     }

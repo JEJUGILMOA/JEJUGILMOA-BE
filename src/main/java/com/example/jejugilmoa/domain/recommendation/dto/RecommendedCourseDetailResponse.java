@@ -2,7 +2,6 @@ package com.example.jejugilmoa.domain.recommendation.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 public record RecommendedCourseDetailResponse(
@@ -19,14 +18,11 @@ public record RecommendedCourseDetailResponse(
         @Schema(description = "지역 (예: 제주 한림읍)")
         String region,
 
-        @Schema(description = "무료 여부")
-        Boolean isFree,
+        @Schema(description = "테마 (TravelTheme 값)")
+        String theme,
 
-        @Schema(description = "평점 (예: 4.8)")
-        BigDecimal rating,
-
-        @Schema(description = "주요 이동 수단 (예: WALK, DRIVE, MIXED)")
-        String transportMode,
+        @Schema(description = "태그 목록")
+        List<String> tags,
 
         @Schema(description = "총 장소 수")
         int placeCount,

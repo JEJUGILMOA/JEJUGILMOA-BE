@@ -39,9 +39,6 @@ public class RecommendedCoursePath extends BaseEntity {
     @Column(name = "sequence_order", nullable = false)
     private Integer sequenceOrder;
 
-    @Column(name = "recommended_duration")
-    private Integer recommendedDuration;
-
     @Column(name = "travel_time_to_next")
     private Integer travelTimeToNext;
 

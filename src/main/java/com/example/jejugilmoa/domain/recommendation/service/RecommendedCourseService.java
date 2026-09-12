@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -52,14 +53,17 @@ public class RecommendedCourseService {
                 course.getImageUrl(),
                 course.getTitle(),
                 course.getRegion(),
-                course.getIsFree(),
-                course.getRating(),
-                course.getTransportMode(),
+                course.getTheme(),
+                parseTags(course.getTags()),
                 course.getPaths().size(),
                 course.getEstimatedMinutes(),
                 course.getDescription(),
                 stops
         );
+    }
+
+    private static List<String> parseTags(String tags) {
+        return (tags != null && !tags.isBlank()) ? Arrays.asList(tags.split(",")) : List.of();
     }
 
     private RecommendedCourseResponse toResponse(RecommendedCourse course) {
