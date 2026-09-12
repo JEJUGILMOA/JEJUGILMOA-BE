@@ -1,8 +1,12 @@
 package com.example.jejugilmoa.domain.plan.converter;
 
 import com.example.jejugilmoa.domain.badge.converter.BadgeConverter;
+import com.example.jejugilmoa.domain.badge.dto.BadgeEarnedResponse;
+import com.example.jejugilmoa.domain.plan.dto.TripCancelResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
+import com.example.jejugilmoa.domain.plan.dto.TravelPlanRoutesResponse;
+import com.example.jejugilmoa.domain.plan.dto.VisitCheckResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.user.entity.UserBadge;
@@ -14,14 +18,33 @@ public class TripConverter {
 
     private TripConverter() {}
 
-    public static TripResponse toResponse(TravelPlan plan, List<WaypointResponse> waypoints) {
+    public static TripResponse toResponse(TravelPlan plan, List<WaypointResponse> waypoints,
+            TravelPlanRoutesResponse routes) {
         return new TripResponse(
                 plan.getId(),
                 plan.getTitle(),
                 plan.getStatus(),
                 plan.getActualStartedAt(),
-                waypoints
+                waypoints,
+                routes
         );
+    }
+
+    public static TripCancelResponse toCancelResponse(TravelPlan plan) {
+        return new TripCancelResponse(
+                plan.getId(),
+                plan.getTitle(),
+                plan.getStatus(),
+                plan.getActualStartedAt(),
+                plan.getActualCancelledAt()
+        );
+    }
+
+    public static VisitCheckResponse toVisitCheckResponse(
+            List<WaypointResponse> waypoints, boolean autoCompleted, List<UserBadge> earnedBadges) {
+        List<BadgeEarnedResponse> badges = earnedBadges == null ? null
+                : earnedBadges.stream().map(BadgeConverter::toEarnedResponse).toList();
+        return new VisitCheckResponse(waypoints, autoCompleted, badges);
     }
 
     public static TripCompleteResponse toCompleteResponse(

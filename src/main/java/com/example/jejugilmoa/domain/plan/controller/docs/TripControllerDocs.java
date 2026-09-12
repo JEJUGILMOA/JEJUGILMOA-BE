@@ -1,10 +1,12 @@
 package com.example.jejugilmoa.domain.plan.controller.docs;
 
 import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
+import com.example.jejugilmoa.domain.plan.dto.TripCancelResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
+import com.example.jejugilmoa.domain.plan.dto.VisitCheckResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
@@ -235,7 +237,7 @@ public interface TripControllerDocs {
                             """))
             )
     })
-    ApiResponse<List<WaypointResponse>> checkVisit(
+    ApiResponse<VisitCheckResponse> checkVisit(
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId,
             @Valid @org.springframework.web.bind.annotation.RequestBody VisitCheckRequest request
@@ -312,7 +314,7 @@ public interface TripControllerDocs {
                             """))
             )
     })
-    ApiResponse<List<WaypointResponse>> skipWaypoint(
+    ApiResponse<VisitCheckResponse> skipWaypoint(
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId,
             @Parameter(description = "건너뛸 경유지(TravelCourse) ID") Long waypointId
@@ -526,6 +528,58 @@ public interface TripControllerDocs {
             )
     })
     ApiResponse<TripCompleteResponse> complete(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId
+    );
+
+    @Operation(
+            summary = "여행 중단",
+            description = """
+                    진행중(IN_PROGRESS)인 여행을 중단(CANCELLED) 상태로 전환합니다.
+
+                    - 진행중 상태가 아니면 `PLAN400_22` 오류가 반환됩니다.
+                    - 중단 후에는 새로운 여행을 시작할 수 있습니다.
+                    - 방문 인증 기록은 보존됩니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "여행 중단 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": {
+                                "tripId": 1,
+                                "title": "제주 3박4일",
+                                "status": "CANCELLED",
+                                "actualStartedAt": "2026-07-20T09:00:00",
+                                "actualCancelledAt": "2026-07-21T14:30:00"
+                              }
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "진행중이 아닌 여행",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN400_22","message":"진행중인 여행만 중단할 수 있습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "접근 권한 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "여행 계획 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<TripCancelResponse> cancel(
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId
     );
