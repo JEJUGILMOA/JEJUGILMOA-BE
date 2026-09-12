@@ -4,27 +4,20 @@ import com.example.jejugilmoa.domain.badge.service.BadgeService;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.locationusage.service.LocationUsageLogService;
-import com.example.jejugilmoa.domain.plan.converter.TravelPlanRouteConverter;
 import com.example.jejugilmoa.domain.plan.converter.TripConverter;
-import com.example.jejugilmoa.domain.plan.dto.TripCancelResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
-import com.example.jejugilmoa.domain.plan.dto.TravelPlanRoutesResponse;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
-import com.example.jejugilmoa.domain.plan.dto.VisitCheckResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointReorderRequest;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
-import com.example.jejugilmoa.domain.plan.enums.RouteGenerationStatus;
 import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
-import com.example.jejugilmoa.domain.plan.repository.TravelPlanRouteJobRepository;
-import com.example.jejugilmoa.domain.plan.repository.TravelPlanRouteRepository;
 import com.example.jejugilmoa.domain.user.entity.UserBadge;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
@@ -53,8 +46,6 @@ public class TripService {
     private final WaypointService waypointService;
     private final LocationUsageLogService locationUsageLogService;
     private final BadgeService badgeService;
-    private final TravelPlanRouteRepository travelPlanRouteRepository;
-    private final TravelPlanRouteJobRepository travelPlanRouteJobRepository;
 
     /**
      * 여행 계획(DRAFT)을 시작해 진행중(IN_PROGRESS) 상태로 전환합니다.
@@ -79,8 +70,7 @@ public class TripService {
             throw new GeneralException(PlanErrorCode.TRIP_ALREADY_IN_PROGRESS);
         }
 
-        return TripConverter.toResponse(plan, waypointService.listWaypoints(plan.getId()),
-                buildRoutesResponse(plan.getId()));
+        return TripConverter.toResponse(plan, waypointService.listWaypoints(plan.getId()));
     }
 
     /**
@@ -111,8 +101,7 @@ public class TripService {
         TravelPlan plan = travelPlanRepository.findByUserIdAndStatus(userId, TravelPlanStatus.IN_PROGRESS)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.CURRENT_TRIP_NOT_FOUND));
 
-        return TripConverter.toResponse(plan, waypointService.listWaypoints(plan.getId()),
-                buildRoutesResponse(plan.getId()));
+        return TripConverter.toResponse(plan, waypointService.listWaypoints(plan.getId()));
     }
 
     /**
@@ -126,12 +115,12 @@ public class TripService {
      * 예외가 발생해 실제 방문하지 않은 인증을 막습니다.</p>
      *
      * <p>방문 인증에 성공하면 {@link BadgeService#grantEarnedBadges}로 이번 방문으로 새로
-     * 조건을 충족한 뱃지를 즉시 지급합니다. 마지막 경유지 방문 시 여행이 자동으로 완료됩니다.</p>
+     * 조건을 충족한 뱃지를 즉시 지급합니다.</p>
      *
-     * @return 방문 인증 결과 — 갱신된 경유지 목록과 자동 완료 여부
+     * @return 방문 인증 후 갱신된 전체 경유지 목록 (순서 오름차순)
      */
     @Transactional
-    public VisitCheckResponse checkVisit(Long tripId, Long userId, VisitCheckRequest request) {
+    public List<WaypointResponse> checkVisit(Long tripId, Long userId, VisitCheckRequest request) {
         locationUsageLogService.recordVisitVerification(userId);
 
         TravelPlan plan = findPlanAndVerifyOwner(tripId, userId);
@@ -166,19 +155,7 @@ public class TripService {
         target.checkVisit(now);
         badgeService.grantEarnedBadges(userId);
 
-        List<WaypointResponse> waypoints = waypointService.listWaypoints(tripId);
-
-        List<TravelCourse> allCourses = travelCourseRepository
-                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(tripId);
-        if (!allCourses.isEmpty() && allCourses.stream().allMatch(TravelCourse::isVisited)) {
-            LocalDateTime actualStartedAt = plan.getActualStartedAt();
-            plan.complete(now);
-            badgeService.grantEarnedBadges(userId);
-            List<UserBadge> earnedBadges = badgeService.getBadgesEarnedSince(userId, actualStartedAt);
-            return TripConverter.toVisitCheckResponse(waypoints, true, earnedBadges);
-        }
-
-        return TripConverter.toVisitCheckResponse(waypoints, false, null);
+        return waypointService.listWaypoints(tripId);
     }
 
     /**
@@ -189,13 +166,12 @@ public class TripService {
      * VISIT_RADIUS_METERS} 반경 검사)과 위치 사용 로그 기록은 거치지 않고 곧바로
      * {@code visited}를 true로 처리해, 다음 경유지를 인증할 수 있도록 순번을 넘깁니다.
      * 다만 {@code skipped} 플래그를 함께 남겨, 실제 GPS 방문 인증과 구분해 뱃지 집계
-     * ({@link com.example.jejugilmoa.domain.badge.service.BadgeService})에서는 제외됩니다.
-     * 마지막 경유지 건너뜀 시 여행이 자동으로 완료됩니다.</p>
+     * ({@link com.example.jejugilmoa.domain.badge.service.BadgeService})에서는 제외됩니다.</p>
      *
-     * @return 건너뛴 후 결과 — 갱신된 경유지 목록과 자동 완료 여부
+     * @return 건너뛴 후 갱신된 전체 경유지 목록 (순서 오름차순)
      */
     @Transactional
-    public VisitCheckResponse skipWaypoint(Long tripId, Long userId, Long waypointId) {
+    public List<WaypointResponse> skipWaypoint(Long tripId, Long userId, Long waypointId) {
         TravelPlan plan = findPlanAndVerifyOwner(tripId, userId);
 
         if (plan.getStatus() != TravelPlanStatus.IN_PROGRESS) {
@@ -217,22 +193,9 @@ public class TripService {
             throw new GeneralException(PlanErrorCode.WAYPOINT_OUT_OF_ORDER);
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        target.skip(now);
+        target.skip(LocalDateTime.now());
 
-        List<WaypointResponse> waypoints = waypointService.listWaypoints(tripId);
-
-        List<TravelCourse> allCourses = travelCourseRepository
-                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(tripId);
-        if (!allCourses.isEmpty() && allCourses.stream().allMatch(TravelCourse::isVisited)) {
-            LocalDateTime actualStartedAt = plan.getActualStartedAt();
-            plan.complete(now);
-            badgeService.grantEarnedBadges(userId);
-            List<UserBadge> earnedBadges = badgeService.getBadgesEarnedSince(userId, actualStartedAt);
-            return TripConverter.toVisitCheckResponse(waypoints, true, earnedBadges);
-        }
-
-        return TripConverter.toVisitCheckResponse(waypoints, false, null);
+        return waypointService.listWaypoints(tripId);
     }
 
     /**
@@ -327,25 +290,6 @@ public class TripService {
                 plan, courses.size(), calculateTotalDistanceKm(courses), earnedBadges);
     }
 
-    /**
-     * 진행중인 여행을 중단합니다.
-     *
-     * <p>진행중(IN_PROGRESS) 상태인 여행만 중단할 수 있으며, 그 외 상태이면
-     * {@code TRIP_NOT_CANCELLABLE} 예외가 발생합니다. 중단 후 상태는 {@code CANCELLED}로
-     * 전환되며, 이후 새로운 여행을 시작할 수 있습니다.</p>
-     */
-    @Transactional
-    public TripCancelResponse cancel(Long tripId, Long userId) {
-        TravelPlan plan = findPlanAndVerifyOwner(tripId, userId);
-
-        if (plan.getStatus() != TravelPlanStatus.IN_PROGRESS) {
-            throw new GeneralException(PlanErrorCode.TRIP_NOT_CANCELLABLE);
-        }
-
-        plan.cancel(LocalDateTime.now());
-        return TripConverter.toCancelResponse(plan);
-    }
-
     // 방문 순서(visitDate, sequenceOrder)를 그대로 따라 인접 장소 간 직선거리를 합산 (Haversine)
     private double calculateTotalDistanceKm(List<TravelCourse> orderedCourses) {
         double totalKm = 0.0;
@@ -384,18 +328,6 @@ public class TripService {
                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return EARTH_RADIUS_KM * c;
-    }
-
-    private TravelPlanRoutesResponse buildRoutesResponse(Long planId) {
-        var savedRoutes = travelPlanRouteRepository.findAllByTravelPlanIdOrderByRouteDateAsc(planId);
-        RouteGenerationStatus generation = travelPlanRouteJobRepository.findStateByPlanId(planId)
-                .map(job -> switch (job.status()) {
-                    case PENDING -> RouteGenerationStatus.PENDING;
-                    case RUNNING -> job.leaseValid() ? RouteGenerationStatus.RUNNING : RouteGenerationStatus.PENDING;
-                    case DONE -> RouteGenerationStatus.DONE;
-                }).orElse(RouteGenerationStatus.NOT_REQUESTED);
-        return new TravelPlanRoutesResponse(planId, new TravelPlanRoutesResponse.Generation(generation),
-                savedRoutes.stream().map(TravelPlanRouteConverter::toResponse).toList());
     }
 
     // SELECT FOR UPDATE: 같은 plan에 대한 시작/방문인증 요청을 직렬화

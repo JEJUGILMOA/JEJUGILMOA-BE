@@ -18,8 +18,6 @@ public record TripResponse(
 
         @Schema(description = "실제 여행 시작 시각") LocalDateTime actualStartedAt,
 
-        @Schema(description = "경유지 목록 (방문 순서)") List<WaypointResponse> waypoints,
-
-        @Schema(description = "날짜별 경로 정보") TravelPlanRoutesResponse routes
+        @Schema(description = "경유지 목록 (방문 순서)") List<WaypointResponse> waypoints
 
 ) {}
