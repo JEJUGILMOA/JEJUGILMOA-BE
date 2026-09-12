@@ -162,7 +162,7 @@ public class TripService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        // checkTravelSpeed(tripId, target, now); // TODO: 프론트 연동 테스트 후 복구
+        checkTravelSpeed(tripId, target, now);
         target.checkVisit(now);
         badgeService.grantEarnedBadges(userId);
 
