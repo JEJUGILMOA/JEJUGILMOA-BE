@@ -2,10 +2,12 @@ package com.example.jejugilmoa.domain.plan.controller;
 
 import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.plan.controller.docs.TripControllerDocs;
+import com.example.jejugilmoa.domain.plan.dto.TripCancelResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
+import com.example.jejugilmoa.domain.plan.dto.VisitCheckResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointReorderRequest;
@@ -47,7 +49,7 @@ public class TripController implements TripControllerDocs {
     }
 
     @PostMapping("/{tripId}/visits")
-    public ApiResponse<List<WaypointResponse>> checkVisit(
+    public ApiResponse<VisitCheckResponse> checkVisit(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long tripId,
             @Valid @RequestBody VisitCheckRequest request) {
@@ -57,7 +59,7 @@ public class TripController implements TripControllerDocs {
     }
 
     @PostMapping("/{tripId}/waypoints/{waypointId}/skip")
-    public ApiResponse<List<WaypointResponse>> skipWaypoint(
+    public ApiResponse<VisitCheckResponse> skipWaypoint(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long tripId,
             @PathVariable Long waypointId) {
@@ -104,5 +106,14 @@ public class TripController implements TripControllerDocs {
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.REQUEST_OK,
                 tripService.complete(tripId, principal.userId()));
+    }
+
+    @PostMapping("/{tripId}/cancel")
+    public ApiResponse<TripCancelResponse> cancel(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long tripId) {
+        return ApiResponse.onSuccess(
+                GeneralSuccessCode.REQUEST_OK,
+                tripService.cancel(tripId, principal.userId()));
     }
 }

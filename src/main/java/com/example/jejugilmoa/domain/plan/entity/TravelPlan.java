@@ -78,6 +78,9 @@ public class TravelPlan extends BaseEntity {
     @Column(name = "actual_completed_at")
     private LocalDateTime actualCompletedAt;  // 실제 여행 완료 시각 (여행 완료 API 호출 시각)
 
+    @Column(name = "actual_cancelled_at")
+    private LocalDateTime actualCancelledAt;  // 실제 여행 중단 시각 (여행 중단 API 호출 시각)
+
     @OneToMany(
             mappedBy = "travelPlan",
             cascade = CascadeType.ALL,
@@ -110,6 +113,11 @@ public class TravelPlan extends BaseEntity {
     public void complete(LocalDateTime completedAt) {
         this.status = TravelPlanStatus.COMPLETED;
         this.actualCompletedAt = completedAt;
+    }
+
+    public void cancel(LocalDateTime cancelledAt) {
+        this.status = TravelPlanStatus.CANCELLED;
+        this.actualCancelledAt = cancelledAt;
     }
 
     private Integer budgetTransportation;
