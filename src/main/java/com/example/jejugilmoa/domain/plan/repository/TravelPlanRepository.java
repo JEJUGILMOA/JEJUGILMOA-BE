@@ -8,9 +8,9 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Optional;
-
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface TravelPlanRepository extends JpaRepository<TravelPlan, Long> {
 
@@ -64,5 +64,19 @@ public interface TravelPlanRepository extends JpaRepository<TravelPlan, Long> {
                     AND u.deletedAt IS NULL
         """)
     Optional<TravelPlan> findByIdWithPreferences(@Param("planId") Long planId);
+
+    // 자동 시작 대상: 시작일이 오늘 이하이고, DRAFT 상태이며, 해당 유저에게 이미 IN_PROGRESS 계획이 없는 것
+    @Query("""
+            SELECT p.id FROM TravelPlan p
+            WHERE p.status = com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus.DRAFT
+            AND p.startDate <= :today
+            AND p.user.deletedAt IS NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM TravelPlan other
+                WHERE other.user.id = p.user.id
+                AND other.status = com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus.IN_PROGRESS
+            )
+            """)
+    List<Long> findDraftPlanIdsToAutoStart(@Param("today") LocalDate today);
 
 }
