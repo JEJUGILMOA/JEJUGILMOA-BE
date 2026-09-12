@@ -14,8 +14,34 @@ import java.util.Optional;
 public interface PlaceRepository extends JpaRepository<Place, Long> {
     Optional<Place> findByExternalId(String externalId);
     Optional<Place> findByIdAndPublishedTrue(Long id);
+
+    @Query(value = """
+            SELECT p.* FROM place p
+            WHERE p.is_published = true
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     p.visitor_count DESC
+            """,
+            countQuery = "SELECT COUNT(p.id) FROM place p WHERE p.is_published = true",
+            nativeQuery = true)
     Page<Place> findByPublishedTrue(Pageable pageable);
-    Page<Place> findByCategoryNameAndPublishedTrue(String categoryName, Pageable pageable);
+
+    @Query(value = """
+            SELECT p.* FROM place p
+            JOIN category c ON c.id = p.category_id
+            WHERE p.is_published = true
+              AND c.name = :categoryName
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     p.visitor_count DESC
+            """,
+            countQuery = """
+            SELECT COUNT(p.id) FROM place p
+            JOIN category c ON c.id = p.category_id
+            WHERE p.is_published = true
+              AND c.name = :categoryName
+            """,
+            nativeQuery = true)
+    Page<Place> findByCategoryNameAndPublishedTrue(@Param("categoryName") String categoryName, Pageable pageable);
+
     boolean existsByExternalId(String externalId);
 
     /** image_enriched=false인 경우에만 true로 변경. 반환값 1=이 TX가 선점, 0=이미 다른 TX가 처리 중. */
@@ -37,6 +63,7 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
                    OR lower(p.name)    LIKE lower('%' || CAST(:keyword AS text) || '%') ESCAPE '!'
                    OR lower(p.address) LIKE lower('%' || CAST(:keyword AS text) || '%') ESCAPE '!')
               AND (CAST(:categoryName AS text) IS NULL OR c.name = CAST(:categoryName AS text))
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC
             """,
             countQuery = """
             SELECT COUNT(p.id) FROM place p
@@ -62,7 +89,8 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
             WHERE p.is_published = true
               AND c.name IN (:categoryNames)
               AND p.id NOT IN (:excludedIds)
-            ORDER BY p.visitor_count DESC
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     p.visitor_count DESC
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findByCategoriesOrderByPopularity(
@@ -78,7 +106,8 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
             SELECT * FROM place
             WHERE is_published = true
               AND id NOT IN (:excludedIds)
-            ORDER BY RANDOM()
+            ORDER BY CASE WHEN image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     RANDOM()
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findRandom(
@@ -95,7 +124,8 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
             WHERE p.is_published = true
               AND c.name = :categoryName
               AND p.id NOT IN (:excludedIds)
-            ORDER BY RANDOM()
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     RANDOM()
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findRandomByCategory(
@@ -117,10 +147,11 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
                   ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
                   :radiusMeters
               )
-            ORDER BY ST_Distance(
-                p.geom::geography,
-                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
-            )
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     ST_Distance(
+                         p.geom::geography,
+                         ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
+                     )
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findWithinRadius(
@@ -145,10 +176,11 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
                   ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
                   :radiusMeters
               )
-            ORDER BY ST_Distance(
-                p.geom::geography,
-                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
-            )
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     ST_Distance(
+                         p.geom::geography,
+                         ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
+                     )
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findWithinRadiusByCategory(
@@ -185,10 +217,11 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
                         sqrt(power(ST_X(p.geom) - :bLon, 2) + power(ST_Y(p.geom) - :bLat, 2))
                     )
                   END
-            ORDER BY ST_Distance(
-                p.geom::geography,
-                ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography
-            )
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     ST_Distance(
+                         p.geom::geography,
+                         ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography
+                     )
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findInSectorAll(
@@ -227,10 +260,11 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
                         sqrt(power(ST_X(p.geom) - :bLon, 2) + power(ST_Y(p.geom) - :bLat, 2))
                     )
                   END
-            ORDER BY ST_Distance(
-                p.geom::geography,
-                ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography
-            )
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     ST_Distance(
+                         p.geom::geography,
+                         ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography
+                     )
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findInSectorAllByCategory(
@@ -256,7 +290,7 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
      *       좌표계 기반 근사(경위도 degree 단위)이므로 소규모 지역(제주도 수준)에서만 사용합니다.</li>
      * </ol>
      *
-     * <p>결과는 B로부터의 거리 오름차순(가까운 것 우선)으로 반환합니다.</p>
+     * <p>결과는 이미지 있는 장소 우선, 그 다음 B로부터의 거리 오름차순으로 반환합니다.</p>
      *
      * @param cosHalfAngle 부채꼴 반각의 코사인 값 (예: cos(60°) = 0.5 → ±60° = 120° 부채꼴)
      */
@@ -282,10 +316,11 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
                         sqrt(power(ST_X(p.geom) - :bLon, 2) + power(ST_Y(p.geom) - :bLat, 2))
                     )
                   END
-            ORDER BY ST_Distance(
-                p.geom::geography,
-                ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography
-            )
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     ST_Distance(
+                         p.geom::geography,
+                         ST_SetSRID(ST_MakePoint(:bLon, :bLat), 4326)::geography
+                     )
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findInSector(
@@ -311,7 +346,8 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
             SELECT p.* FROM place p
             WHERE p.is_published = true
               AND p.geom && ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326)
-            ORDER BY p.visitor_count DESC
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     p.visitor_count DESC
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findWithinBounds(
@@ -334,7 +370,8 @@ public interface PlaceRepository extends JpaRepository<Place, Long> {
             WHERE p.is_published = true
               AND c.name = :categoryName
               AND p.geom && ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326)
-            ORDER BY p.visitor_count DESC
+            ORDER BY CASE WHEN p.image_url IS NULL THEN 1 ELSE 0 END ASC,
+                     p.visitor_count DESC
             LIMIT :limit
             """, nativeQuery = true)
     List<Place> findWithinBoundsAndCategory(
