@@ -4,6 +4,7 @@ import com.example.jejugilmoa.domain.badge.service.BadgeService;
 import com.example.jejugilmoa.domain.locationusage.service.LocationUsageLogService;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
+import com.example.jejugilmoa.domain.plan.dto.VisitCheckResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
@@ -11,6 +12,8 @@ import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
+import com.example.jejugilmoa.domain.plan.repository.TravelPlanRouteJobRepository;
+import com.example.jejugilmoa.domain.plan.repository.TravelPlanRouteRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import org.junit.jupiter.api.Test;
@@ -44,6 +47,8 @@ class TripServiceSkipTest {
     @Mock WaypointService waypointService;
     @Mock LocationUsageLogService locationUsageLogService;
     @Mock BadgeService badgeService;
+    @Mock TravelPlanRouteRepository travelPlanRouteRepository;
+    @Mock TravelPlanRouteJobRepository travelPlanRouteJobRepository;
     @InjectMocks TripService tripService;
 
     @Test
@@ -62,10 +67,17 @@ class TripServiceSkipTest {
                 .findFirstByTravelPlanIdAndVisitedFalseOrderByVisitDateAscSequenceOrderAsc(TRIP_ID))
                 .willReturn(Optional.of(target));
         given(waypointService.listWaypoints(TRIP_ID)).willReturn(expected);
+        // 아직 미방문 경유지가 남아 있으므로 자동 완료는 발생하지 않는다
+        TravelCourse remaining = TravelCourse.builder()
+                .id(32L).travelPlan(plan).place(place).visited(false).build();
+        given(travelCourseRepository
+                .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(TRIP_ID))
+                .willReturn(List.of(target, remaining));
 
-        List<WaypointResponse> result = tripService.skipWaypoint(TRIP_ID, USER_ID, WAYPOINT_ID);
+        VisitCheckResponse result = tripService.skipWaypoint(TRIP_ID, USER_ID, WAYPOINT_ID);
 
-        assertThat(result).isSameAs(expected);
+        assertThat(result.waypoints()).isSameAs(expected);
+        assertThat(result.autoCompleted()).isFalse();
         assertThat(target.isVisited()).isTrue();
         assertThat(target.getVisitedAt()).isNotNull();
         assertThat(target.isSkipped()).isTrue();
