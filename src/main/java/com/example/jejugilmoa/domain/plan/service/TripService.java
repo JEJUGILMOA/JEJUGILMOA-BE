@@ -23,6 +23,7 @@ import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -70,6 +71,26 @@ public class TripService {
         }
 
         return TripConverter.toResponse(plan, waypointService.listWaypoints(plan.getId()));
+    }
+
+    /**
+     * 스케줄러가 날짜 기반으로 자동 시작할 때 호출합니다.
+     * 각 계획을 독립 트랜잭션으로 처리해, 한 계획의 충돌이 다른 계획에 영향을 주지 않습니다.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void autoStart(Long planId) {
+        TravelPlan plan = travelPlanRepository.findByIdForUpdate(planId)
+                .orElse(null);
+        if (plan == null || plan.getStatus() != TravelPlanStatus.DRAFT) {
+            return;
+        }
+
+        plan.start(plan.getStartDate().atStartOfDay());
+        try {
+            travelPlanRepository.saveAndFlush(plan);
+        } catch (DataIntegrityViolationException e) {
+            // 동시 자동 시작 등으로 이미 IN_PROGRESS 계획이 생긴 경우 건너뜀
+        }
     }
 
     /**
