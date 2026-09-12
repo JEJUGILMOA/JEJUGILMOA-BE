@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 주간 인기도 동기화 (매주 월요일 02:00)
@@ -75,13 +76,18 @@ public class PopularPlaceSyncScheduler {
                                 pp.getPlace().updateImageUrl(item.firstimage());
                             }
                         },
-                        () -> placeRepository.findByExternalId(item.contentid()).ifPresent(place ->
+                        () -> placeRepository.findByExternalId(item.contentid()).ifPresent(place -> {
+                            if (place.getImageUrl() == null
+                                    && item.firstimage() != null && !item.firstimage().isBlank()) {
+                                place.updateImageUrl(item.firstimage());
+                            }
+                            if (place.getImageUrl() == null) return;
                             popularPlaceRepository.save(PopularPlace.builder()
                                 .place(place)
                                 .visitCount(score)
                                 .searchCount(0)
-                                .build())
-                        )
+                                .build());
+                        })
                     );
         }
     }
@@ -108,15 +114,20 @@ public class PopularPlaceSyncScheduler {
         }
 
         // 빈도 상위 TRAVELER_PICK_COUNT개 contentId → TRAVELER_PICK 레이블 부여
-        frequencyMap.entrySet().stream()
+        List<Map.Entry<String, Integer>> sorted = frequencyMap.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .limit(TRAVELER_PICK_COUNT)
-                .forEach(entry -> {
-                    String contentId = entry.getKey();
-                    popularPlaceRepository.findByPlaceExternalId(contentId)
-                            .ifPresent(pp -> pp.updateCurationLabel(CurationLabel.TRAVELER_PICK));
-                });
+                .toList();
 
-        log.info("TRAVELER_PICK 동기화 완료: 후보 {}건 중 최대 {}개 지정", frequencyMap.size(), TRAVELER_PICK_COUNT);
+        int labeled = 0;
+        for (Map.Entry<String, Integer> entry : sorted) {
+            if (labeled >= TRAVELER_PICK_COUNT) break;
+            Optional<PopularPlace> pp = popularPlaceRepository.findByPlaceExternalId(entry.getKey());
+            if (pp.isPresent() && pp.get().getPlace().getImageUrl() != null) {
+                pp.get().updateCurationLabel(CurationLabel.TRAVELER_PICK);
+                labeled++;
+            }
+        }
+
+        log.info("TRAVELER_PICK 동기화 완료: 후보 {}건 중 {}개 지정 (이미지 없는 장소 제외)", frequencyMap.size(), labeled);
     }
 }

@@ -78,16 +78,20 @@ public class TodayPickSyncScheduler {
     private void matchAndLabel(String tAtsNm) {
         if (tAtsNm == null || tAtsNm.isBlank()) return;
 
-        // 1차: 정확한 이름 매칭
         Optional<Place> matched = placeRepository.findByNameIgnoreCase(tAtsNm.trim());
 
-        // 2차: 이름이 없으면 warn 로그만 (퍼지 매칭은 성능 이슈로 제외)
         if (matched.isEmpty()) {
             log.debug("TODAY_PICK 매칭 실패 (DB에 없는 장소): {}", tAtsNm);
             return;
         }
 
-        popularPlaceRepository.findByPlace(matched.get())
+        Place place = matched.get();
+        if (place.getImageUrl() == null) {
+            log.debug("TODAY_PICK 제외 (이미지 없음): {}", tAtsNm);
+            return;
+        }
+
+        popularPlaceRepository.findByPlace(place)
                 .ifPresent(pp -> pp.updateCurationLabel(CurationLabel.TODAY_PICK));
     }
 
