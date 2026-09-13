@@ -211,17 +211,31 @@ public class BadgeDataInitializer implements ApplicationRunner {
         }
     }
 
-    // 코스 경유지가 하나라도 미존재하면 부분 코스가 되지 않도록 전체를 보류한다
+    // 코스 경유지가 하나라도 미존재하면 부분 코스가 되지 않도록 전체를 보류한다 (기존 조건이 있으면 유지)
     private void seedCourseCondition(Badge badge, ConditionSpec spec, List<BadgeCondition> existing) {
-        if (existing.stream().anyMatch(c -> c.getConditionType() == BadgeConditionType.COURSE)) {
-            return;
-        }
         List<Place> resolved = spec.courseStopNames().stream()
                 .map(name -> placeRepository.findAllByNameIn(List.of(name)).stream().findFirst().orElse(null))
                 .toList();
         if (resolved.stream().anyMatch(Objects::isNull)) {
             log.warn("뱃지 '{}' 코스 경유지 미존재 (place 동기화 후 재시도됨): {}", badge.getName(), spec.courseStopNames());
             return;
+        }
+
+        // 스펙과 경유지·순서가 동일한 조건이 이미 있으면 그대로 두고, 다르면(스펙 변경) 삭제 후
+        // 재시드한다. 조건 교체는 이미 지급된 UserBadge에는 영향을 주지 않는다.
+        List<Long> targetPlaceIds = resolved.stream().map(Place::getId).toList();
+        List<BadgeCondition> courseConditions = existing.stream()
+                .filter(c -> c.getConditionType() == BadgeConditionType.COURSE)
+                .toList();
+        boolean alreadySeeded = courseConditions.stream().anyMatch(c -> targetPlaceIds.equals(
+                c.getCourseStops().stream().map(stop -> stop.getPlace().getId()).toList()));
+        if (alreadySeeded) {
+            return;
+        }
+        if (!courseConditions.isEmpty()) {
+            log.info("뱃지 '{}' 코스 조건 스펙 변경 감지 — 기존 조건 {}건을 삭제하고 재시드합니다: {}",
+                    badge.getName(), courseConditions.size(), spec.courseStopNames());
+            badgeConditionRepository.deleteAll(courseConditions);
         }
         BadgeCondition condition = BadgeCondition.builder()
                 .badge(badge)
