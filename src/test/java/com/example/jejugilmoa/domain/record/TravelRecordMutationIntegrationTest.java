@@ -1,6 +1,10 @@
 package com.example.jejugilmoa.domain.record;
 
 import com.example.jejugilmoa.domain.imageupload.service.ImageObjectVerifier;
+import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
+import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
+import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
+import com.example.jejugilmoa.domain.record.dto.TravelRecordCreateRequest;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordUpdateRequest;
 import com.example.jejugilmoa.domain.record.entity.TravelRecordImage;
 import com.example.jejugilmoa.domain.record.repository.TravelRecordImageRepository;
@@ -16,6 +20,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -25,11 +30,48 @@ import static org.mockito.Mockito.verify;
 class TravelRecordMutationIntegrationTest {
 
     @Autowired TravelRecordService travelRecordService;
+    @Autowired TravelPlanRepository travelPlanRepository;
     @Autowired TravelRecordRepository travelRecordRepository;
     @Autowired TravelRecordImageRepository travelRecordImageRepository;
     @Autowired UserRepository userRepository;
     @Autowired JdbcClient jdbcClient;
     @MockitoBean ImageObjectVerifier imageObjectVerifier;
+
+    @Test
+    void createPersistsObjectKeyImageWithoutLegacyImageUrl() {
+        User owner = userRepository.saveAndFlush(User.builder().nickname("기록 생성 이미지 테스트").build());
+        TravelPlan plan = travelPlanRepository.saveAndFlush(TravelPlan.builder()
+                .user(owner).title("완료된 여행").startDate(LocalDate.now()).endDate(LocalDate.now())
+                .status(TravelPlanStatus.COMPLETED).build());
+        String key = "records/%d/ff.png".formatted(owner.getId());
+
+        var response = travelRecordService.create(owner.getId(), new TravelRecordCreateRequest(
+                plan.getId(), "이미지 기록", null, null, List.of(), List.of(key)));
+        travelRecordRepository.flush();
+
+        assertThat(jdbcClient.sql("SELECT object_key FROM travel_record_image WHERE travel_record_id = :id")
+                .param("id", response.recordId()).query(String.class).list()).containsExactly(key);
+        verify(imageObjectVerifier).verify(key);
+    }
+
+    @Test
+    void saveAndFlushImageRequiresOnlyObjectKey() {
+        User owner = userRepository.saveAndFlush(User.builder().nickname("이미지 저장 테스트").build());
+        Long recordId = insertRecord(owner.getId());
+        String key = "records/%d/ff.png".formatted(owner.getId());
+
+        TravelRecordImage image = travelRecordImageRepository.saveAndFlush(TravelRecordImage.builder()
+                .travelRecord(travelRecordRepository.getReferenceById(recordId))
+                .objectKey(key).sequenceOrder(1).build());
+
+        assertThat(jdbcClient.sql("SELECT object_key FROM travel_record_image WHERE id = :id")
+                .param("id", image.getId()).query(String.class).single()).isEqualTo(key);
+        assertThat(jdbcClient.sql("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = current_schema() AND table_name = 'travel_record_image'
+                  AND column_name = 'image_url'
+                """).query(Integer.class).single()).isZero();
+    }
 
     @Test
     void updateReordersImagesAcrossDatabaseUniqueConstraint() {
