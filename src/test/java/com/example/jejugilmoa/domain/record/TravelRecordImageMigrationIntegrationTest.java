@@ -6,7 +6,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import javax.sql.DataSource;
 import java.nio.file.Files;
@@ -19,12 +21,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest
 class TravelRecordImageMigrationIntegrationTest {
 
-    @Autowired DataSource dataSource;
+    @Autowired DataSource applicationDataSource;
+    @Autowired Environment environment;
     @TempDir Path migrations;
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void repairsLegacyColumnAndAcceptsAlreadyMigratedSchema(boolean hasLegacyColumn) throws Exception {
+        SchemaState applicationStateBefore = readApplicationSchemaState();
+        assertThat(applicationStateBefore.schema()).isEqualTo("public");
+        // Flyway와 setSchema는 공용 Hikari 풀 대신 매번 새 물리 연결을 사용한다.
+        DataSource migrationDataSource = new DriverManagerDataSource(
+                environment.getRequiredProperty("spring.datasource.url"),
+                environment.getRequiredProperty("spring.datasource.username"),
+                environment.getRequiredProperty("spring.datasource.password"));
         String schema = "record_image_" + UUID.randomUUID().toString().replace("-", "");
         Files.writeString(migrations.resolve("V41__fixture.sql"), """
                 CREATE TABLE travel_record_image (
@@ -38,12 +48,12 @@ class TravelRecordImageMigrationIntegrationTest {
                 "db/migration/V42__repair_legacy_travel_record_image_url.sql").getInputStream()) {
             Files.copy(sql, migrations.resolve("V42__repair_legacy_travel_record_image_url.sql"));
         }
-        Flyway flyway = Flyway.configure().dataSource(dataSource).schemas(schema)
+        Flyway flyway = Flyway.configure().dataSource(migrationDataSource).schemas(schema)
                 .locations("filesystem:" + migrations).cleanDisabled(false).load();
         try {
-            Flyway.configure().dataSource(dataSource).schemas(schema)
+            Flyway.configure().dataSource(migrationDataSource).schemas(schema)
                     .locations("filesystem:" + migrations).target("41").load().migrate();
-            try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            try (var connection = migrationDataSource.getConnection(); var statement = connection.createStatement()) {
                 connection.setSchema(schema);
                 if (hasLegacyColumn) {
                     assertThatThrownBy(() -> statement.executeUpdate(
@@ -68,7 +78,36 @@ class TravelRecordImageMigrationIntegrationTest {
                 assertThat(flyway.migrate().migrationsExecuted).isZero();
             }
         } finally {
-            flyway.clean();
+            try {
+                flyway.clean();
+                try (var connection = migrationDataSource.getConnection();
+                     var statement = connection.prepareStatement("SELECT COUNT(*) FROM pg_namespace WHERE nspname = ?")) {
+                    statement.setString(1, schema);
+                    try (var rows = statement.executeQuery()) {
+                        rows.next();
+                        assertThat(rows.getInt(1)).isZero();
+                    }
+                }
+            } finally {
+                // 테스트 종료 후 공용 풀에서 새로 빌린 연결도 기존 검색 경로를 유지해야 한다.
+                assertThat(readApplicationSchemaState()).isEqualTo(applicationStateBefore);
+            }
         }
     }
+
+    private SchemaState readApplicationSchemaState() throws Exception {
+        try (var connection = applicationDataSource.getConnection(); var statement = connection.createStatement()) {
+            String schema;
+            try (var rows = statement.executeQuery("SELECT current_schema()")) {
+                rows.next();
+                schema = rows.getString(1);
+            }
+            try (var rows = statement.executeQuery("SHOW search_path")) {
+                rows.next();
+                return new SchemaState(schema, rows.getString(1));
+            }
+        }
+    }
+
+    private record SchemaState(String schema, String searchPath) {}
 }
