@@ -164,10 +164,11 @@ public interface TripControllerDocs {
                       아니면 `PLAN400_12` 오류가 반환됩니다 (일반적인 GPS 오차를 감안한 값).
                     - 여행이 진행중(IN_PROGRESS)이 아니면 `PLAN400_10` 오류가 반환됩니다.
                     - 이미 방문 인증된 경유지를 다시 인증하면 `PLAN400_11` 오류가 반환됩니다.
-                    - 방문 인증에 성공하면, 이번 방문으로 조건을 새로 충족한 뱃지가 있다면 즉시
-                      지급됩니다 (지급된 뱃지 목록은 이 응답이 아니라 여행 완료 API의
-                      `earnedBadges`에서 모아 확인할 수 있습니다).
-                    - 응답으로 방문 인증 후 전체 경유지 목록(순서 오름차순)을 반환합니다.
+                    - 방문 인증에 성공하면, 이번 방문으로 조건을 새로 충족한 뱃지가 즉시 지급되며
+                      지급된 뱃지 목록이 응답의 `earnedBadges`로 반환됩니다 (없으면 빈 배열).
+                    - 마지막 경유지를 인증하면 여행이 자동 완료되어 `autoCompleted`가 true가 되고,
+                      이때 `earnedBadges`는 이번 여행 전체에서 획득한 뱃지 목록입니다.
+                    - 응답의 `waypoints`는 방문 인증 후 전체 경유지 목록(순서 오름차순)입니다.
                     """
     )
     @RequestBody(
@@ -188,22 +189,34 @@ public interface TripControllerDocs {
                               "isSuccess": true,
                               "code": "COMMON201",
                               "message": "성공적으로 응답이 생성되었습니다.",
-                              "result": [
-                                {
-                                  "waypointId": 7,
-                                  "visitDate": "2026-08-15",
-                                  "sequenceOrder": 1,
-                                  "placeId": 42,
-                                  "placeName": "애월 카페거리",
-                                  "categoryName": "카페",
-                                  "imageUrl": "https://cdn.example.com/42.jpg",
-                                  "address": "제주시 애월읍",
-                                  "visited": true,
-                                  "visitedAt": "2026-07-31T09:12:34",
-                                  "skipped": false,
-                                  "skippedAt": null
-                                }
-                              ]
+                              "result": {
+                                "waypoints": [
+                                  {
+                                    "waypointId": 7,
+                                    "visitDate": "2026-08-15",
+                                    "sequenceOrder": 1,
+                                    "placeId": 42,
+                                    "placeName": "애월 카페거리",
+                                    "categoryName": "카페",
+                                    "imageUrl": "https://cdn.example.com/42.jpg",
+                                    "address": "제주시 애월읍",
+                                    "visited": true,
+                                    "visitedAt": "2026-07-31T09:12:34",
+                                    "skipped": false,
+                                    "skippedAt": null
+                                  }
+                                ],
+                                "autoCompleted": false,
+                                "earnedBadges": [
+                                  {
+                                    "badgeId": 5,
+                                    "name": "애월 단골",
+                                    "description": "애월 카페거리를 3번 방문했어요.",
+                                    "imageUrl": "https://cdn.example.com/badges/5.png",
+                                    "acquiredAt": "2026-07-31T09:12:34"
+                                  }
+                                ]
+                              }
                             }
                             """))
             ),
@@ -256,8 +269,11 @@ public interface TripControllerDocs {
                     - 여행이 진행중(IN_PROGRESS)이 아니면 `PLAN400_10` 오류가 반환됩니다.
                     - 이미 방문 인증(또는 건너뛰기)된 경유지를 다시 건너뛰면 `PLAN400_11` 오류가
                       반환됩니다.
-                    - 건너뛴 경유지는 실제 방문이 아니므로 뱃지 지급 대상에서 제외됩니다.
-                    - 응답으로 건너뛴 후 전체 경유지 목록(순서 오름차순)을 반환합니다.
+                    - 건너뛴 경유지는 실제 방문이 아니므로 뱃지 지급 대상에서 제외되며,
+                      자동 완료되지 않는 건너뛰기 요청의 `earnedBadges`는 빈 배열입니다. 단, 마지막 경유지를 건너뛰어 여행이
+                      자동 완료되면(`autoCompleted` true) 이번 여행 전체에서 획득한 뱃지 목록이
+                      반환됩니다.
+                    - 응답의 `waypoints`는 건너뛴 후 전체 경유지 목록(순서 오름차순)입니다.
                     """
     )
     @ApiResponses({
@@ -268,22 +284,26 @@ public interface TripControllerDocs {
                               "isSuccess": true,
                               "code": "COMMON200",
                               "message": "성공적으로 요청을 처리했습니다.",
-                              "result": [
-                                {
-                                  "waypointId": 7,
-                                  "visitDate": "2026-08-15",
-                                  "sequenceOrder": 1,
-                                  "placeId": 42,
-                                  "placeName": "애월 카페거리",
-                                  "categoryName": "카페",
-                                  "imageUrl": "https://cdn.example.com/42.jpg",
-                                  "address": "제주시 애월읍",
-                                  "visited": true,
-                                  "visitedAt": "2026-07-31T09:12:34",
-                                  "skipped": true,
-                                  "skippedAt": "2026-07-31T09:12:34"
-                                }
-                              ]
+                              "result": {
+                                "waypoints": [
+                                  {
+                                    "waypointId": 7,
+                                    "visitDate": "2026-08-15",
+                                    "sequenceOrder": 1,
+                                    "placeId": 42,
+                                    "placeName": "애월 카페거리",
+                                    "categoryName": "카페",
+                                    "imageUrl": "https://cdn.example.com/42.jpg",
+                                    "address": "제주시 애월읍",
+                                    "visited": true,
+                                    "visitedAt": "2026-07-31T09:12:34",
+                                    "skipped": true,
+                                    "skippedAt": "2026-07-31T09:12:34"
+                                  }
+                                ],
+                                "autoCompleted": false,
+                                "earnedBadges": []
+                              }
                             }
                             """))
             ),

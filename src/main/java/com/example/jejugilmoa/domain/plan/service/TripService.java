@@ -126,9 +126,11 @@ public class TripService {
      * 예외가 발생해 실제 방문하지 않은 인증을 막습니다.</p>
      *
      * <p>방문 인증에 성공하면 {@link BadgeService#grantEarnedBadges}로 이번 방문으로 새로
-     * 조건을 충족한 뱃지를 즉시 지급합니다. 마지막 경유지 방문 시 여행이 자동으로 완료됩니다.</p>
+     * 조건을 충족한 뱃지를 즉시 지급하고, 지급된 뱃지 목록을 응답의 {@code earnedBadges}로
+     * 돌려줍니다. 마지막 경유지 방문 시 여행이 자동으로 완료되며, 이때는 이번 여행
+     * ({@code actualStartedAt} 이후)에서 획득한 뱃지 전체 목록을 돌려줍니다.</p>
      *
-     * @return 방문 인증 결과 — 갱신된 경유지 목록과 자동 완료 여부
+     * @return 방문 인증 결과 — 갱신된 경유지 목록, 자동 완료 여부, 획득한 뱃지 목록
      */
     @Transactional
     public VisitCheckResponse checkVisit(Long tripId, Long userId, VisitCheckRequest request) {
@@ -164,7 +166,7 @@ public class TripService {
         LocalDateTime now = LocalDateTime.now();
         // checkTravelSpeed(tripId, target, now); // TODO: 프론트 연동 테스트 후 복구
         target.checkVisit(now);
-        badgeService.grantEarnedBadges(userId);
+        List<UserBadge> newlyEarned = badgeService.grantEarnedBadges(userId);
 
         List<WaypointResponse> waypoints = waypointService.listWaypoints(tripId);
 
@@ -178,7 +180,7 @@ public class TripService {
             return TripConverter.toVisitCheckResponse(waypoints, true, earnedBadges);
         }
 
-        return TripConverter.toVisitCheckResponse(waypoints, false, null);
+        return TripConverter.toVisitCheckResponse(waypoints, false, newlyEarned);
     }
 
     /**
@@ -232,7 +234,8 @@ public class TripService {
             return TripConverter.toVisitCheckResponse(waypoints, true, earnedBadges);
         }
 
-        return TripConverter.toVisitCheckResponse(waypoints, false, null);
+        // 건너뛰기는 뱃지 지급 대상이 아니므로 빈 목록을 돌려준다
+        return TripConverter.toVisitCheckResponse(waypoints, false, List.of());
     }
 
     /**

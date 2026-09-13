@@ -78,6 +78,7 @@ class TripServiceSkipTest {
 
         assertThat(result.waypoints()).isSameAs(expected);
         assertThat(result.autoCompleted()).isFalse();
+        assertThat(result.earnedBadges()).isEmpty();
         assertThat(target.isVisited()).isTrue();
         assertThat(target.getVisitedAt()).isNotNull();
         assertThat(target.isSkipped()).isTrue();
