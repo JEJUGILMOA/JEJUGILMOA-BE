@@ -42,7 +42,8 @@ public class TripConverter {
 
     public static VisitCheckResponse toVisitCheckResponse(
             List<WaypointResponse> waypoints, boolean autoCompleted, List<UserBadge> earnedBadges) {
-        List<BadgeEarnedResponse> badges = earnedBadges == null ? null
+        // 프론트가 null 분기 없이 처리할 수 있도록 항상 리스트로 내려준다
+        List<BadgeEarnedResponse> badges = earnedBadges == null ? List.of()
                 : earnedBadges.stream().map(BadgeConverter::toEarnedResponse).toList();
         return new VisitCheckResponse(waypoints, autoCompleted, badges);
     }

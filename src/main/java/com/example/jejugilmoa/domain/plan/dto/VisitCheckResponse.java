@@ -13,7 +13,7 @@ public record VisitCheckResponse(
         @Schema(description = "모든 경유지가 처리되어 여행이 자동 완료됐으면 true", example = "false")
         boolean autoCompleted,
 
-        @Schema(description = "자동 완료 시 이번 여행에서 획득한 뱃지 목록; 자동 완료가 아니면 null")
+        @Schema(description = "이번 방문 인증으로 새로 획득한 뱃지 목록 (자동 완료 시에는 이번 여행 전체에서 획득한 뱃지 목록). 획득한 뱃지가 없으면 빈 배열")
         List<BadgeEarnedResponse> earnedBadges
 
 ) {}
