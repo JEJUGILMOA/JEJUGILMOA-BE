@@ -3,6 +3,7 @@ package com.example.jejugilmoa.domain.plan.repository;
 import com.example.jejugilmoa.domain.plan.entity.TravelCourse;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -151,7 +152,7 @@ public interface TravelCourseRepository extends JpaRepository<TravelCourse, Long
             WHERE c.travelPlan.id = :planId AND c.visited = true AND c.skipped = false
             ORDER BY c.visitedAt DESC
             """)
-    Optional<TravelCourse> findLastGpsVerifiedWithPlace(@Param("planId") Long planId);
+    Optional<TravelCourse> findLastGpsVerifiedWithPlace(@Param("planId") Long planId, Limit limit);
 
     // 특정 Day의 경유지만 조회 — 재정렬 유효성 검사용
     List<TravelCourse> findAllByTravelPlanIdAndVisitDateOrderBySequenceOrderAsc(Long planId, LocalDate visitDate);

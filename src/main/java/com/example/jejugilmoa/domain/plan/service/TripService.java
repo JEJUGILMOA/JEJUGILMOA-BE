@@ -22,6 +22,7 @@ import com.example.jejugilmoa.domain.user.entity.UserBadge;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -306,7 +307,7 @@ public class TripService {
     // 이전 GPS 인증 방문 경유지와의 이동 속도를 검사합니다.
     // 직선 거리 기준으로도 MAX_TRAVEL_SPEED_KMH를 초과하면 물리적으로 불가능한 이동으로 판정합니다.
     private void checkTravelSpeed(Long tripId, TravelCourse target, LocalDateTime now) {
-        travelCourseRepository.findLastGpsVerifiedWithPlace(tripId).ifPresent(previous -> {
+        travelCourseRepository.findLastGpsVerifiedWithPlace(tripId, Limit.of(1)).ifPresent(previous -> {
             if (previous.getId().equals(target.getId())) return;
             double distanceKm = haversineKm(
                     previous.getPlace().getLatitude().doubleValue(),
