@@ -57,4 +57,11 @@ public interface RecommendedCourseRepository extends JpaRepository<RecommendedCo
             ORDER BY c.copyCount DESC
             """)
     List<RecommendedCourse> findAllByThemeInWithPathsOrderByCopyCountDesc(@Param("themes") List<String> themes);
+    @Query("""
+            SELECT DISTINCT c FROM RecommendedCourse c
+            LEFT JOIN FETCH c.paths p
+            LEFT JOIN FETCH p.place
+            WHERE c.id IN :courseIds
+            """)
+    List<RecommendedCourse> findAllByIdInWithPaths(@Param("courseIds") Collection<Long> courseIds);
 }
