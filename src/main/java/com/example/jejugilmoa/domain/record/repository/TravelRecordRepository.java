@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.Set;
 
 public interface TravelRecordRepository extends JpaRepository<TravelRecord, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -86,6 +87,26 @@ public interface TravelRecordRepository extends JpaRepository<TravelRecord, Long
                       AND u.deletedAt IS NULL
                     """)
     Page<TravelRecord> findActivePublic(Pageable pageable);
+
+    @Query(
+            value = """
+                    SELECT r FROM TravelRecord r
+                    JOIN FETCH r.user u
+                    WHERE r.visibility = com.example.jejugilmoa.domain.plan.enums.Visibility.PUBLIC
+                      AND r.deletedAt IS NULL
+                      AND u.deletedAt IS NULL
+                      AND r.user.id NOT IN :blockedUserIds
+                    """,
+            countQuery = """
+                    SELECT COUNT(r) FROM TravelRecord r
+                    JOIN r.user u
+                    WHERE r.visibility = com.example.jejugilmoa.domain.plan.enums.Visibility.PUBLIC
+                      AND r.deletedAt IS NULL
+                      AND u.deletedAt IS NULL
+                      AND r.user.id NOT IN :blockedUserIds
+                    """)
+    Page<TravelRecord> findActivePublicExcluding(
+            @Param("blockedUserIds") Set<Long> blockedUserIds, Pageable pageable);
 
     @Query("""
             SELECT r FROM TravelRecord r
