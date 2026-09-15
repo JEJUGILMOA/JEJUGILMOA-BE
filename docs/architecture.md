@@ -116,6 +116,15 @@ erDiagram
     PLACE ||--o{ PLACE_CONGESTION : "congestion data"
     PLACE ||--o| POPULAR_PLACE : "ranked as"
 
+    USER ||--o{ TRAVEL_RECORD_FAVORITE : saves
+    TRAVEL_RECORD ||--o{ TRAVEL_RECORD_FAVORITE : "saved as"
+    TRAVEL_RECORD_FAVORITE {
+        bigint id PK
+        bigint user_id FK "UNIQUE user_id + travel_record_id"
+        bigint travel_record_id FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
     USER ||--o{ TRAVEL_RECORD : writes
     TRAVEL_PLAN |o--o| TRAVEL_RECORD : "recorded from; retained after plan deletion"
     TRAVEL_RECORD ||--o{ TRAVEL_RECORD_IMAGE : photos
