@@ -9,6 +9,7 @@ import com.example.jejugilmoa.domain.record.repository.TravelRecordRepository;
 import com.example.jejugilmoa.domain.user.exception.UserErrorCode;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
+import com.example.jejugilmoa.domain.user.service.UserBlockService;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class TravelRecordReactionService {
     private final UserRepository userRepository;
     private final TravelRecordRepository travelRecordRepository;
     private final TravelRecordReactionRepository travelRecordReactionRepository;
+    private final UserBlockService userBlockService;
 
     @Transactional
     public void setReaction(Long userId, Long recordId, TravelRecordReactionRequest request) {
@@ -63,6 +65,9 @@ public class TravelRecordReactionService {
             throw new GeneralException(RecordErrorCode.RECORD_SELF_REACTION_NOT_ALLOWED);
         }
         if (record.getVisibility() != Visibility.PUBLIC) {
+            throw new GeneralException(RecordErrorCode.RECORD_NOT_FOUND);
+        }
+        if (userBlockService.isMutuallyBlocked(userId, authorId)) {
             throw new GeneralException(RecordErrorCode.RECORD_NOT_FOUND);
         }
     }
