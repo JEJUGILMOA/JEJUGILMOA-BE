@@ -3,6 +3,7 @@ package com.example.jejugilmoa.domain.record.service;
 import com.example.jejugilmoa.domain.imageupload.service.ImageUrlResolver;
 import com.example.jejugilmoa.domain.plan.enums.Visibility;
 import com.example.jejugilmoa.domain.record.converter.TravelRecordConverter;
+import com.example.jejugilmoa.domain.user.service.UserBlockService;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordCardResponse;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordDetailResponse;
 import com.example.jejugilmoa.domain.record.dto.TravelRecordImageResponse;
@@ -33,6 +34,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -46,11 +48,18 @@ public class TravelRecordQueryService {
     private final TravelRecordImageRepository travelRecordImageRepository;
     private final TravelRecordReactionRepository travelRecordReactionRepository;
     private final ImageUrlResolver imageUrlResolver;
+    private final UserBlockService userBlockService;
 
     public PageResponse<?> getRecords(Long userId, RecordView view, boolean mine, Pageable pageable) {
-        Page<TravelRecord> records = mine
-                ? travelRecordRepository.findActiveByUserId(userId, pageable)
-                : travelRecordRepository.findActivePublic(pageable);
+        Page<TravelRecord> records;
+        if (mine) {
+            records = travelRecordRepository.findActiveByUserId(userId, pageable);
+        } else {
+            Set<Long> blocked = userBlockService.getMutuallyBlockedUserIds(userId);
+            records = blocked.isEmpty()
+                    ? travelRecordRepository.findActivePublic(pageable)
+                    : travelRecordRepository.findActivePublicExcluding(blocked, pageable);
+        }
         return view == RecordView.MAP ? toMapPage(records) : toCardPage(records, userId);
     }
 
@@ -59,6 +68,11 @@ public class TravelRecordQueryService {
                 .filter(found -> found.getUser().getId().equals(userId)
                         || found.getVisibility() == Visibility.PUBLIC)
                 .orElseThrow(() -> new GeneralException(RecordErrorCode.RECORD_NOT_FOUND));
+
+        Long authorId = record.getUser().getId();
+        if (!userId.equals(authorId) && userBlockService.isMutuallyBlocked(userId, authorId)) {
+            throw new GeneralException(RecordErrorCode.RECORD_NOT_FOUND);
+        }
 
         List<TravelRecordPlace> places = travelRecordPlaceRepository
                 .findAllByRecordIdInSnapshotOrder(recordId);

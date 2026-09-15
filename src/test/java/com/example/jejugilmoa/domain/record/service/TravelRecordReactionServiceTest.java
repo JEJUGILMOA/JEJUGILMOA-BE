@@ -9,6 +9,7 @@ import com.example.jejugilmoa.domain.record.repository.TravelRecordReactionRepos
 import com.example.jejugilmoa.domain.record.repository.TravelRecordRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.domain.user.repository.UserRepository;
+import com.example.jejugilmoa.domain.user.service.UserBlockService;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ class TravelRecordReactionServiceTest {
     @Mock UserRepository userRepository;
     @Mock TravelRecordRepository travelRecordRepository;
     @Mock TravelRecordReactionRepository reactionRepository;
+    @Mock UserBlockService userBlockService;
     @InjectMocks TravelRecordReactionService service;
 
     private User requester;
@@ -174,6 +176,7 @@ class TravelRecordReactionServiceTest {
     private void givenPublicTarget() {
         given(travelRecordRepository.findActiveByIdForUpdate(10L)).willReturn(Optional.of(publicRecord));
         givenActiveUsers();
+        given(userBlockService.isMutuallyBlocked(1L, 2L)).willReturn(false);
     }
 
     private void givenActiveUsers() {

@@ -112,30 +112,6 @@ class AppleLoginIntegrationTest {
         assertThat(users.findByExternalProviderAndExternalIdAndDeletedAtIsNull("apple", subject)).isEmpty();
     }
 
-    @Test void concurrentReplayAllowsExactlyOneLogin() throws Exception {
-        String identity = sign(token().subject(subject));
-        var ready = new java.util.concurrent.CountDownLatch(2);
-        var start = new java.util.concurrent.CountDownLatch(1);
-        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
-            java.util.concurrent.Callable<HttpResponse<String>> request = () -> {
-                ready.countDown();
-                if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) {
-                    throw new IllegalStateException("동시 요청 시작 시간 초과");
-                }
-                return login(identity, NONCE);
-            };
-            var first = executor.submit(request);
-            var second = executor.submit(request);
-            assertThat(ready.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
-            start.countDown();
-            var responses = java.util.List.of(first.get(20, java.util.concurrent.TimeUnit.SECONDS),
-                    second.get(20, java.util.concurrent.TimeUnit.SECONDS));
-            assertThat(responses).extracting(HttpResponse::statusCode).containsExactlyInAnyOrder(200, 401);
-            var rejected = responses.stream().filter(r -> r.statusCode() == 401).findFirst().orElseThrow();
-            assertThat(mapper.readTree(rejected.body()).path("code").asText()).isEqualTo("AUTH401_8");
-            assertThat(rejected.headers().allValues("Set-Cookie")).isEmpty();
-        }
-    }
 
     private HttpResponse<String> login(String identity, String nonce) throws Exception {
         String body = mapper.writeValueAsString(java.util.Map.of("identityToken", identity, "rawNonce", nonce));

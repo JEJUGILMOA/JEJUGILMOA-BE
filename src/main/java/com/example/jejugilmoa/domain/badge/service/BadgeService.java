@@ -93,10 +93,10 @@ public class BadgeService {
      * 뱃지까지 포함해 "자신을 제외한 전부 보유"를 판정한다 — 마지막 뱃지와 마스터 뱃지를
      * 같은 인증에서 동시에 받을 수 있다.</p>
      *
-     * @return 이번 호출로 새로 지급된 뱃지 목록
+     * @return 이번 호출로 새로 지급된 {@code UserBadge} 목록 (없으면 빈 목록)
      */
     @Transactional
-    public List<Badge> grantEarnedBadges(Long userId) {
+    public List<UserBadge> grantEarnedBadges(Long userId) {
         List<Badge> badges = badgeRepository.findAll();
         List<Long> badgeIds = badges.stream().map(Badge::getId).toList();
 
@@ -141,15 +141,15 @@ public class BadgeService {
             }
         }
 
-        if (!newlyEarned.isEmpty()) {
-            var userRef = userRepository.getReferenceById(userId);
-            List<UserBadge> toGrant = newlyEarned.stream()
-                    .map(badge -> UserBadge.builder().user(userRef).badge(badge).build())
-                    .toList();
-            userBadgeRepository.saveAll(toGrant);
+        if (newlyEarned.isEmpty()) {
+            return List.of();
         }
-
-        return newlyEarned;
+        var userRef = userRepository.getReferenceById(userId);
+        List<UserBadge> toGrant = newlyEarned.stream()
+                .map(badge -> UserBadge.builder().user(userRef).badge(badge).build())
+                .toList();
+        userBadgeRepository.saveAll(toGrant);
+        return toGrant;
     }
 
     // 여행 완료 응답에 "이번 여행에서 획득한 뱃지"를 보여주기 위한 조회 — actualStartedAt 이후 획득분만

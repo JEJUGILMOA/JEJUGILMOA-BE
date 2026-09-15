@@ -92,9 +92,9 @@ class BadgeServiceTest {
                 .willReturn(List.of(placeVisitCount(PLACE_ID, 1L)));
         given(userRepository.getReferenceById(USER_ID)).willReturn(userRef);
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
-        assertThat(result).containsExactly(badge);
+        assertThat(result).extracting(UserBadge::getBadge).containsExactly(badge);
         ArgumentCaptor<List<UserBadge>> captor = ArgumentCaptor.forClass(List.class);
         verify(userBadgeRepository).saveAll(captor.capture());
         assertThat(captor.getValue()).hasSize(1);
@@ -113,7 +113,7 @@ class BadgeServiceTest {
         given(travelCourseRepository.countVisitedByUserGroupedByPlace(USER_ID, Set.of(PLACE_ID)))
                 .willReturn(List.of(placeVisitCount(PLACE_ID, 1L)));
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
         assertThat(result).isEmpty();
         verify(userBadgeRepository, never()).saveAll(anyCollection());
@@ -130,7 +130,7 @@ class BadgeServiceTest {
         given(badgeConditionRepository.findAllByBadgeIdIn(List.of(1L))).willReturn(List.of(condition));
         given(userBadgeRepository.findByUserIdAndUserDeletedAtIsNull(USER_ID)).willReturn(List.of(alreadyAcquired));
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
         assertThat(result).isEmpty();
         verify(userBadgeRepository, never()).saveAll(anyCollection());
@@ -152,9 +152,9 @@ class BadgeServiceTest {
                 .willReturn(List.of(placeVisitCount(PLACE_ID, 1L), placeVisitCount(43L, 1L)));
         given(userRepository.getReferenceById(USER_ID)).willReturn(userRef);
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
-        assertThat(result).containsExactlyInAnyOrder(badgeA, badgeB);
+        assertThat(result).extracting(UserBadge::getBadge).containsExactlyInAnyOrder(badgeA, badgeB);
     }
 
     @Test
@@ -170,9 +170,9 @@ class BadgeServiceTest {
                 .willReturn(List.of(placeVisitTime(PLACE_ID, LocalDateTime.of(2026, 9, 1, 6, 30))));
         given(userRepository.getReferenceById(USER_ID)).willReturn(userRef);
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
-        assertThat(result).containsExactly(badge);
+        assertThat(result).extracting(UserBadge::getBadge).containsExactly(badge);
     }
 
     @Test
@@ -186,7 +186,7 @@ class BadgeServiceTest {
         given(travelCourseRepository.findVisitTimesByUserAndPlaceIds(USER_ID, Set.of(PLACE_ID)))
                 .willReturn(List.of(placeVisitTime(PLACE_ID, LocalDateTime.of(2026, 9, 1, 14, 0))));
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
         assertThat(result).isEmpty();
         verify(userBadgeRepository, never()).saveAll(anyCollection());
@@ -205,9 +205,9 @@ class BadgeServiceTest {
                 .willReturn(List.of(placeVisitTime(PLACE_ID, LocalDateTime.of(2026, 9, 2, 1, 30))));
         given(userRepository.getReferenceById(USER_ID)).willReturn(userRef);
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
-        assertThat(result).containsExactly(badge);
+        assertThat(result).extracting(UserBadge::getBadge).containsExactly(badge);
     }
 
     @Test
@@ -223,9 +223,9 @@ class BadgeServiceTest {
         given(travelPlanRepository.countCompletedTripsWithGpsVisit(USER_ID, TravelPlanStatus.COMPLETED)).willReturn(2L);
         given(userRepository.getReferenceById(USER_ID)).willReturn(userRef);
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
-        assertThat(result).containsExactly(badge);
+        assertThat(result).extracting(UserBadge::getBadge).containsExactly(badge);
     }
 
     @Test
@@ -240,7 +240,7 @@ class BadgeServiceTest {
         // 모든 경유지를 건너뛰어 완료한 여행 — GPS 인증 방문 없으므로 0으로 집계
         given(travelPlanRepository.countCompletedTripsWithGpsVisit(USER_ID, TravelPlanStatus.COMPLETED)).willReturn(0L);
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
         assertThat(result).isEmpty();
         verify(userBadgeRepository, never()).saveAll(anyCollection());
@@ -259,9 +259,9 @@ class BadgeServiceTest {
         given(travelCourseRepository.countDistinctVisitedCategoriesByUser(USER_ID)).willReturn(3L);
         given(userRepository.getReferenceById(USER_ID)).willReturn(userRef);
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
-        assertThat(result).containsExactly(badge);
+        assertThat(result).extracting(UserBadge::getBadge).containsExactly(badge);
     }
 
     @Test
@@ -280,9 +280,9 @@ class BadgeServiceTest {
                         placeVisitTime(103L, LocalDateTime.of(2026, 9, 1, 12, 0))));
         given(userRepository.getReferenceById(USER_ID)).willReturn(userRef);
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
-        assertThat(result).containsExactly(badge);
+        assertThat(result).extracting(UserBadge::getBadge).containsExactly(badge);
     }
 
     @Test
@@ -299,7 +299,7 @@ class BadgeServiceTest {
                         placeVisitTime(102L, LocalDateTime.of(2026, 9, 1, 10, 0)),
                         placeVisitTime(103L, LocalDateTime.of(2026, 9, 1, 8, 0))));
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
         assertThat(result).isEmpty();
         verify(userBadgeRepository, never()).saveAll(anyCollection());
@@ -326,9 +326,9 @@ class BadgeServiceTest {
                 .willReturn(List.of(placeVisitCount(PLACE_ID, 1L), placeVisitCount(43L, 1L)));
         given(userRepository.getReferenceById(USER_ID)).willReturn(userRef);
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
-        assertThat(result).containsExactlyInAnyOrder(lastRegular, master);
+        assertThat(result).extracting(UserBadge::getBadge).containsExactlyInAnyOrder(lastRegular, master);
     }
 
     @Test
@@ -346,7 +346,7 @@ class BadgeServiceTest {
         given(travelCourseRepository.countVisitedByUserGroupedByPlace(USER_ID, Set.of(PLACE_ID)))
                 .willReturn(List.of(placeVisitCount(PLACE_ID, 1L)));
 
-        List<Badge> result = badgeService.grantEarnedBadges(USER_ID);
+        List<UserBadge> result = badgeService.grantEarnedBadges(USER_ID);
 
         assertThat(result).isEmpty();
         verify(userBadgeRepository, never()).saveAll(anyCollection());

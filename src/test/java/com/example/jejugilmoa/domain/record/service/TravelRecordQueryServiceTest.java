@@ -15,6 +15,7 @@ import com.example.jejugilmoa.domain.record.repository.TravelRecordPlaceReposito
 import com.example.jejugilmoa.domain.record.repository.TravelRecordReactionRepository;
 import com.example.jejugilmoa.domain.record.repository.TravelRecordRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
+import com.example.jejugilmoa.domain.user.service.UserBlockService;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +29,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,6 +48,7 @@ class TravelRecordQueryServiceTest {
     @Mock TravelRecordImageRepository travelRecordImageRepository;
     @Mock TravelRecordReactionRepository travelRecordReactionRepository;
     @Mock ImageUrlResolver imageUrlResolver;
+    @Mock UserBlockService userBlockService;
     @InjectMocks TravelRecordQueryService service;
 
     @Test
@@ -103,6 +107,7 @@ class TravelRecordQueryServiceTest {
         User owner = user(1L, "나");
         TravelRecord ownPublic = record(10L, owner, Visibility.PUBLIC);
         var pageable = PageRequest.of(0, 20);
+        given(userBlockService.getMutuallyBlockedUserIds(1L)).willReturn(Set.of());
         given(travelRecordRepository.findActivePublic(pageable))
                 .willReturn(new PageImpl<>(List.of(ownPublic), pageable, 1));
         given(travelRecordImageRepository.findThumbnailImagesByRecordIds(anyList())).willReturn(List.of());
@@ -124,6 +129,7 @@ class TravelRecordQueryServiceTest {
         User author = user(2L, "작성자");
         TravelRecord record = record(20L, author, Visibility.PUBLIC);
         var pageable = PageRequest.of(0, 20);
+        given(userBlockService.getMutuallyBlockedUserIds(1L)).willReturn(Set.of());
         given(travelRecordRepository.findActivePublic(pageable))
                 .willReturn(new PageImpl<>(List.of(record), pageable, 1));
         Place changedOriginal = Place.builder().id(7L).name("변경된 이름")
@@ -201,6 +207,7 @@ class TravelRecordQueryServiceTest {
         TravelRecord record = TravelRecord.builder().id(31L).user(author).travelPlan(plan)
                 .title("공개").visibility(Visibility.PUBLIC).build();
         given(travelRecordRepository.findActiveByIdWithUserAndPlan(31L)).willReturn(Optional.of(record));
+        given(userBlockService.isMutuallyBlocked(1L, 2L)).willReturn(false);
         given(travelRecordPlaceRepository.findAllByRecordIdInSnapshotOrder(31L)).willReturn(List.of());
         given(travelRecordImageRepository.findAllByRecordIdOrderBySequence(31L)).willReturn(List.of());
         given(travelRecordReactionRepository.countByRecordIdsAndType(List.of(31L))).willReturn(List.of());

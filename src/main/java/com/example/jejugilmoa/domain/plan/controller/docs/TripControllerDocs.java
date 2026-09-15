@@ -1,10 +1,12 @@
 package com.example.jejugilmoa.domain.plan.controller.docs;
 
 import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
+import com.example.jejugilmoa.domain.plan.dto.TripCancelResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
 import com.example.jejugilmoa.domain.plan.dto.VisitCheckRequest;
+import com.example.jejugilmoa.domain.plan.dto.VisitCheckResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointAddRequest;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
@@ -162,10 +164,11 @@ public interface TripControllerDocs {
                       아니면 `PLAN400_12` 오류가 반환됩니다 (일반적인 GPS 오차를 감안한 값).
                     - 여행이 진행중(IN_PROGRESS)이 아니면 `PLAN400_10` 오류가 반환됩니다.
                     - 이미 방문 인증된 경유지를 다시 인증하면 `PLAN400_11` 오류가 반환됩니다.
-                    - 방문 인증에 성공하면, 이번 방문으로 조건을 새로 충족한 뱃지가 있다면 즉시
-                      지급됩니다 (지급된 뱃지 목록은 이 응답이 아니라 여행 완료 API의
-                      `earnedBadges`에서 모아 확인할 수 있습니다).
-                    - 응답으로 방문 인증 후 전체 경유지 목록(순서 오름차순)을 반환합니다.
+                    - 방문 인증에 성공하면, 이번 방문으로 조건을 새로 충족한 뱃지가 즉시 지급되며
+                      지급된 뱃지 목록이 응답의 `earnedBadges`로 반환됩니다 (없으면 빈 배열).
+                    - 마지막 경유지를 인증하면 여행이 자동 완료되어 `autoCompleted`가 true가 되고,
+                      이때 `earnedBadges`는 이번 여행 전체에서 획득한 뱃지 목록입니다.
+                    - 응답의 `waypoints`는 방문 인증 후 전체 경유지 목록(순서 오름차순)입니다.
                     """
     )
     @RequestBody(
@@ -186,22 +189,34 @@ public interface TripControllerDocs {
                               "isSuccess": true,
                               "code": "COMMON201",
                               "message": "성공적으로 응답이 생성되었습니다.",
-                              "result": [
-                                {
-                                  "waypointId": 7,
-                                  "visitDate": "2026-08-15",
-                                  "sequenceOrder": 1,
-                                  "placeId": 42,
-                                  "placeName": "애월 카페거리",
-                                  "categoryName": "카페",
-                                  "imageUrl": "https://cdn.example.com/42.jpg",
-                                  "address": "제주시 애월읍",
-                                  "visited": true,
-                                  "visitedAt": "2026-07-31T09:12:34",
-                                  "skipped": false,
-                                  "skippedAt": null
-                                }
-                              ]
+                              "result": {
+                                "waypoints": [
+                                  {
+                                    "waypointId": 7,
+                                    "visitDate": "2026-08-15",
+                                    "sequenceOrder": 1,
+                                    "placeId": 42,
+                                    "placeName": "애월 카페거리",
+                                    "categoryName": "카페",
+                                    "imageUrl": "https://cdn.example.com/42.jpg",
+                                    "address": "제주시 애월읍",
+                                    "visited": true,
+                                    "visitedAt": "2026-07-31T09:12:34",
+                                    "skipped": false,
+                                    "skippedAt": null
+                                  }
+                                ],
+                                "autoCompleted": false,
+                                "earnedBadges": [
+                                  {
+                                    "badgeId": 5,
+                                    "name": "애월 단골",
+                                    "description": "애월 카페거리를 3번 방문했어요.",
+                                    "imageUrl": "https://cdn.example.com/badges/5.png",
+                                    "acquiredAt": "2026-07-31T09:12:34"
+                                  }
+                                ]
+                              }
                             }
                             """))
             ),
@@ -235,7 +250,7 @@ public interface TripControllerDocs {
                             """))
             )
     })
-    ApiResponse<List<WaypointResponse>> checkVisit(
+    ApiResponse<VisitCheckResponse> checkVisit(
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId,
             @Valid @org.springframework.web.bind.annotation.RequestBody VisitCheckRequest request
@@ -254,8 +269,11 @@ public interface TripControllerDocs {
                     - 여행이 진행중(IN_PROGRESS)이 아니면 `PLAN400_10` 오류가 반환됩니다.
                     - 이미 방문 인증(또는 건너뛰기)된 경유지를 다시 건너뛰면 `PLAN400_11` 오류가
                       반환됩니다.
-                    - 건너뛴 경유지는 실제 방문이 아니므로 뱃지 지급 대상에서 제외됩니다.
-                    - 응답으로 건너뛴 후 전체 경유지 목록(순서 오름차순)을 반환합니다.
+                    - 건너뛴 경유지는 실제 방문이 아니므로 뱃지 지급 대상에서 제외되며,
+                      자동 완료되지 않는 건너뛰기 요청의 `earnedBadges`는 빈 배열입니다. 단, 마지막 경유지를 건너뛰어 여행이
+                      자동 완료되면(`autoCompleted` true) 이번 여행 전체에서 획득한 뱃지 목록이
+                      반환됩니다.
+                    - 응답의 `waypoints`는 건너뛴 후 전체 경유지 목록(순서 오름차순)입니다.
                     """
     )
     @ApiResponses({
@@ -266,22 +284,26 @@ public interface TripControllerDocs {
                               "isSuccess": true,
                               "code": "COMMON200",
                               "message": "성공적으로 요청을 처리했습니다.",
-                              "result": [
-                                {
-                                  "waypointId": 7,
-                                  "visitDate": "2026-08-15",
-                                  "sequenceOrder": 1,
-                                  "placeId": 42,
-                                  "placeName": "애월 카페거리",
-                                  "categoryName": "카페",
-                                  "imageUrl": "https://cdn.example.com/42.jpg",
-                                  "address": "제주시 애월읍",
-                                  "visited": true,
-                                  "visitedAt": "2026-07-31T09:12:34",
-                                  "skipped": true,
-                                  "skippedAt": "2026-07-31T09:12:34"
-                                }
-                              ]
+                              "result": {
+                                "waypoints": [
+                                  {
+                                    "waypointId": 7,
+                                    "visitDate": "2026-08-15",
+                                    "sequenceOrder": 1,
+                                    "placeId": 42,
+                                    "placeName": "애월 카페거리",
+                                    "categoryName": "카페",
+                                    "imageUrl": "https://cdn.example.com/42.jpg",
+                                    "address": "제주시 애월읍",
+                                    "visited": true,
+                                    "visitedAt": "2026-07-31T09:12:34",
+                                    "skipped": true,
+                                    "skippedAt": "2026-07-31T09:12:34"
+                                  }
+                                ],
+                                "autoCompleted": false,
+                                "earnedBadges": []
+                              }
                             }
                             """))
             ),
@@ -312,7 +334,7 @@ public interface TripControllerDocs {
                             """))
             )
     })
-    ApiResponse<List<WaypointResponse>> skipWaypoint(
+    ApiResponse<VisitCheckResponse> skipWaypoint(
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId,
             @Parameter(description = "건너뛸 경유지(TravelCourse) ID") Long waypointId
@@ -526,6 +548,58 @@ public interface TripControllerDocs {
             )
     })
     ApiResponse<TripCompleteResponse> complete(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId
+    );
+
+    @Operation(
+            summary = "여행 중단",
+            description = """
+                    진행중(IN_PROGRESS)인 여행을 중단(CANCELLED) 상태로 전환합니다.
+
+                    - 진행중 상태가 아니면 `PLAN400_22` 오류가 반환됩니다.
+                    - 중단 후에는 새로운 여행을 시작할 수 있습니다.
+                    - 방문 인증 기록은 보존됩니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "여행 중단 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "isSuccess": true,
+                              "code": "COMMON200",
+                              "message": "성공적으로 요청을 처리했습니다.",
+                              "result": {
+                                "tripId": 1,
+                                "title": "제주 3박4일",
+                                "status": "CANCELLED",
+                                "actualStartedAt": "2026-07-20T09:00:00",
+                                "actualCancelledAt": "2026-07-21T14:30:00"
+                              }
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "진행중이 아닌 여행",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN400_22","message":"진행중인 여행만 중단할 수 있습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "접근 권한 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN403_1","message":"해당 여행 계획에 접근할 권한이 없습니다.","result":null}
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "여행 계획 없음",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"isSuccess":false,"code":"PLAN404_1","message":"존재하지 않는 여행 계획입니다.","result":null}
+                            """))
+            )
+    })
+    ApiResponse<TripCancelResponse> cancel(
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행(Trip) ID — 여행 계획 ID와 동일") Long tripId
     );

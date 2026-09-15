@@ -1,5 +1,6 @@
 package com.example.jejugilmoa.domain.plan.service;
 
+import com.example.jejugilmoa.domain.badge.service.BadgeService;
 import com.example.jejugilmoa.domain.locationusage.service.LocationUsageLogService;
 import com.example.jejugilmoa.domain.place.repository.PlaceRepository;
 import com.example.jejugilmoa.domain.plan.dto.TripStartRequest;
@@ -8,6 +9,8 @@ import com.example.jejugilmoa.domain.plan.enums.TravelPlanStatus;
 import com.example.jejugilmoa.domain.plan.exception.PlanErrorCode;
 import com.example.jejugilmoa.domain.plan.repository.TravelCourseRepository;
 import com.example.jejugilmoa.domain.plan.repository.TravelPlanRepository;
+import com.example.jejugilmoa.domain.plan.repository.TravelPlanRouteJobRepository;
+import com.example.jejugilmoa.domain.plan.repository.TravelPlanRouteRepository;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import org.junit.jupiter.api.Test;
@@ -36,6 +39,9 @@ class TripServiceStartTest {
     @Mock PlaceRepository placeRepository;
     @Mock WaypointService waypointService;
     @Mock LocationUsageLogService locationUsageLogService;
+    @Mock BadgeService badgeService;
+    @Mock TravelPlanRouteRepository travelPlanRouteRepository;
+    @Mock TravelPlanRouteJobRepository travelPlanRouteJobRepository;
     @InjectMocks TripService tripService;
 
     @Test

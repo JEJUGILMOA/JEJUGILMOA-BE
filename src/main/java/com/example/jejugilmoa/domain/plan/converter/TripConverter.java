@@ -1,8 +1,12 @@
 package com.example.jejugilmoa.domain.plan.converter;
 
 import com.example.jejugilmoa.domain.badge.converter.BadgeConverter;
+import com.example.jejugilmoa.domain.badge.dto.BadgeEarnedResponse;
+import com.example.jejugilmoa.domain.plan.dto.TripCancelResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripCompleteResponse;
 import com.example.jejugilmoa.domain.plan.dto.TripResponse;
+import com.example.jejugilmoa.domain.plan.dto.TravelPlanRoutesResponse;
+import com.example.jejugilmoa.domain.plan.dto.VisitCheckResponse;
 import com.example.jejugilmoa.domain.plan.dto.WaypointResponse;
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.user.entity.UserBadge;
@@ -14,14 +18,34 @@ public class TripConverter {
 
     private TripConverter() {}
 
-    public static TripResponse toResponse(TravelPlan plan, List<WaypointResponse> waypoints) {
+    public static TripResponse toResponse(TravelPlan plan, List<WaypointResponse> waypoints,
+            TravelPlanRoutesResponse routes) {
         return new TripResponse(
                 plan.getId(),
                 plan.getTitle(),
                 plan.getStatus(),
                 plan.getActualStartedAt(),
-                waypoints
+                waypoints,
+                routes
         );
+    }
+
+    public static TripCancelResponse toCancelResponse(TravelPlan plan) {
+        return new TripCancelResponse(
+                plan.getId(),
+                plan.getTitle(),
+                plan.getStatus(),
+                plan.getActualStartedAt(),
+                plan.getActualCancelledAt()
+        );
+    }
+
+    public static VisitCheckResponse toVisitCheckResponse(
+            List<WaypointResponse> waypoints, boolean autoCompleted, List<UserBadge> earnedBadges) {
+        // 프론트가 null 분기 없이 처리할 수 있도록 항상 리스트로 내려준다
+        List<BadgeEarnedResponse> badges = earnedBadges == null ? List.of()
+                : earnedBadges.stream().map(BadgeConverter::toEarnedResponse).toList();
+        return new VisitCheckResponse(waypoints, autoCompleted, badges);
     }
 
     public static TripCompleteResponse toCompleteResponse(

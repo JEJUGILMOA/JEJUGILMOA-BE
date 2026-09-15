@@ -151,6 +151,7 @@ public interface TravelCourseRepository extends JpaRepository<TravelCourse, Long
             JOIN FETCH c.place
             WHERE c.travelPlan.id = :planId AND c.visited = true AND c.skipped = false
             ORDER BY c.visitedAt DESC
+            LIMIT 1
             """)
     Optional<TravelCourse> findLastGpsVerifiedWithPlace(@Param("planId") Long planId, Limit limit);
 
