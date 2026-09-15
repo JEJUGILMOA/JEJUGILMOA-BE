@@ -108,7 +108,7 @@ public class TravelRecordQueryService {
                 reactions.likeCount(), reactions.dislikeCount(), myReaction);
     }
 
-    private PageResponse<TravelRecordCardResponse> toCardPage(Page<TravelRecord> records, Long userId) {
+    PageResponse<TravelRecordCardResponse> toCardPage(Page<TravelRecord> records, Long userId) {
         List<Long> recordIds = records.getContent().stream().map(TravelRecord::getId).toList();
         if (recordIds.isEmpty()) {
             return emptyPage(records);
