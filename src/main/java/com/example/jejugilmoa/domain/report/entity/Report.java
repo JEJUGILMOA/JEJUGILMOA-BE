@@ -1,6 +1,5 @@
 package com.example.jejugilmoa.domain.report.entity;
 
-
 import com.example.jejugilmoa.domain.report.enums.ReportStatus;
 import com.example.jejugilmoa.domain.report.enums.TargetType;
 import com.example.jejugilmoa.global.entity.BaseEntity;
@@ -19,40 +18,38 @@ import java.time.LocalDateTime;
         }
 )
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
 @Builder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Report extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "reporter_id")
+    @Column(name = "reporter_id", nullable = false)
     private Long reporterId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "target_type", nullable = false, length = 30)
-    private TargetType targetType; //RECORD,PHOTO,USER
-
+    private TargetType targetType;
 
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
-    @Column(length = 200)
-    private String reason;
+    @Column(name = "reason_summary", nullable = false, length = 200)
+    private String reasonSummary;
 
+    @Column(name = "reason_detail", columnDefinition = "TEXT")
+    private String reasonDetail;
 
-    // PENDING,APPROVED,REJECTED,RESOLVED
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
     private ReportStatus status = ReportStatus.PENDING;
 
-    // 처리 시간
+    @Column(name = "processed_at")
     private LocalDateTime processedAt;
-
-    // ====== 상태 변경 메서드 (핵심) ======
 
     public void approve() {
         this.status = ReportStatus.APPROVED;

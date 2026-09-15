@@ -2,6 +2,7 @@ package com.example.jejugilmoa.domain.record.entity;
 
 import com.example.jejugilmoa.domain.plan.entity.TravelPlan;
 import com.example.jejugilmoa.domain.plan.enums.Visibility;
+import com.example.jejugilmoa.domain.record.enums.RecordAdminStatus;
 import com.example.jejugilmoa.domain.user.entity.User;
 import com.example.jejugilmoa.global.entity.BaseEntity;
 import lombok.*;
@@ -74,6 +75,11 @@ public class TravelRecord extends BaseEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;  // 소프트 삭제
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "admin_status", nullable = false, length = 20)
+    private RecordAdminStatus adminStatus = RecordAdminStatus.NORMAL;
+
     @OneToMany(
             mappedBy = "travelRecord",
             cascade = CascadeType.ALL,
@@ -100,5 +106,19 @@ public class TravelRecord extends BaseEntity {
 
     public void delete() {
         this.deletedAt = LocalDateTime.now();
+    }
+
+    public void hideByReport() {
+        this.visibility = Visibility.PRIVATE;
+        this.adminStatus = RecordAdminStatus.UNDER_REVIEW;
+    }
+
+    public void restore() {
+        this.visibility = Visibility.PUBLIC;
+        this.adminStatus = RecordAdminStatus.NORMAL;
+    }
+
+    public void adminRemove() {
+        this.adminStatus = RecordAdminStatus.ADMIN_REMOVED;
     }
 }
