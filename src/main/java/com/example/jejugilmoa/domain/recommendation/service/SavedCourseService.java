@@ -7,6 +7,8 @@ import com.example.jejugilmoa.domain.record.entity.TravelRecordImage;
 import com.example.jejugilmoa.domain.record.entity.TravelRecordPlace;
 import com.example.jejugilmoa.domain.record.repository.TravelRecordPlaceRepository;
 import com.example.jejugilmoa.domain.record.repository.TravelRecordRepository;
+import com.example.jejugilmoa.domain.recommendation.dto.CourseWaypointItem;
+import com.example.jejugilmoa.domain.recommendation.entity.RecommendedCoursePath;
 import com.example.jejugilmoa.domain.recommendation.dto.SaveCourseRequest;
 import com.example.jejugilmoa.domain.recommendation.dto.SavedCourseDetailResponse;
 import com.example.jejugilmoa.domain.recommendation.dto.SavedCourseListItemResponse;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -137,30 +140,36 @@ public class SavedCourseService {
                 .map(sc -> sc.getTravelRecord().getId())
                 .toList();
 
-        Map<Long, Integer> recommendedPlaceCounts = batchCountPaths(recommendedIds);
-        Map<Long, Integer> recordPlaceCounts = batchCountRecordPlaces(recordIds);
+        Map<Long, List<CourseWaypointItem>> recommendedWaypoints = batchRecommendedWaypoints(recommendedIds);
+        Map<Long, List<CourseWaypointItem>> recordWaypoints = batchRecordWaypoints(recordIds);
 
         return savedCourses.stream()
-                .map(sc -> toListItem(sc, recommendedPlaceCounts, recordPlaceCounts))
+                .map(sc -> toListItem(sc, recommendedWaypoints, recordWaypoints))
                 .toList();
     }
 
-    private Map<Long, Integer> batchCountPaths(Collection<Long> courseIds) {
+    private Map<Long, List<CourseWaypointItem>> batchRecommendedWaypoints(Collection<Long> courseIds) {
         if (courseIds.isEmpty()) return Map.of();
-        return recommendedCourseRepository.countPathsByCourseIds(courseIds).stream()
-                .collect(Collectors.toMap(
-                        RecommendedCourseRepository.CoursePathCount::getCourseId,
-                        c -> c.getCount().intValue()
-                ));
+        return recommendedCourseRepository.findAllByIdInWithPaths(courseIds).stream()
+                .collect(Collectors.toMap(RecommendedCourse::getId, course -> course.getPaths().stream()
+                        .sorted(Comparator.comparing(RecommendedCoursePath::getSequenceOrder))
+                        .map(path -> new CourseWaypointItem(
+                                path.getSequenceOrder(), path.getPlace().getId(),
+                                path.getPlace().getName(), path.getPlace().getImageUrl(),
+                                path.getPlace().getLatitude(), path.getPlace().getLongitude()))
+                        .toList()));
     }
 
-    private Map<Long, Integer> batchCountRecordPlaces(Collection<Long> recordIds) {
+    private Map<Long, List<CourseWaypointItem>> batchRecordWaypoints(Collection<Long> recordIds) {
         if (recordIds.isEmpty()) return Map.of();
-        return travelRecordPlaceRepository.countAllByRecordIds(recordIds).stream()
-                .collect(Collectors.toMap(
-                        TravelRecordPlaceRepository.RecordPlaceCount::getRecordId,
-                        c -> c.getCount().intValue()
-                ));
+        return travelRecordPlaceRepository.findAllByRecordIdsWithPlaceInSnapshotOrder(recordIds).stream()
+                .sorted(Comparator.comparing(TravelRecordPlace::getVisitDate)
+                        .thenComparingInt(TravelRecordPlace::getSequenceOrder))
+                .collect(Collectors.groupingBy(rp -> rp.getTravelRecord().getId(),
+                        Collectors.mapping(rp -> new CourseWaypointItem(
+                                rp.getSequenceOrder(), rp.getPlace().getId(), rp.getPlaceName(),
+                                rp.getPlace().getImageUrl(), rp.getLatitude(), rp.getLongitude()),
+                                Collectors.toList())));
     }
 
     public SavedCourseDetailResponse getSavedCourseDetail(Long userId, Long savedCourseId) {
@@ -179,34 +188,36 @@ public class SavedCourseService {
     }
 
     private SavedCourseListItemResponse toListItem(SavedCourse sc,
-                                                    Map<Long, Integer> recommendedPlaceCounts,
-                                                    Map<Long, Integer> recordPlaceCounts) {
+                                                    Map<Long, List<CourseWaypointItem>> recommendedWaypoints,
+                                                    Map<Long, List<CourseWaypointItem>> recordWaypoints) {
         if (sc.getSourceType() == CourseSourceType.RECOMMENDED) {
             RecommendedCourse rc = sc.getRecommendedCourse();
-            int placeCount = recommendedPlaceCounts.getOrDefault(rc.getId(), 0);
+            List<CourseWaypointItem> waypoints = recommendedWaypoints.getOrDefault(rc.getId(), List.of());
             return new SavedCourseListItemResponse(
                     sc.getId(),
                     CourseSourceType.RECOMMENDED,
                     rc.getTitle(),
                     rc.getImageUrl(),
                     rc.getRegion(),
-                    placeCount,
-                    rc.getEstimatedMinutes()
+                    waypoints.size(),
+                    rc.getEstimatedMinutes(),
+                    rc.getId(), rc.getTheme(), rc.getDescription(), rc.getCopyCount(), waypoints
             );
         } else {
             TravelRecord record = sc.getTravelRecord();
             TravelRecordImage thumbnail = record.getThumbnailImage();
             String imageUrl = thumbnail != null
                     ? imageUrlResolver.resolve(thumbnail.getObjectKey()) : null;
-            int placeCount = recordPlaceCounts.getOrDefault(record.getId(), 0);
+            List<CourseWaypointItem> waypoints = recordWaypoints.getOrDefault(record.getId(), List.of());
             return new SavedCourseListItemResponse(
                     sc.getId(),
                     CourseSourceType.RECORD,
                     record.getTitle(),
                     imageUrl,
                     null,
-                    placeCount,
-                    null
+                    waypoints.size(),
+                    null,
+                    record.getId(), null, record.getDescription(), null, waypoints
             );
         }
     }

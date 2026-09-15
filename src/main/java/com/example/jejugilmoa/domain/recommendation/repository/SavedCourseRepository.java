@@ -13,7 +13,8 @@ public interface SavedCourseRepository extends JpaRepository<SavedCourse, Long> 
     @Query("""
             SELECT sc FROM SavedCourse sc
             LEFT JOIN FETCH sc.recommendedCourse
-            LEFT JOIN FETCH sc.travelRecord
+            LEFT JOIN FETCH sc.travelRecord record
+            LEFT JOIN FETCH record.thumbnailImage
             WHERE sc.user.id = :userId
             ORDER BY sc.createdAt DESC
             """)
