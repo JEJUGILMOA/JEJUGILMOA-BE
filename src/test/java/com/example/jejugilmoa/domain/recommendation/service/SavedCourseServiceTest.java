@@ -43,6 +43,7 @@ class SavedCourseServiceTest {
         assertThat(result).isEqualTo(new SavedCourseListItemResponse(110L, CourseSourceType.RECOMMENDED,
                 "추천 제목", "cover", "제주", 2, 90, 10L, "NATURE", "추천 설명", 7,
                 List.of(waypoint(1), waypoint(2))));
+        verify(recommendedCourseRepository).findAllByIdInWithPaths(List.of(10L));
         verify(recommendedCourseRepository, never()).countPathsByCourseIds(any());
         verifyNoInteractions(travelRecordPlaceRepository);
         verifyNoMoreInteractions(recommendedCourseRepository);
@@ -61,6 +62,7 @@ class SavedCourseServiceTest {
         assertThat(result).isEqualTo(new SavedCourseListItemResponse(120L, CourseSourceType.RECORD,
                 "기록 제목", "resolved-thumbnail", null, 2, null, 20L, null, "기록 설명", null,
                 List.of(snapshotWaypoint(1), snapshotWaypoint(2))));
+        verify(travelRecordPlaceRepository).findAllByRecordIdsWithPlaceInSnapshotOrder(List.of(20L));
         verify(travelRecordPlaceRepository, never()).countAllByRecordIds(any());
         verifyNoInteractions(recommendedCourseRepository);
         verifyNoMoreInteractions(travelRecordPlaceRepository);
