@@ -92,7 +92,6 @@ class TravelPlanRouteServiceTest {
     private void ownedPlan() {
         var access = mock(TravelPlanRepository.RouteAccess.class);
         when(access.getPlanId()).thenReturn(1L);
-        when(access.getOwnerId()).thenReturn(42L);
         when(plans.findRouteAccessById(1L)).thenReturn(Optional.of(access));
     }
 
@@ -107,7 +106,7 @@ class TravelPlanRouteServiceTest {
         ownedPlan();
         var date = LocalDate.of(2026, 9, 10);
         when(routes.findAllByTravelPlanIdOrderByRouteDateAsc(1L)).thenReturn(List.of(readyRoute(date)));
-        var result = service.getRoutes(1L, 42L, null);
+        var result = service.getRoutes(1L, null);
         assertThat(result.planId()).isEqualTo(1L);
         assertThat(result.generation().status()).isEqualTo(RouteGenerationStatus.NOT_REQUESTED);
         assertThat(result.routes()).extracting(r -> r.date()).containsExactly(date);
@@ -122,7 +121,7 @@ class TravelPlanRouteServiceTest {
         when(routes.findByTravelPlanIdAndRouteDate(1L, date)).thenReturn(Optional.of(readyRoute(date)));
         when(routeJobs.findStateByPlanId(1L)).thenReturn(Optional.of(
                 new TravelPlanRouteJobRepository.JobState(TravelPlanRouteJobStatus.PENDING, false)));
-        var result = service.getRoutes(1L, 42L, date);
+        var result = service.getRoutes(1L, date);
         assertThat(result.generation().status()).isEqualTo(RouteGenerationStatus.PENDING);
         assertThat(result.routes()).singleElement().satisfies(route -> {
             assertThat(route.status()).isEqualTo(READY);
@@ -137,7 +136,7 @@ class TravelPlanRouteServiceTest {
     @Test void unmatchedDateStillReturnsEmptyRoutes() {
         ownedPlan();
         var date = LocalDate.of(1900, 1, 1);
-        assertThat(service.getRoutes(1L, 42L, date).routes()).isEmpty();
+        assertThat(service.getRoutes(1L, date).routes()).isEmpty();
         verify(routes).findByTravelPlanIdAndRouteDate(1L, date);
         verify(routes, never()).findAllByTravelPlanIdOrderByRouteDateAsc(anyLong());
     }
@@ -148,22 +147,12 @@ class TravelPlanRouteServiceTest {
         ownedPlan();
         when(routeJobs.findStateByPlanId(1L)).thenReturn(Optional.of(
                 new TravelPlanRouteJobRepository.JobState(TravelPlanRouteJobStatus.valueOf(stored), leaseValid)));
-        assertThat(service.getRoutes(1L, 42L, null).generation().status())
+        assertThat(service.getRoutes(1L, null).generation().status())
                 .isEqualTo(RouteGenerationStatus.valueOf(expected));
     }
 
-    @Test void queryRejectsOtherOwnerBeforeReadingRoutesOrJob() {
-        var access = mock(TravelPlanRepository.RouteAccess.class);
-        when(access.getOwnerId()).thenReturn(99L);
-        when(plans.findRouteAccessById(1L)).thenReturn(Optional.of(access));
-        assertThatThrownBy(() -> service.getRoutes(1L, 42L, null))
-                .isInstanceOfSatisfying(GeneralException.class,
-                        e -> assertThat(e.getCode()).isEqualTo(PlanErrorCode.PLAN_ACCESS_DENIED));
-        verifyNoInteractions(routes, routeJobs);
-    }
-
     @Test void queryRejectsMissingOrFilteredPlanBeforeReadingRoutesOrJob() {
-        assertThatThrownBy(() -> service.getRoutes(1L, 42L, null))
+        assertThatThrownBy(() -> service.getRoutes(1L, null))
                 .isInstanceOfSatisfying(GeneralException.class,
                         e -> assertThat(e.getCode()).isEqualTo(PlanErrorCode.PLAN_NOT_FOUND));
         verifyNoInteractions(routes, routeJobs);

@@ -37,7 +37,7 @@ class TravelPlanRouteControllerTest {
 
     @Test void returnsDateFilteredRouteAndLonLatArrayWithoutHash() throws Exception {
         var date = LocalDate.of(2026, 9, 10);
-        when(service.getRoutes(1L, 42L, date)).thenReturn(new TravelPlanRoutesResponse(1L, new TravelPlanRoutesResponse.Generation(RouteGenerationStatus.PENDING), List.of(
+        when(service.getRoutes(1L, date)).thenReturn(new TravelPlanRoutesResponse(1L, new TravelPlanRoutesResponse.Generation(RouteGenerationStatus.PENDING), List.of(
                 new TravelPlanRoutesResponse.Route(date, READY, "traoptimal", 18342, 2421000L,
                         Instant.parse("2026-09-07T00:00:00Z"), List.of(List.of(126.49, 33.51)), null))));
         mvc.perform(get("/api/plans/1/routes?date=2026-09-10").with(authentication(auth)))
@@ -58,17 +58,13 @@ class TravelPlanRouteControllerTest {
                 .andExpect(jsonPath("$.result.generation.lastError").doesNotExist());
     }
 
-    @Test void notFoundAndAccessDeniedUseExistingEnvelope() throws Exception {
-        when(service.getRoutes(1L, 42L, null)).thenThrow(new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
+    @Test void notFoundUsesExistingEnvelope() throws Exception {
+        when(service.getRoutes(1L, null)).thenThrow(new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
         mvc.perform(get("/api/plans/1/routes").with(authentication(auth)))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value(PlanErrorCode.PLAN_NOT_FOUND.getCode()));
-        doThrow(new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED)).when(service).getRoutes(1L, 42L, null);
-        mvc.perform(get("/api/plans/1/routes").with(authentication(auth)))
-                .andExpect(status().isForbidden()).andExpect(jsonPath("$.isSuccess").value(false));
     }
 
-    @Test void requiresAuthenticationAndValidDate() throws Exception {
-        mvc.perform(get("/api/plans/1/routes")).andExpect(status().isUnauthorized());
+    @Test void invalidDateReturnsBadRequest() throws Exception {
         mvc.perform(get("/api/plans/1/routes?date=invalid").with(authentication(auth)))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(service);
@@ -77,7 +73,7 @@ class TravelPlanRouteControllerTest {
         var route = new TravelPlanRoutesResponse.Route(LocalDate.of(2026, 9, 11),
                 com.example.jejugilmoa.domain.plan.enums.TravelPlanRouteStatus.NOT_REQUIRED,
                 "traoptimal", null, null, null, List.of(), null);
-        when(service.getRoutes(1L, 42L, null)).thenReturn(new TravelPlanRoutesResponse(1L,
+        when(service.getRoutes(1L, null)).thenReturn(new TravelPlanRoutesResponse(1L,
                 new TravelPlanRoutesResponse.Generation(RouteGenerationStatus.DONE), List.of(route)));
         mvc.perform(get("/api/plans/1/routes").with(authentication(auth)))
                 .andExpect(status().isOk())
@@ -86,7 +82,7 @@ class TravelPlanRouteControllerTest {
                 .andExpect(jsonPath("$.result.routes[0].path").isEmpty())
                 .andExpect(jsonPath("$.result.routes[0].distance").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.result.routes[0].duration").value(org.hamcrest.Matchers.nullValue()));
-        verify(service).getRoutes(1L, 42L, null);
+        verify(service).getRoutes(1L, null);
     }
 
 }
