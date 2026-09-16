@@ -25,12 +25,8 @@ public class TravelPlanController implements TravelPlanControllerDocs {
     private final TravelPlanService travelPlanService;
 
     @GetMapping("/{planId}")
-    public ApiResponse<TravelPlanDetailResponse> getPlanDetail(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable Long planId) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.REQUEST_OK,
-                travelPlanService.getPlanDetail(planId, principal.userId()));
+    public ApiResponse<TravelPlanDetailResponse> getPlanDetail(@PathVariable Long planId) {
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, travelPlanService.getPlanDetail(planId));
     }
 
     @GetMapping

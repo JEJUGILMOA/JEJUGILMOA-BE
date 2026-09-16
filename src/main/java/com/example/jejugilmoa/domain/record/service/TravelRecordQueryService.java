@@ -55,7 +55,9 @@ public class TravelRecordQueryService {
         if (mine) {
             records = travelRecordRepository.findActiveByUserId(userId, pageable);
         } else {
-            Set<Long> blocked = userBlockService.getMutuallyBlockedUserIds(userId);
+            Set<Long> blocked = userId != null
+                    ? userBlockService.getMutuallyBlockedUserIds(userId)
+                    : Set.of();
             records = blocked.isEmpty()
                     ? travelRecordRepository.findActivePublic(pageable)
                     : travelRecordRepository.findActivePublicExcluding(blocked, pageable);
@@ -65,12 +67,12 @@ public class TravelRecordQueryService {
 
     public TravelRecordDetailResponse getDetail(Long recordId, Long userId) {
         TravelRecord record = travelRecordRepository.findActiveByIdWithUserAndPlan(recordId)
-                .filter(found -> found.getUser().getId().equals(userId)
+                .filter(found -> (userId != null && found.getUser().getId().equals(userId))
                         || found.getVisibility() == Visibility.PUBLIC)
                 .orElseThrow(() -> new GeneralException(RecordErrorCode.RECORD_NOT_FOUND));
 
         Long authorId = record.getUser().getId();
-        if (!userId.equals(authorId) && userBlockService.isMutuallyBlocked(userId, authorId)) {
+        if (userId != null && !userId.equals(authorId) && userBlockService.isMutuallyBlocked(userId, authorId)) {
             throw new GeneralException(RecordErrorCode.RECORD_NOT_FOUND);
         }
 
@@ -178,6 +180,7 @@ public class TravelRecordQueryService {
     }
 
     private Map<Long, ReactionType> loadMyReactions(List<Long> recordIds, Long userId) {
+        if (userId == null) return Map.of();
         return travelRecordReactionRepository.findMineByRecordIds(recordIds, userId).stream()
                 .collect(Collectors.toMap(
                         reaction -> reaction.getTravelRecord().getId(),

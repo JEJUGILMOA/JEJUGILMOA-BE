@@ -1,6 +1,5 @@
 package com.example.jejugilmoa.domain.plan.controller;
 
-import com.example.jejugilmoa.domain.auth.jwt.UserPrincipal;
 import com.example.jejugilmoa.domain.plan.dto.TravelPlanRoutesResponse;
 import com.example.jejugilmoa.domain.plan.service.TravelPlanRouteService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
@@ -9,7 +8,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 
@@ -28,8 +26,8 @@ public class TravelPlanRouteController {
             + "DONE이 모든 route READY를 의미하지 않으며, PENDING/RUNNING 중에는 기존 READY route가 일시적으로 포함될 수 있음.")
     @GetMapping
     public ApiResponse<TravelPlanRoutesResponse> getRoutes(
-            @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long planId,
+            @PathVariable Long planId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, service.getRoutes(planId, principal.userId(), date));
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, service.getRoutes(planId, date));
     }
 }

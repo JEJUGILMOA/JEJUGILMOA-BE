@@ -65,12 +65,9 @@ public class TravelPlanService {
     }
 
     @Transactional(readOnly = true)
-    public TravelPlanDetailResponse getPlanDetail(Long planId, Long userId) {
+    public TravelPlanDetailResponse getPlanDetail(Long planId) {
         TravelPlan plan = travelPlanRepository.findByIdWithPreferences(planId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
-        if (!plan.getUser().getId().equals(userId)) {
-            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
-        }
 
         List<WaypointResponse> waypoints = travelCourseRepository
                 .findAllByTravelPlanIdOrderByVisitDateAscSequenceOrderAsc(planId)

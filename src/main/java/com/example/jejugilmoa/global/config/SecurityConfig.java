@@ -36,7 +36,22 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
 
                 .authorizeHttpRequests(auth -> {
+                    // 비회원 공개 GET 엔드포인트
                     auth.requestMatchers(HttpMethod.GET, "/api/shared/plans/**").permitAll();
+                    // /api/records/favorites 는 인증 필요 — wildcards보다 먼저 선언해야 first-match 보장
+                    auth.requestMatchers(HttpMethod.GET, "/api/records/favorites").authenticated();
+                    auth.requestMatchers(HttpMethod.GET,
+                            "/api/home/places",
+                            "/api/home/courses",
+                            "/api/places",
+                            "/api/places/**",
+                            "/api/courses/recommended",
+                            "/api/courses/recommended/**",
+                            "/api/plans/*/routes",
+                            "/api/plans/*",
+                            "/api/records",
+                            "/api/records/*"
+                    ).permitAll();
                     auth.requestMatchers(
                             "/swagger-ui/**",
                             "/swagger-ui.html",

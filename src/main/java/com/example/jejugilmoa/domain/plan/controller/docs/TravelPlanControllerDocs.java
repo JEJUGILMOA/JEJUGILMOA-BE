@@ -100,7 +100,6 @@ public interface TravelPlanControllerDocs {
             )
     })
     ApiResponse<TravelPlanDetailResponse> getPlanDetail(
-            @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "여행 계획 ID") Long planId
     );
 
