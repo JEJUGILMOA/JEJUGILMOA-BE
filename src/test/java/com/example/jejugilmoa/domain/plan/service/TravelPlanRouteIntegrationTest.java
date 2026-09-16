@@ -235,11 +235,9 @@ class TravelPlanRouteIntegrationTest {
         verifyNoInteractions(directions);
     }
 
-    @Test void queryChecksOwnerAndFiltersDateAndDeletionCascades() {
+    @Test void queryFiltersDateAndDeletionCascades() {
         Long id = create(0);
-        assertThat(routeService.getRoutes(id, user.getId(), date).routes()).hasSize(1);
-        assertThatThrownBy(() -> routeService.getRoutes(id, -1L, null))
-                .isInstanceOf(com.example.jejugilmoa.global.apiPayload.exception.GeneralException.class);
+        assertThat(routeService.getRoutes(id, date).routes()).hasSize(1);
         service.deletePlan(id, user.getId());
         assertThat(routes.findAllByTravelPlanIdOrderByRouteDateAsc(id)).isEmpty();
         planIds.remove(id);
@@ -419,32 +417,32 @@ class TravelPlanRouteIntegrationTest {
 
     @Test void queryPreservesReadyRouteWhileReplacementIsPending() {
         Long id = create(0, 1);
-        var before = routeService.getRoutes(id, user.getId(), date);
+        var before = routeService.getRoutes(id, date);
         assertThat(before.generation().status()).isEqualTo(RouteGenerationStatus.DONE);
         service.replace(id, user.getId(), request("조회 전 경유지 변경", 1, 0));
-        var pending = routeService.getRoutes(id, user.getId(), date);
+        var pending = routeService.getRoutes(id, date);
         assertThat(pending.planId()).isEqualTo(id);
         assertThat(pending.generation().status()).isEqualTo(RouteGenerationStatus.PENDING);
         assertThat(pending.routes()).isEqualTo(before.routes());
         assertThat(pending.routes().getFirst().status()).isEqualTo(READY);
         worker.runOnce();
-        assertThat(routeService.getRoutes(id, user.getId(), null).generation().status())
+        assertThat(routeService.getRoutes(id, null).generation().status())
                 .isEqualTo(RouteGenerationStatus.DONE);
     }
 
     @Test void queryDistinguishesValidLeaseExpiredLeaseAndRetryWait() {
         Long id = enqueueOnly();
-        assertThat(routeService.getRoutes(id, user.getId(), null).generation().status())
+        assertThat(routeService.getRoutes(id, null).generation().status())
                 .isEqualTo(RouteGenerationStatus.PENDING);
         var claim = jobs.claim().orElseThrow();
-        assertThat(routeService.getRoutes(id, user.getId(), null).generation().status())
+        assertThat(routeService.getRoutes(id, null).generation().status())
                 .isEqualTo(RouteGenerationStatus.RUNNING);
         expire(id);
-        assertThat(routeService.getRoutes(id, user.getId(), null).generation().status())
+        assertThat(routeService.getRoutes(id, null).generation().status())
                 .isEqualTo(RouteGenerationStatus.PENDING);
         var recovered = jobs.claim().orElseThrow();
         jobs.finish(recovered, false, "INTERNAL_ERROR_NOT_FOR_API");
-        assertThat(routeService.getRoutes(id, user.getId(), null).generation().status())
+        assertThat(routeService.getRoutes(id, null).generation().status())
                 .isEqualTo(RouteGenerationStatus.PENDING);
         assertThat(jobs.renew(claim)).isFalse();
     }
@@ -452,7 +450,7 @@ class TravelPlanRouteIntegrationTest {
     @Test void queryOfLegacyPlanHasNoJobAndDoesNotEnqueue() {
         Long id = enqueueOnly();
         jdbc.sql("DELETE FROM travel_plan_route_update_job WHERE plan_id = :id").param("id", id).update();
-        var result = routeService.getRoutes(id, user.getId(), null);
+        var result = routeService.getRoutes(id, null);
         assertThat(result.generation().status()).isEqualTo(RouteGenerationStatus.NOT_REQUESTED);
         assertThat(result.routes()).isEmpty();
         assertThat(jdbc.sql("SELECT count(*) FROM travel_plan_route_update_job WHERE plan_id = :id")
@@ -462,31 +460,28 @@ class TravelPlanRouteIntegrationTest {
 
     @Test void queryPreservesAccessPolicyIncludingWithdrawnOwnerAndNonDraftPlan() {
         Long id = create(0);
-        assertThatThrownBy(() -> routeService.getRoutes(id, -1L, null))
-                .isInstanceOfSatisfying(GeneralException.class,
-                        e -> assertThat(e.getCode()).isEqualTo(PlanErrorCode.PLAN_ACCESS_DENIED));
-        assertThatThrownBy(() -> routeService.getRoutes(-1L, user.getId(), null))
+        assertThatThrownBy(() -> routeService.getRoutes(-1L, null))
                 .isInstanceOfSatisfying(GeneralException.class,
                         e -> assertThat(e.getCode()).isEqualTo(PlanErrorCode.PLAN_NOT_FOUND));
         tx.executeWithoutResult(status -> plans.findById(id).orElseThrow().start(LocalDateTime.now()));
-        assertThat(routeService.getRoutes(id, user.getId(), null).routes()).hasSize(2);
+        assertThat(routeService.getRoutes(id, null).routes()).hasSize(2);
         tx.executeWithoutResult(status -> plans.findById(id).orElseThrow().complete(LocalDateTime.now()));
-        assertThat(routeService.getRoutes(id, user.getId(), null).routes()).hasSize(2);
+        assertThat(routeService.getRoutes(id, null).routes()).hasSize(2);
         tx.executeWithoutResult(status -> users.findById(user.getId()).orElseThrow().withdraw(LocalDateTime.now()));
-        assertThatThrownBy(() -> routeService.getRoutes(id, user.getId(), null))
+        assertThatThrownBy(() -> routeService.getRoutes(id, null))
                 .isInstanceOfSatisfying(GeneralException.class,
                         e -> assertThat(e.getCode()).isEqualTo(PlanErrorCode.PLAN_NOT_FOUND));
     }
 
     @Test void queryReturnsSortedDatesAndDoneDoesNotRequireEveryRouteReady() {
         Long id = create(0);
-        var result = routeService.getRoutes(id, user.getId(), null);
+        var result = routeService.getRoutes(id, null);
         assertThat(result.generation().status()).isEqualTo(RouteGenerationStatus.DONE);
         assertThat(result.routes()).extracting(TravelPlanRoutesResponse.Route::date)
                 .containsExactly(date, date.plusDays(1));
         assertThat(result.routes()).extracting(TravelPlanRoutesResponse.Route::status)
                 .containsExactly(READY, NOT_REQUIRED);
-        assertThat(routeService.getRoutes(id, user.getId(), date.minusDays(1)).routes()).isEmpty();
+        assertThat(routeService.getRoutes(id, date.minusDays(1)).routes()).isEmpty();
     }
 
 }

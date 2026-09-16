@@ -70,11 +70,9 @@ public class TravelPlanRouteService {
 
     // 계획 권한, 경로, job을 같은 스냅샷에서 읽어 갱신 전후 상태가 섞이지 않게 한다.
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public TravelPlanRoutesResponse getRoutes(Long planId, Long userId, LocalDate date) {
+    public TravelPlanRoutesResponse getRoutes(Long planId, LocalDate date) {
         var plan = plans.findRouteAccessById(planId)
                 .orElseThrow(() -> new GeneralException(PlanErrorCode.PLAN_NOT_FOUND));
-        if (!plan.getOwnerId().equals(userId))
-            throw new GeneralException(PlanErrorCode.PLAN_ACCESS_DENIED);
         var savedRoutes = date == null
                 ? routes.findAllByTravelPlanIdOrderByRouteDateAsc(planId)
                 : routes.findByTravelPlanIdAndRouteDate(planId, date).stream().toList();

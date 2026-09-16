@@ -16,6 +16,7 @@ import com.example.jejugilmoa.domain.record.service.TravelRecordReactionService;
 import com.example.jejugilmoa.global.apiPayload.ApiResponse;
 import com.example.jejugilmoa.global.apiPayload.code.GeneralSuccessCode;
 import com.example.jejugilmoa.global.apiPayload.dto.PageResponse;
+import com.example.jejugilmoa.global.apiPayload.code.GeneralErrorCode;
 import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -57,19 +58,23 @@ public class TravelRecordController implements TravelRecordControllerDocs {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         validatePage(page, size);
+        Long userId = principal != null ? principal.userId() : null;
+        if (mine && userId == null) {
+            throw new GeneralException(GeneralErrorCode.UNAUTHORIZED);
+        }
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.REQUEST_OK,
-                travelRecordQueryService.getRecords(
-                        principal.userId(), view, mine, PageRequest.of(page, size, RECORD_SORT)));
+                travelRecordQueryService.getRecords(userId, view, mine, PageRequest.of(page, size, RECORD_SORT)));
     }
 
     @GetMapping("/{recordId}")
     public ApiResponse<TravelRecordDetailResponse> getDetail(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long recordId) {
+        Long userId = principal != null ? principal.userId() : null;
         return ApiResponse.onSuccess(
                 GeneralSuccessCode.REQUEST_OK,
-                travelRecordQueryService.getDetail(recordId, principal.userId()));
+                travelRecordQueryService.getDetail(recordId, userId));
     }
 
     @PostMapping("/{recordId}/reactions")

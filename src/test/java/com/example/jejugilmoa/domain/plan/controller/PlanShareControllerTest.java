@@ -85,9 +85,7 @@ class PlanShareControllerTest {
     }
 
     @Test
-    void otherPlanApisRemainAuthenticated() throws Exception {
-        mockMvc.perform(get("/api/plans/1"))
-                .andExpect(status().isUnauthorized());
+    void nonPublicApisRemainAuthenticated() throws Exception {
         mockMvc.perform(get("/api/shared/records/token"))
                 .andExpect(status().isUnauthorized());
     }
