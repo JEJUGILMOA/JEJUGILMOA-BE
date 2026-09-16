@@ -303,6 +303,9 @@ public class PlacePersistService {
                 for (int i = 0; i < Math.min(urls.size(), 3); i++) {
                     placeImageRepository.insertIgnore(place.getId(), urls.get(i), i + 1);
                 }
+                place.updateImageUrl(urls.get(0));
+                place.markImageEnriched();
+                placeRepository.save(place);
                 log.info("이미지 저장: placeId={}, externalId={}, {}건", place.getId(), place.getExternalId(), Math.min(urls.size(), 3));
             } else {
                 log.info("이미지 없음(API 반환 0건): placeId={}, externalId={}", place.getId(), place.getExternalId());

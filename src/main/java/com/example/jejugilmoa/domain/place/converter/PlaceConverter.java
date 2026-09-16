@@ -32,6 +32,8 @@ public class PlaceConverter {
             .sorted(Comparator.comparingInt(PlaceImage::getSequenceOrder))
             .map(PlaceImage::getImageUrl)
             .toList();
+        String imageUrl = p.getImageUrl() != null ? p.getImageUrl()
+            : (!imageUrls.isEmpty() ? imageUrls.get(0) : null);
         return new PlaceDetailDto(
             p.getId(),
             p.getName(),
@@ -39,7 +41,7 @@ public class PlaceConverter {
             p.getLatitude(),
             p.getLongitude(),
             description,
-            p.getImageUrl(),
+            imageUrl,
             imageUrls,
             p.getCategory() != null ? p.getCategory().getName() : null
         );
