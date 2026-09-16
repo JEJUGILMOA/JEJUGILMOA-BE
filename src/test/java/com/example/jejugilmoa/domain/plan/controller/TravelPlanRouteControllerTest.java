@@ -64,6 +64,15 @@ class TravelPlanRouteControllerTest {
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value(PlanErrorCode.PLAN_NOT_FOUND.getCode()));
     }
 
+    @Test void unauthenticatedRequestSucceedsAndInvokesService() throws Exception {
+        when(service.getRoutes(1L, null)).thenReturn(
+                new TravelPlanRoutesResponse(1L, new TravelPlanRoutesResponse.Generation(RouteGenerationStatus.NOT_REQUESTED), List.of()));
+        mvc.perform(get("/api/plans/1/routes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isSuccess").value(true));
+        verify(service).getRoutes(1L, null);
+    }
+
     @Test void invalidDateReturnsBadRequest() throws Exception {
         mvc.perform(get("/api/plans/1/routes?date=invalid").with(authentication(auth)))
                 .andExpect(status().isBadRequest());

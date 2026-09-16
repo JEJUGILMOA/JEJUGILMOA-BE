@@ -18,7 +18,7 @@ import java.time.LocalDate;
 public class TravelPlanRouteController {
     private final TravelPlanRouteService service;
 
-    @Operation(summary = "날짜별 저장 경로 조회", description = "본인 계획만 조회 가능. date 생략 시 날짜 오름차순 전체 조회. "
+    @Operation(summary = "날짜별 저장 경로 조회", description = "planId로 누구나 조회 가능(인증 불필요). date 생략 시 날짜 오름차순 전체 조회. "
             + "기존 미계산 계획은 빈 목록. READY 경로는 [경도, 위도] 배열, 거리 meter, 시간 millisecond. "
             + "routes[].status는 날짜별 결과: CALCULATING은 계산 중, FAILED는 계산 실패, UNSUPPORTED는 전체 7지점 초과, NOT_REQUIRED는 2지점 미만. "
             + "generation은 날짜 필터와 무관한 계획 단위 갱신 작업 상태: NOT_REQUESTED는 job 없음, PENDING은 생성/재시도 대기, "
