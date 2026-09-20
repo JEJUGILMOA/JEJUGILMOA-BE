@@ -139,7 +139,7 @@ public class KorServiceClient {
      * 429 응답 시 최대 2회 재시도 (1초 간격).
      * 동일 contentId는 1일간 Redis에 캐싱되어 TourAPI 중복 호출을 방지.
      */
-    @Cacheable(value = "placeOverview", key = "#contentId")
+    @Cacheable(value = "placeOverview", key = "#contentId", unless = "#result == null")
     public DetailCommonItem detailCommon2(String contentId) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/detailCommon2")
                 .queryParam("serviceKey", serviceKey)
@@ -229,7 +229,7 @@ public class KorServiceClient {
      * null = API 호출/파싱 실패 (일시적 오류 — 캐시 미저장, 재시도 가능)
      * empty list = API 성공이나 이미지 없음 (1일 캐시)
      */
-    @Cacheable(value = "placeImages", key = "#contentId")
+    @Cacheable(value = "placeImages", key = "#contentId", unless = "#result == null")
     @Nullable
     public List<String> detailImage2(String contentId) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/detailImage2")
