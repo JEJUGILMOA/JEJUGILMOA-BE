@@ -17,10 +17,11 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.ObjectMapper;
 
+import org.springframework.lang.Nullable;
+
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Component
@@ -136,7 +137,9 @@ public class KorServiceClient {
     /**
      * 공통 정보 조회 (detailCommon2) — overview 반환.
      * 429 응답 시 최대 2회 재시도 (1초 간격).
+     * 동일 contentId는 1일간 Redis에 캐싱되어 TourAPI 중복 호출을 방지.
      */
+    @Cacheable(value = "placeOverview", key = "#contentId", unless = "#result == null")
     public DetailCommonItem detailCommon2(String contentId) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/detailCommon2")
                 .queryParam("serviceKey", serviceKey)
@@ -223,10 +226,12 @@ public class KorServiceClient {
 
     /**
      * 이미지 목록 조회 (detailImage2) — originimgurl 최대 3건 반환.
-     * Optional.empty() = API 호출/파싱 실패 (일시적 오류 — imageEnriched 설정 금지)
-     * Optional.of(empty) = API 성공이나 이미지 없음 (imageEnriched 설정 가능)
+     * null = API 호출/파싱 실패 (일시적 오류 — 캐시 미저장, 재시도 가능)
+     * empty list = API 성공이나 이미지 없음 (1일 캐시)
      */
-    public Optional<List<String>> detailImage2(String contentId) {
+    @Cacheable(value = "placeImages", key = "#contentId", unless = "#result == null")
+    @Nullable
+    public List<String> detailImage2(String contentId) {
         String uri = UriComponentsBuilder.fromUriString(BASE_URL + "/detailImage2")
                 .queryParam("serviceKey", serviceKey)
                 .queryParam("MobileOS", MOBILE_OS)
@@ -240,7 +245,7 @@ public class KorServiceClient {
             String rawBody = restClient.get().uri(uri).retrieve().body(String.class);
             if (rawBody == null || rawBody.isBlank()) {
                 log.warn("detailImage2 응답 빈 바디: contentId={}", contentId);
-                return Optional.empty();
+                return null;
             }
 
             TourApiResponse<DetailImageItem> response = objectMapper.readValue(rawBody,
@@ -248,7 +253,7 @@ public class KorServiceClient {
 
             if (response == null || !response.isSuccess()) {
                 log.warn("detailImage2 응답 실패: contentId={}, body={}", contentId, rawBody.length() > 200 ? rawBody.substring(0, 200) : rawBody);
-                return Optional.empty();
+                return null;
             }
             List<String> urls = response.items().stream()
                     .map(DetailImageItem::originimgurl)
@@ -256,10 +261,10 @@ public class KorServiceClient {
                     .limit(3)
                     .toList();
             log.info("detailImage2 결과: contentId={}, 이미지 {}건", contentId, urls.size());
-            return Optional.of(urls);
+            return urls;
         } catch (Exception e) {
             log.warn("detailImage2 호출 오류: contentId={}", contentId, e);
-            return Optional.empty();
+            return null;
         }
     }
 }

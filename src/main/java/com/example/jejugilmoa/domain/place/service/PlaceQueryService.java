@@ -144,21 +144,24 @@ public class PlaceQueryService {
 
         List<PlaceImage> images = placeImageRepository.findByPlace_IdIn(List.of(id));
 
-        if (images.size() < 3 && !place.isImageEnriched() && place.getExternalId() != null) {
+        if (images.size() < 3 && place.getExternalId() != null) {
             log.info("상세 조회 이미지 보강: placeId={}, contentId={}", id, place.getExternalId());
-            korServiceClient.detailImage2(place.getExternalId()).ifPresent(urls -> {
-                placePersistService.applyImages(Map.of(place.getExternalId(), urls));
-            });
+            List<String> imgUrls = korServiceClient.detailImage2(place.getExternalId());
+            if (imgUrls != null) {
+                placePersistService.applyImages(Map.of(place.getExternalId(), imgUrls));
+            }
             images = placeImageRepository.findByPlace_IdIn(List.of(id));
         }
 
         String description = place.getDescription();
-        if (description == null && place.getExternalId() != null) {
+        if (place.getExternalId() != null) {
             log.info("상세 조회 개요 보강: placeId={}, contentId={}", id, place.getExternalId());
             DetailCommonItem common = korServiceClient.detailCommon2(place.getExternalId());
             if (common != null && common.overview() != null && !common.overview().isBlank()) {
+                if (!common.overview().equals(description)) {
+                    placePersistService.applyOverviews(Map.of(place.getExternalId(), common.overview()));
+                }
                 description = common.overview();
-                placePersistService.applyOverviews(Map.of(place.getExternalId(), description));
             }
         }
 
@@ -172,8 +175,7 @@ public class PlaceQueryService {
         List<PopularPlace> needEnrichment = pps.stream()
             .filter(pp -> {
                 List<PlaceImage> imgs = imageMap.getOrDefault(pp.getPlace().getId(), List.of());
-                return imgs.size() < 3 && !pp.getPlace().isImageEnriched()
-                        && pp.getPlace().getExternalId() != null;
+                return imgs.size() < 3 && pp.getPlace().getExternalId() != null;
             })
             .toList();
 
@@ -184,9 +186,8 @@ public class PlaceQueryService {
         List<CompletableFuture<Map.Entry<String, List<String>>>> futures = needEnrichment.stream()
             .map(pp -> CompletableFuture.supplyAsync(() -> {
                 String externalId = pp.getPlace().getExternalId();
-                return korServiceClient.detailImage2(externalId)
-                    .map(urls -> Map.entry(externalId, urls))
-                    .orElse(null);
+                List<String> urls = korServiceClient.detailImage2(externalId);
+                return urls != null ? Map.entry(externalId, urls) : null;
             }))
             .toList();
 
