@@ -23,11 +23,14 @@ public class RedisConfig {
             .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
             .disableCachingNullValues();
 
-        RedisCacheConfiguration keywordSearchConfig = defaultConfig.entryTtl(Duration.ofMinutes(5));
-
         return RedisCacheManager.builder(cf)
             .cacheDefaults(defaultConfig)
-            .withInitialCacheConfigurations(Map.of("keywordSearch", keywordSearchConfig))
+            .withInitialCacheConfigurations(Map.of(
+                "keywordSearch", defaultConfig.entryTtl(Duration.ofMinutes(5)),
+                "placeDetail",   defaultConfig.entryTtl(Duration.ofMinutes(10)),
+                "placeOverview", defaultConfig.entryTtl(Duration.ofDays(1)),
+                "placeImages",   defaultConfig.entryTtl(Duration.ofDays(1))
+            ))
             .build();
     }
 }

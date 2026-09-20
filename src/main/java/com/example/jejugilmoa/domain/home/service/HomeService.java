@@ -92,7 +92,7 @@ public class HomeService {
         Map<String, Long> needEnrichment = new LinkedHashMap<>();
         for (PopularPlace pp : pps) {
             Place place = pp.getPlace();
-            if (place.getDescription() == null && place.getExternalId() != null) {
+            if (place.getExternalId() != null) {
                 needEnrichment.put(place.getExternalId(), place.getId());
             }
         }
@@ -100,14 +100,20 @@ public class HomeService {
 
         log.info("홈 장소 개요 보강 시작: {}건", needEnrichment.size());
         Map<String, String> overviews = new LinkedHashMap<>();
-        for (String externalId : needEnrichment.keySet()) {
+        Map<String, String> toUpdate = new LinkedHashMap<>();
+        for (PopularPlace pp : pps) {
+            String externalId = pp.getPlace().getExternalId();
+            if (externalId == null) continue;
             DetailCommonItem common = korServiceClient.detailCommon2(externalId);
             if (common != null && common.overview() != null && !common.overview().isBlank()) {
                 overviews.put(externalId, common.overview());
+                if (!common.overview().equals(pp.getPlace().getDescription())) {
+                    toUpdate.put(externalId, common.overview());
+                }
             }
         }
-        if (!overviews.isEmpty()) {
-            placePersistService.applyOverviews(overviews);
+        if (!toUpdate.isEmpty()) {
+            placePersistService.applyOverviews(toUpdate);
         }
 
         Map<Long, String> result = new HashMap<>();
