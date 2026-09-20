@@ -1,5 +1,6 @@
 package com.example.jejugilmoa.domain.home.controller;
 
+import com.example.jejugilmoa.domain.home.dto.HomeBannerResponse;
 import com.example.jejugilmoa.domain.home.dto.HomeCourseResponse;
 import com.example.jejugilmoa.domain.home.dto.HomePlaceResponse;
 import com.example.jejugilmoa.domain.home.service.HomeService;
@@ -33,5 +34,14 @@ public class HomeController {
     @GetMapping("/courses")
     public ApiResponse<List<HomeCourseResponse>> getHomeCourses() {
         return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, homeService.getHomeCourses());
+    }
+
+    @Operation(
+            summary = "홈 배너 이미지 조회",
+            description = "관광사진 API에서 제주도 이미지를 1장 조회. pageNo는 프론트가 1~10 범위에서 난수로 전달. 응답의 totalCount로 다음 호출 범위를 갱신.")
+    @GetMapping("/banner")
+    public ApiResponse<HomeBannerResponse> getHomeBanner(
+            @RequestParam(defaultValue = "1") int pageNo) {
+        return ApiResponse.onSuccess(GeneralSuccessCode.REQUEST_OK, homeService.getBannerImage(pageNo));
     }
 }

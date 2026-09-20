@@ -1,7 +1,9 @@
 package com.example.jejugilmoa.domain.home.service;
 
+import com.example.jejugilmoa.domain.home.dto.HomeBannerResponse;
 import com.example.jejugilmoa.domain.home.dto.HomeCourseResponse;
 import com.example.jejugilmoa.domain.home.dto.HomePlaceResponse;
+import com.example.jejugilmoa.domain.home.exception.HomeErrorCode;
 import com.example.jejugilmoa.domain.place.entity.Place;
 import com.example.jejugilmoa.domain.place.entity.PlaceHashtag;
 import com.example.jejugilmoa.domain.place.entity.PopularPlace;
@@ -11,6 +13,10 @@ import com.example.jejugilmoa.domain.place.repository.PopularPlaceRepository;
 import com.example.jejugilmoa.domain.place.service.PlacePersistService;
 import com.example.jejugilmoa.domain.recommendation.entity.RecommendedCourse;
 import com.example.jejugilmoa.domain.recommendation.repository.RecommendedCourseRepository;
+import com.example.jejugilmoa.global.apiPayload.exception.GeneralException;
+import com.example.jejugilmoa.global.external.gallery.PhotoGalleryClient;
+import com.example.jejugilmoa.global.external.gallery.PhotoGalleryClient.GallerySearchResult;
+import com.example.jejugilmoa.global.external.gallery.PhotoGalleryItem;
 import com.example.jejugilmoa.global.external.tourapi.KorServiceClient;
 import com.example.jejugilmoa.global.external.tourapi.dto.DetailCommonItem;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +42,7 @@ public class HomeService {
     private final RecommendedCourseRepository recommendedCourseRepository;
     private final KorServiceClient korServiceClient;
     private final PlacePersistService placePersistService;
+    private final PhotoGalleryClient photoGalleryClient;
 
     public List<HomePlaceResponse> getHomePlaces() {
         LinkedHashSet<Long> seen = new LinkedHashSet<>();
@@ -169,6 +176,28 @@ public class HomeService {
                 course.getEstimatedMinutes(),
                 course.getPaths().size(),
                 preview
+        );
+    }
+
+    public HomeBannerResponse getBannerImage(int pageNo) {
+        int effectivePage = Math.max(1, pageNo);
+        GallerySearchResult result = photoGalleryClient.searchJejuPhoto(effectivePage);
+
+        if (result == null || result.items().isEmpty()) {
+            result = photoGalleryClient.searchJejuPhoto(1);
+        }
+
+        if (result == null || result.items().isEmpty()) {
+            throw new GeneralException(HomeErrorCode.BANNER_NOT_FOUND);
+        }
+
+        PhotoGalleryItem item = result.items().get(0);
+        return new HomeBannerResponse(
+                item.orgImage(),
+                item.koTitle(),
+                item.koCmanNm(),
+                item.koFilmst(),
+                result.totalCount()
         );
     }
 
