@@ -43,6 +43,7 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.GET,
                             "/api/home/places",
                             "/api/home/courses",
+                            "/api/home/banner",
                             "/api/places",
                             "/api/places/**",
                             "/api/courses/recommended",
